@@ -4,18 +4,30 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Keep this file up to date.** When making structural changes to the codebase — new modules, changed data flow, new domain concepts, altered invariants — update the relevant sections of this file in the same commit.
 
-**When tagging a release**, always bump the `version` field in `package.json` to match the tag before committing.
+**When tagging a release**, always bump the `version` field in the relevant `package.json` to match the tag before committing.
 
-## Commands
+## Monorepo structure
 
-```bash
-npm test              # run all tests (vitest)
-npm run test:watch    # run tests in watch mode
-npm run typecheck     # tsc --noEmit
-npm run build         # tsup (dual ESM/CJS output to dist/)
+This is an npm workspaces monorepo:
+
+```
+packages/core/   — the palimpsest library (published to npm / GitHub)
+packages/cli/    — the palimpsest TUI (ink + react, depends on core via workspace)
 ```
 
-To run a single test file:
+Run commands from the repo root, or `cd` into a package directory:
+
+```bash
+npm test                                         # run core tests (vitest)
+npm run build --workspaces                       # build all packages
+npm run typecheck --workspaces                   # typecheck all packages
+npm run test --workspace=packages/core           # core tests only
+npm run test:watch --workspace=packages/core     # core tests in watch mode
+npm run dev --workspace=packages/cli             # run CLI dev server (tsx)
+npm run build --workspace=packages/cli           # build CLI
+```
+
+To run a single test file (from packages/core):
 ```bash
 npx vitest run src/recurrence.test.ts
 ```
@@ -27,9 +39,9 @@ npx vitest run -t "weekly"
 
 ## Architecture
 
-This is a pure TypeScript library with no runtime framework. The architecture is strict event-sourcing: all state is derived by replaying an append-only log of events; there is no mutable store of current state.
+`packages/core` is a pure TypeScript library with no runtime framework. The architecture is strict event-sourcing: all state is derived by replaying an append-only log of events; there is no mutable store of current state.
 
-### Data flow
+### Data flow (core)
 
 ```
 commands.ts  →  events.ts  →  projection.ts  →  query.ts
