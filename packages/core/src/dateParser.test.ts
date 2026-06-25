@@ -658,10 +658,18 @@ describe('nextDueDate — Nth weekday of month', () => {
     expect(nextN('every 1st monday', '2026-07-06', 1)).toEqual(['2026-08-03'])
   })
 
-  it('"every 5th wednesday" skips months that have no 5th Wednesday', () => {
-    // Jul has 5 Wednesdays (Jul 29 is 5th); Aug does not; Sep 30 is 5th Wed of Sep
+  it('falls back to the last occurrence in months with no 5th', () => {
+    // Jun has no 5th Friday → falls back to Jun 26 (last Fri of Jun)
+    // Jul has a 5th Fri (Jul 31); Aug has none → falls back to Aug 28 (last Fri of Aug)
+    expect(nextN('every 5th friday', '2026-06-25', 3)).toEqual([
+      '2026-06-26', '2026-07-31', '2026-08-28',
+    ])
+  })
+
+  it('uses last Wednesday when a month has no 5th Wednesday', () => {
+    // Jul 2026 has 5th Wed (Jul 29); Aug has none → falls back to Aug 26 (last Wed of Aug)
     expect(nextN('every 5th wednesday', '2026-06-25', 2)).toEqual([
-      '2026-07-29', '2026-09-30',
+      '2026-07-29', '2026-08-26',
     ])
   })
 })

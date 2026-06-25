@@ -346,7 +346,8 @@ export function nextDueDate(expression: string, completedAt: string): string | n
       let year = d.getUTCFullYear(), mo = d.getUTCMonth()
       for (let i = 0; i < 13; i++) {
         const candidate = findNthWeekdayInMonth(year, mo, parsed.n, parsed.dayOfWeek)
-        if (candidate !== null && new Date(candidate + 'T00:00:00Z') >= d) return candidate
+          ?? findLastWeekdayInMonth(year, mo, parsed.dayOfWeek)
+        if (new Date(candidate + 'T00:00:00Z') >= d) return candidate
         if (++mo > 11) { mo = 0; year++ }
       }
       return null
@@ -370,7 +371,8 @@ export function nextDueDate(expression: string, completedAt: string): string | n
       let year = d.getUTCFullYear()
       for (let i = 0; i < 3; i++) {
         const candidate = findNthWeekdayInMonth(year, parsed.month, parsed.n, parsed.dayOfWeek)
-        if (candidate !== null && new Date(candidate + 'T00:00:00Z') >= d) return candidate
+          ?? findLastWeekdayInMonth(year, parsed.month, parsed.dayOfWeek)
+        if (new Date(candidate + 'T00:00:00Z') >= d) return candidate
         year++
       }
       return null
