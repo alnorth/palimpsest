@@ -1,7 +1,7 @@
 import type { ProjectionState } from './projection.js'
-import type { PalimpsestEvent, TaskPatch, ProjectPatch, SpherePatch, AgendaPatch } from './events.js'
-import type { TaskId, ProjectId, SphereId, AgendaId } from './ids.js'
-import { newTaskId, newProjectId, newSphereId, newAgendaId, newEventId } from './ids.js'
+import type { PalimpsestEvent, TaskPatch, ProjectPatch, SpherePatch, AgendaPatch, ContextPatch } from './events.js'
+import type { TaskId, ProjectId, SphereId, AgendaId, ContextId } from './ids.js'
+import { newTaskId, newProjectId, newSphereId, newAgendaId, newContextId, newEventId } from './ids.js'
 import { nextDueDate, isValidExpression } from './recurrence.js'
 
 function now(): string {
@@ -142,6 +142,72 @@ export function unarchiveProject(
   }]
 }
 
+// ── Context commands ──────────────────────────────────────────────────────────
+
+export interface CreateContextInput {
+  sphereId: SphereId
+  name: string
+  description?: string
+  parentContextId?: ContextId
+}
+
+export function createContext(
+  state: ProjectionState,
+  input: CreateContextInput,
+): PalimpsestEvent[] {
+  if (!state.spheres.has(input.sphereId)) throw new Error(`Sphere not found: ${input.sphereId}`)
+  if (input.parentContextId !== undefined) {
+    const parent = state.contexts.get(input.parentContextId)
+    if (!parent) throw new Error(`Context not found: ${input.parentContextId}`)
+    if (parent.sphereId !== input.sphereId) throw new Error('Parent context must be in the same sphere')
+  }
+  return [{
+    id: newEventId(),
+    type: 'context.created',
+    contextId: newContextId(),
+    occurredAt: now(),
+    sphereId: input.sphereId,
+    name: input.name,
+    ...(input.description     !== undefined && { description:     input.description }),
+    ...(input.parentContextId !== undefined && { parentContextId: input.parentContextId }),
+  }]
+}
+
+export function updateContext(
+  state: ProjectionState,
+  contextId: ContextId,
+  patch: ContextPatch,
+): PalimpsestEvent[] {
+  const context = state.contexts.get(contextId)
+  if (!context) throw new Error(`Context not found: ${contextId}`)
+  if (patch.parentContextId !== undefined && patch.parentContextId !== null) {
+    const parent = state.contexts.get(patch.parentContextId)
+    if (!parent) throw new Error(`Context not found: ${patch.parentContextId}`)
+    if (parent.sphereId !== context.sphereId) throw new Error('Parent context must be in the same sphere')
+    if (patch.parentContextId === contextId) throw new Error('A context cannot be its own parent')
+  }
+  return [{
+    id: newEventId(),
+    type: 'context.updated',
+    contextId,
+    occurredAt: now(),
+    patch,
+  }]
+}
+
+export function deleteContext(
+  state: ProjectionState,
+  contextId: ContextId,
+): PalimpsestEvent[] {
+  if (!state.contexts.has(contextId)) throw new Error(`Context not found: ${contextId}`)
+  return [{
+    id: newEventId(),
+    type: 'context.deleted',
+    contextId,
+    occurredAt: now(),
+  }]
+}
+
 // ── Agenda commands ───────────────────────────────────────────────────────────
 
 export interface CreateAgendaInput {
@@ -200,6 +266,7 @@ export interface CreateTaskInput {
   projectId?: ProjectId
   sphereId?: SphereId
   agendaId?: AgendaId
+  contextId?: ContextId
   isNext?: boolean
   dueDate?: string
   dueDateExpression?: string
@@ -221,6 +288,9 @@ export function createTask(
   if (input.agendaId !== undefined && !state.agendas.has(input.agendaId)) {
     throw new Error(`Agenda not found: ${input.agendaId}`)
   }
+  if (input.contextId !== undefined && !state.contexts.has(input.contextId)) {
+    throw new Error(`Context not found: ${input.contextId}`)
+  }
   if (input.isNext === true && input.projectId === undefined) {
     throw new Error('isNext can only be set on tasks that belong to a project')
   }
@@ -237,6 +307,7 @@ export function createTask(
     ...(input.projectId         !== undefined && { projectId:         input.projectId }),
     ...(input.sphereId          !== undefined && { sphereId:          input.sphereId }),
     ...(input.agendaId          !== undefined && { agendaId:          input.agendaId }),
+    ...(input.contextId         !== undefined && { contextId:         input.contextId }),
     ...(input.isNext            === true      && { isNext:            true }),
     ...(input.dueDate           !== undefined && { dueDate:           input.dueDate }),
     ...(input.dueDateExpression !== undefined && { dueDateExpression: input.dueDateExpression }),
@@ -265,6 +336,9 @@ export function updateTask(
   }
   if (patch.agendaId !== undefined && patch.agendaId !== null && !state.agendas.has(patch.agendaId)) {
     throw new Error(`Agenda not found: ${patch.agendaId}`)
+  }
+  if (patch.contextId !== undefined && patch.contextId !== null && !state.contexts.has(patch.contextId)) {
+    throw new Error(`Context not found: ${patch.contextId}`)
   }
   if (patch.isNext === true) {
     const effectiveProjectId = patch.projectId !== null ? (patch.projectId ?? task.projectId) : undefined

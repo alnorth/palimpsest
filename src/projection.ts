@@ -1,17 +1,18 @@
-import type { Task, Project, Sphere, Agenda } from './types.js'
-import type { TaskId, ProjectId, SphereId, AgendaId } from './ids.js'
+import type { Task, Project, Sphere, Agenda, Context } from './types.js'
+import type { TaskId, ProjectId, SphereId, AgendaId, ContextId } from './ids.js'
 import type { PalimpsestEvent } from './events.js'
 import { CLEAR } from './events.js'
 
 export interface ProjectionState {
-  spheres:  Map<SphereId, Sphere>
-  projects: Map<ProjectId, Project>
-  agendas:  Map<AgendaId, Agenda>
-  tasks:    Map<TaskId, Task>
+  spheres:   Map<SphereId, Sphere>
+  projects:  Map<ProjectId, Project>
+  contexts:  Map<ContextId, Context>
+  agendas:   Map<AgendaId, Agenda>
+  tasks:     Map<TaskId, Task>
 }
 
 export function createEmptyState(): ProjectionState {
-  return { spheres: new Map(), projects: new Map(), agendas: new Map(), tasks: new Map() }
+  return { spheres: new Map(), projects: new Map(), contexts: new Map(), agendas: new Map(), tasks: new Map() }
 }
 
 export function applyEvent(state: ProjectionState, event: PalimpsestEvent): ProjectionState {
@@ -97,6 +98,42 @@ export function applyEvent(state: ProjectionState, event: PalimpsestEvent): Proj
       return state
     }
 
+    case 'context.created': {
+      const context: Context = {
+        id: event.contextId,
+        sphereId: event.sphereId,
+        name: event.name,
+        createdAt: event.occurredAt,
+        updatedAt: event.occurredAt,
+        ...(event.description       !== undefined && { description:       event.description }),
+        ...(event.parentContextId   !== undefined && { parentContextId:   event.parentContextId }),
+      }
+      state.contexts.set(context.id, context)
+      return state
+    }
+
+    case 'context.updated': {
+      const context = state.contexts.get(event.contextId)
+      if (!context) return state
+      const { patch } = event
+      if (patch.name !== undefined) context.name = patch.name
+      if (patch.description !== undefined) {
+        if (patch.description === CLEAR) delete context.description
+        else context.description = patch.description
+      }
+      if (patch.parentContextId !== undefined) {
+        if (patch.parentContextId === CLEAR) delete context.parentContextId
+        else context.parentContextId = patch.parentContextId
+      }
+      context.updatedAt = event.occurredAt
+      return state
+    }
+
+    case 'context.deleted': {
+      state.contexts.delete(event.contextId)
+      return state
+    }
+
     case 'agenda.created': {
       const agenda: Agenda = {
         id: event.agendaId,
@@ -133,6 +170,7 @@ export function applyEvent(state: ProjectionState, event: PalimpsestEvent): Proj
         ...(event.projectId         !== undefined && { projectId:         event.projectId }),
         ...(event.sphereId          !== undefined && { sphereId:          event.sphereId }),
         ...(event.agendaId          !== undefined && { agendaId:          event.agendaId }),
+        ...(event.contextId         !== undefined && { contextId:         event.contextId }),
         ...(event.isNext            !== undefined && { isNext:            event.isNext }),
         ...(event.dueDate           !== undefined && { dueDate:           event.dueDate }),
         ...(event.dueDateExpression !== undefined && { dueDateExpression: event.dueDateExpression }),
@@ -158,6 +196,10 @@ export function applyEvent(state: ProjectionState, event: PalimpsestEvent): Proj
       if (patch.agendaId !== undefined) {
         if (patch.agendaId === CLEAR) delete task.agendaId
         else task.agendaId = patch.agendaId
+      }
+      if (patch.contextId !== undefined) {
+        if (patch.contextId === CLEAR) delete task.contextId
+        else task.contextId = patch.contextId
       }
       if (patch.isNext !== undefined) {
         if (patch.isNext === false) delete task.isNext

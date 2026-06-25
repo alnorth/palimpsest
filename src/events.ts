@@ -1,4 +1,4 @@
-import type { TaskId, ProjectId, SphereId, AgendaId, EventId } from './ids.js'
+import type { TaskId, ProjectId, SphereId, AgendaId, ContextId, EventId } from './ids.js'
 
 export const CLEAR = null
 
@@ -69,6 +69,34 @@ export interface ProjectUnarchivedEvent extends EventBase {
   projectId: ProjectId
 }
 
+// ── Context events ────────────────────────────────────────────────────────────
+
+export interface ContextCreatedEvent extends EventBase {
+  type: 'context.created'
+  contextId: ContextId
+  sphereId: SphereId
+  name: string
+  description?: string
+  parentContextId?: ContextId
+}
+
+export type ContextPatch = {
+  name?: string
+  description?: string | typeof CLEAR
+  parentContextId?: ContextId | typeof CLEAR
+}
+
+export interface ContextUpdatedEvent extends EventBase {
+  type: 'context.updated'
+  contextId: ContextId
+  patch: ContextPatch
+}
+
+export interface ContextDeletedEvent extends EventBase {
+  type: 'context.deleted'
+  contextId: ContextId
+}
+
 // ── Agenda events ─────────────────────────────────────────────────────────────
 
 export interface AgendaCreatedEvent extends EventBase {
@@ -103,6 +131,7 @@ export interface TaskCreatedEvent extends EventBase {
   projectId?: ProjectId
   sphereId?: SphereId
   agendaId?: AgendaId
+  contextId?: ContextId
   isNext?: boolean
   dueDate?: string
   dueDateExpression?: string
@@ -114,6 +143,7 @@ export type TaskPatch = {
   projectId?: ProjectId | typeof CLEAR
   sphereId?: SphereId | typeof CLEAR
   agendaId?: AgendaId | typeof CLEAR
+  contextId?: ContextId | typeof CLEAR
   isNext?: boolean
   dueDate?: string | typeof CLEAR
   dueDateExpression?: string | typeof CLEAR
@@ -158,6 +188,9 @@ export type PalimpsestEvent =
   | ProjectDeletedEvent
   | ProjectArchivedEvent
   | ProjectUnarchivedEvent
+  | ContextCreatedEvent
+  | ContextUpdatedEvent
+  | ContextDeletedEvent
   | AgendaCreatedEvent
   | AgendaUpdatedEvent
   | AgendaDeletedEvent

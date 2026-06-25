@@ -1,5 +1,5 @@
-import type { Task, Project, Sphere, Agenda, TaskStatus } from './types.js'
-import type { TaskId, ProjectId, SphereId, AgendaId } from './ids.js'
+import type { Task, Project, Sphere, Agenda, Context, TaskStatus } from './types.js'
+import type { TaskId, ProjectId, SphereId, AgendaId, ContextId } from './ids.js'
 import type { ProjectionState } from './projection.js'
 
 export function getTaskSphereId(state: ProjectionState, task: Task): SphereId | undefined {
@@ -20,13 +20,15 @@ export interface TaskFilter {
   projectId?: ProjectId
   sphereId?: SphereId
   agendaId?: AgendaId
+  contextId?: ContextId
 }
 
 export function listTasks(state: ProjectionState, filter?: TaskFilter): Task[] {
   let tasks = [...state.tasks.values()]
   if (filter?.status    !== undefined) tasks = tasks.filter(t => t.status === filter.status)
   if (filter?.projectId !== undefined) tasks = tasks.filter(t => t.projectId === filter.projectId)
-  if (filter?.agendaId  !== undefined) tasks = tasks.filter(t => t.agendaId === filter.agendaId)
+  if (filter?.agendaId  !== undefined) tasks = tasks.filter(t => t.agendaId  === filter.agendaId)
+  if (filter?.contextId !== undefined) tasks = tasks.filter(t => t.contextId === filter.contextId)
   if (filter?.sphereId  !== undefined) {
     const sid = filter.sphereId
     tasks = tasks.filter(t => getTaskSphereId(state, t) === sid)
@@ -80,6 +82,30 @@ export function listAgendas(state: ProjectionState, filter?: { sphereId?: Sphere
   let agendas = [...state.agendas.values()]
   if (filter?.sphereId !== undefined) agendas = agendas.filter(a => a.sphereId === filter.sphereId)
   return agendas
+}
+
+// ── Contexts ──────────────────────────────────────────────────────────────────
+
+export function getContext(state: ProjectionState, contextId: ContextId): Context | undefined {
+  return state.contexts.get(contextId)
+}
+
+export function listContexts(
+  state: ProjectionState,
+  filter?: { sphereId?: SphereId; parentContextId?: ContextId | null },
+): Context[] {
+  let contexts = [...state.contexts.values()]
+  if (filter?.sphereId !== undefined) contexts = contexts.filter(c => c.sphereId === filter.sphereId)
+  if (filter?.parentContextId !== undefined) {
+    contexts = filter.parentContextId === null
+      ? contexts.filter(c => c.parentContextId === undefined)
+      : contexts.filter(c => c.parentContextId === filter.parentContextId)
+  }
+  return contexts
+}
+
+export function listTasksByContext(state: ProjectionState, contextId: ContextId): Task[] {
+  return listTasks(state, { contextId, status: 'open' })
 }
 
 // ── Spheres ───────────────────────────────────────────────────────────────────
