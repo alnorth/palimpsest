@@ -9,5 +9,8 @@
     "test": "npm run test --workspace=packages/core",
     "typecheck": "npm run typecheck --workspaces",
     "dev": "npm run dev --workspace=packages/cli"
+  },
+  "optionalDependencies": {
+    "@rollup/rollup-linux-x64-gnu": "4.62.2"
   }
 }

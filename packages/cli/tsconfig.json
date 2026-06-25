@@ -1,10 +1,12 @@
 {
   "compilerOptions": {
     "target": "ES2022",
+    "lib": ["ES2022", "ESNext.Disposable"],
     "module": "ESNext",
     "moduleResolution": "bundler",
     "customConditions": ["source"],
     "jsx": "react-jsx",
+    "types": ["node"],
     "strict": true,
     "exactOptionalPropertyTypes": true,
     "noUncheckedIndexedAccess": true,

@@ -14,7 +14,7 @@ export class PalimpsestStore {
     if (!existsSync(this.filePath)) return []
     const raw = readFileSync(this.filePath, 'utf-8').trim()
     if (!raw) return []
-    return raw.split('\n').map(line => JSON.parse(line) as PalimpsestEvent)
+    return raw.split('\n').map((line: string) => JSON.parse(line) as PalimpsestEvent)
   }
 
   appendEvent(event: PalimpsestEvent): void {
