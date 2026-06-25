@@ -3,8 +3,8 @@ import { render, Box, Text, useInput, useApp } from 'ink'
 import TextInput from 'ink-text-input'
 import {
   PalimpsestStore,
-  listTasks, listSpheres, getProject,
-  createTask, updateTask, createSphere, createAgenda,
+  listTasks, listProjects, listSpheres, getProject,
+  createTask, updateTask, createProject, updateProject, createSphere, createAgenda,
 } from 'palimpsest'
 import type { ProjectionState, SphereId } from 'palimpsest'
 import { homedir } from 'node:os'
@@ -15,8 +15,11 @@ const filePath = process.env['PALIMPSEST_FILE'] ?? join(homedir(), '.palimpsest'
 mkdirSync(dirname(filePath), { recursive: true })
 const store = new PalimpsestStore(filePath)
 
-type Mode = 'list' | 'adding' | 'editing-task' | 'settings' | 'creating-sphere' | 'picking-sphere-for-agenda' | 'creating-agenda'
+type View = 'tasks' | 'projects'
+type Mode = 'list' | 'picking-view' | 'adding' | 'editing-task' | 'adding-project' | 'editing-project' | 'settings' | 'creating-sphere' | 'picking-sphere-for-agenda' | 'creating-agenda'
 
+const VIEWS: View[] = ['tasks', 'projects']
+const VIEW_LABELS: Record<View, string> = { tasks: 'Tasks', projects: 'Projects' }
 const SETTINGS_OPTIONS = ['Create Sphere', 'Create Agenda'] as const
 
 function App() {
@@ -31,13 +34,21 @@ function App() {
     () => activeSphere !== undefined ? listTasks(state, { sphereId: activeSphere.id, status: 'open' }) : [],
     [state, activeSphere],
   )
+  const projects = useMemo(
+    () => activeSphere !== undefined ? listProjects(state, { sphereId: activeSphere.id }) : [],
+    [state, activeSphere],
+  )
+  const [view, setView] = useState<View>('tasks')
   const [selected, setSelected] = useState(0)
+  const [viewPickerSelected, setViewPickerSelected] = useState(0)
   const [settingsSelected, setSettingsSelected] = useState(0)
   const [pickerSelected, setPickerSelected] = useState(0)
   const [agendaSphereId, setAgendaSphereId] = useState<SphereId | undefined>(undefined)
   const [mode, setMode] = useState<Mode>('list')
   const [formValue, setFormValue] = useState('')
   const { exit } = useApp()
+
+  const listLength = view === 'tasks' ? tasks.length : projects.length
 
   function refreshState() {
     const newState = store.getState()
@@ -52,7 +63,7 @@ function App() {
 
   function startCreateAgenda() {
     if (spheres.length === 0) {
-      setMode('picking-sphere-for-agenda') // will show error
+      setMode('picking-sphere-for-agenda')
     } else if (spheres.length === 1) {
       setAgendaSphereId(spheres[0]!.id)
       setMode('creating-agenda')
@@ -63,10 +74,21 @@ function App() {
   }
 
   useInput((input, key) => {
-    if (mode === 'adding' || mode === 'editing-task' || mode === 'creating-sphere' || mode === 'creating-agenda') {
+    if (mode === 'adding' || mode === 'editing-task' || mode === 'adding-project' || mode === 'editing-project' || mode === 'creating-sphere' || mode === 'creating-agenda') {
       if (key.escape) {
         setFormValue('')
-        setMode(mode === 'adding' || mode === 'editing-task' ? 'list' : 'settings')
+        setMode(mode === 'creating-sphere' || mode === 'creating-agenda' ? 'settings' : 'list')
+      }
+      return
+    }
+    if (mode === 'picking-view') {
+      if (key.escape) { setMode('list'); return }
+      if (key.upArrow) setViewPickerSelected(i => Math.max(0, i - 1))
+      if (key.downArrow) setViewPickerSelected(i => Math.min(VIEWS.length - 1, i + 1))
+      if (key.return) {
+        setView(VIEWS[viewPickerSelected]!)
+        setSelected(0)
+        setMode('list')
       }
       return
     }
@@ -92,12 +114,18 @@ function App() {
     }
     // list mode
     if (input === 'q' || key.escape) exit()
-    if (input === 'n') setMode('adding')
+    if (input === 'v') {
+      setViewPickerSelected(VIEWS.indexOf(view))
+      setMode('picking-view')
+    }
+    if (input === 'n') setMode(view === 'tasks' ? 'adding' : 'adding-project')
     if (input === 'e') {
-      const task = tasks[selected]
-      if (task !== undefined) {
-        setFormValue(task.title)
-        setMode('editing-task')
+      if (view === 'tasks') {
+        const task = tasks[selected]
+        if (task !== undefined) { setFormValue(task.title); setMode('editing-task') }
+      } else {
+        const project = projects[selected]
+        if (project !== undefined) { setFormValue(project.name); setMode('editing-project') }
       }
     }
     if (input === 's') setMode('settings')
@@ -106,7 +134,7 @@ function App() {
       setCurrentSphereId(spheres[(idx + 1) % spheres.length]?.id)
     }
     if (key.upArrow) setSelected(i => Math.max(0, i - 1))
-    if (key.downArrow) setSelected(i => Math.min(tasks.length - 1, i + 1))
+    if (key.downArrow) setSelected(i => Math.min(listLength - 1, i + 1))
   })
 
   function handleTaskSubmit(title: string) {
@@ -123,6 +151,25 @@ function App() {
     const task = tasks[selected]
     if (trimmed && task !== undefined) {
       appendAndRefresh(updateTask(state, { taskId: task.id, patch: { title: trimmed } }))
+    }
+    setFormValue('')
+    setMode('list')
+  }
+
+  function handleProjectSubmit(name: string) {
+    const trimmed = name.trim()
+    if (trimmed && activeSphere !== undefined) {
+      appendAndRefresh(createProject(state, { name: trimmed, sphereId: activeSphere.id }))
+    }
+    setFormValue('')
+    setMode('list')
+  }
+
+  function handleEditProjectSubmit(name: string) {
+    const trimmed = name.trim()
+    const project = projects[selected]
+    if (trimmed && project !== undefined) {
+      appendAndRefresh(updateProject(state, project.id, { name: trimmed }))
     }
     setFormValue('')
     setMode('list')
@@ -150,6 +197,24 @@ function App() {
     setFormValue('')
     setAgendaSphereId(undefined)
     setMode('settings')
+  }
+
+  if (mode === 'picking-view') {
+    return (
+      <Box flexDirection="column" paddingY={1}>
+        <Text bold color="cyan">View</Text>
+        <Box marginTop={1} flexDirection="column">
+          {VIEWS.map((v, i) => (
+            <Text key={v} {...(i === viewPickerSelected ? { color: 'blue' as const } : {})}>
+              {i === viewPickerSelected ? '▶ ' : '  '}{VIEW_LABELS[v]}
+            </Text>
+          ))}
+        </Box>
+        <Box marginTop={1}>
+          <Text dimColor>↑↓ navigate  enter select  esc back</Text>
+        </Box>
+      </Box>
+    )
   }
 
   if (mode === 'settings' || mode === 'creating-sphere' || mode === 'picking-sphere-for-agenda' || mode === 'creating-agenda') {
@@ -198,28 +263,44 @@ function App() {
   return (
     <Box flexDirection="column" paddingY={1}>
       <Text bold color="cyan">
-        Palimpsest{activeSphere !== undefined ? ` — ${activeSphere.name}` : ''}
+        {activeSphere !== undefined ? `${activeSphere.name}` : 'Palimpsest'}{' '}
+        <Text dimColor>— {VIEW_LABELS[view]}</Text>
       </Text>
       <Box marginTop={1} flexDirection="column">
         {activeSphere === undefined ? (
           <Text dimColor>No spheres yet — press s to open settings and create one.</Text>
-        ) : tasks.length === 0 ? (
-          <Text dimColor>No tasks found.</Text>
-        ) : tasks.map((task, i) => {
-          const project = task.projectId !== undefined ? getProject(state, task.projectId) : undefined
-          const isSelected = i === selected
-
-          return (
-            <Box key={task.id}>
-              <Text {...(isSelected ? { color: 'blue' as const } : {})}>
-                {isSelected ? '▶ ' : '  '}
-                {task.title}
-                {project !== undefined ? <Text dimColor> · {project.name}</Text> : null}
-                {task.dueDate !== undefined ? <Text dimColor> · due {task.dueDate}</Text> : null}
-              </Text>
-            </Box>
-          )
-        })}
+        ) : view === 'tasks' ? (
+          tasks.length === 0 ? (
+            <Text dimColor>No open tasks.</Text>
+          ) : tasks.map((task, i) => {
+            const project = task.projectId !== undefined ? getProject(state, task.projectId) : undefined
+            const isSelected = i === selected
+            return (
+              <Box key={task.id}>
+                <Text {...(isSelected ? { color: 'blue' as const } : {})}>
+                  {isSelected ? '▶ ' : '  '}
+                  {task.title}
+                  {project !== undefined ? <Text dimColor> · {project.name}</Text> : null}
+                  {task.dueDate !== undefined ? <Text dimColor> · due {task.dueDate}</Text> : null}
+                </Text>
+              </Box>
+            )
+          })
+        ) : (
+          projects.length === 0 ? (
+            <Text dimColor>No projects.</Text>
+          ) : projects.map((project, i) => {
+            const isSelected = i === selected
+            return (
+              <Box key={project.id}>
+                <Text {...(isSelected ? { color: 'blue' as const } : {})}>
+                  {isSelected ? '▶ ' : '  '}
+                  {project.name}
+                </Text>
+              </Box>
+            )
+          })
+        )}
       </Box>
       <Box marginTop={1}>
         {mode === 'adding' ? (
@@ -236,8 +317,22 @@ function App() {
             <Text>Edit task: </Text>
             <TextInput value={formValue} onChange={setFormValue} onSubmit={handleEditSubmit} />
           </Box>
+        ) : mode === 'adding-project' ? (
+          activeSphere === undefined ? (
+            <Text color="red">No spheres found — create a sphere first.</Text>
+          ) : (
+            <Box>
+              <Text>New project: </Text>
+              <TextInput value={formValue} onChange={setFormValue} onSubmit={handleProjectSubmit} />
+            </Box>
+          )
+        ) : mode === 'editing-project' ? (
+          <Box>
+            <Text>Edit project: </Text>
+            <TextInput value={formValue} onChange={setFormValue} onSubmit={handleEditProjectSubmit} />
+          </Box>
         ) : (
-          <Text dimColor>↑↓ navigate  n new  e edit  ] sphere  s settings  q quit</Text>
+          <Text dimColor>↑↓ navigate  v view  n new  e edit  ] sphere  s settings  q quit</Text>
         )}
       </Box>
     </Box>
