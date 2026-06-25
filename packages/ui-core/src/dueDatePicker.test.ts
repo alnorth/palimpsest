@@ -91,13 +91,22 @@ describe('parseDueDate', () => {
     expect(parseDueDate('next thursday', TODAY)).toBe('2026-07-02')
   })
 
+  it('"this <weekday>" returns today when today matches, otherwise next occurrence', () => {
+    expect(parseDueDate('this thursday', TODAY)).toBe('2026-06-25') // today
+    expect(parseDueDate('this thu', TODAY)).toBe('2026-06-25') // today
+    expect(parseDueDate('this friday', TODAY)).toBe('2026-06-26') // tomorrow
+    expect(parseDueDate('this monday', TODAY)).toBe('2026-06-29') // next Mon
+  })
+
   it('parses "in N days"', () => {
     expect(parseDueDate('in 3 days', TODAY)).toBe('2026-06-28')
     expect(parseDueDate('in 1 day', TODAY)).toBe('2026-06-26')
+    expect(parseDueDate('in 0 days', TODAY)).toBe('2026-06-25')
   })
 
-  it('parses "next week"', () => {
-    expect(parseDueDate('next week', TODAY)).toBe('2026-07-02')
+  it('parses "next week" as Monday of next week', () => {
+    // TODAY is Thursday 25 Jun — next Monday is 29 Jun
+    expect(parseDueDate('next week', TODAY)).toBe('2026-06-29')
   })
 
   it('parses ISO date strings', () => {
@@ -121,6 +130,17 @@ describe('parseDueDate', () => {
     expect(parseDueDate('dec 25', TODAY)).toBe('2026-12-25')
   })
 
+  it('parses "mon DDth" and "DDth mon" with ordinal suffixes', () => {
+    expect(parseDueDate('jul 4th', TODAY)).toBe('2026-07-04')
+    expect(parseDueDate('july 4th', TODAY)).toBe('2026-07-04')
+    expect(parseDueDate('dec 1st', TODAY)).toBe('2026-12-01')
+    expect(parseDueDate('dec 2nd', TODAY)).toBe('2026-12-02')
+    expect(parseDueDate('dec 3rd', TODAY)).toBe('2026-12-03')
+    expect(parseDueDate('4th jul', TODAY)).toBe('2026-07-04')
+    expect(parseDueDate('4th july', TODAY)).toBe('2026-07-04')
+    expect(parseDueDate('1st jan', TODAY)).toBe('2027-01-01')
+  })
+
   it('parses "DD mon" and "DD month"', () => {
     expect(parseDueDate('4 jul', TODAY)).toBe('2026-07-04')
     expect(parseDueDate('4 july', TODAY)).toBe('2026-07-04')
@@ -130,6 +150,12 @@ describe('parseDueDate', () => {
   it('uses next year for past month+day', () => {
     expect(parseDueDate('jan 1', TODAY)).toBe('2027-01-01')
     expect(parseDueDate('1 jan', TODAY)).toBe('2027-01-01')
+  })
+
+  it('uses next year when month+day equals today', () => {
+    expect(parseDueDate('jun 25', TODAY)).toBe('2027-06-25')
+    expect(parseDueDate('25 jun', TODAY)).toBe('2027-06-25')
+    expect(parseDueDate('june 25', TODAY)).toBe('2027-06-25')
   })
 
   it('returns null for invalid month+day', () => {
@@ -228,6 +254,7 @@ describe('parseDueDate — year-boundary cases', () => {
   })
 
   it('"next week" and "in N days" cross into next year', () => {
+    // Dec 28 is Monday — next Monday is Jan 4
     expect(parseDueDate('next week', TODAY_DEC)).toBe('2027-01-04')
     expect(parseDueDate('in 7 days', TODAY_DEC)).toBe('2027-01-04')
     expect(parseDueDate('in 4 days', TODAY_DEC)).toBe('2027-01-01')

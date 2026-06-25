@@ -20,7 +20,7 @@ export function formatDate(iso: string): string {
 
 export function formatDateWithDay(iso: string): string {
   const d = new Date(iso)
-  return `${DAYS[d.getDay()]} ${d.getDate()} ${MONTHS[d.getMonth()]}`
+  return `${DAYS[d.getDay()]} ${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`
 }
 
 export function formatDateTime(iso: string): string {
