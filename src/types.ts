@@ -16,6 +16,7 @@ export interface Task {
   agendaId?: AgendaId
   contextId?: ContextId
   isNext?: boolean
+  isStarred?: boolean
   completedAt?: string
   lastRecurredAt?: string
 }

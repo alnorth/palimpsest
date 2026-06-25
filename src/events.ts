@@ -133,6 +133,7 @@ export interface TaskCreatedEvent extends EventBase {
   agendaId?: AgendaId
   contextId?: ContextId
   isNext?: boolean
+  isStarred?: boolean
   dueDate?: string
   dueDateExpression?: string
 }
@@ -145,6 +146,7 @@ export type TaskPatch = {
   agendaId?: AgendaId | typeof CLEAR
   contextId?: ContextId | typeof CLEAR
   isNext?: boolean
+  isStarred?: boolean
   dueDate?: string | typeof CLEAR
   dueDateExpression?: string | typeof CLEAR
 }

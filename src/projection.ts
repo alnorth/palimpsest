@@ -172,6 +172,7 @@ export function applyEvent(state: ProjectionState, event: PalimpsestEvent): Proj
         ...(event.agendaId          !== undefined && { agendaId:          event.agendaId }),
         ...(event.contextId         !== undefined && { contextId:         event.contextId }),
         ...(event.isNext            !== undefined && { isNext:            event.isNext }),
+        ...(event.isStarred         !== undefined && { isStarred:         event.isStarred }),
         ...(event.dueDate           !== undefined && { dueDate:           event.dueDate }),
         ...(event.dueDateExpression !== undefined && { dueDateExpression: event.dueDateExpression }),
       }
@@ -204,6 +205,10 @@ export function applyEvent(state: ProjectionState, event: PalimpsestEvent): Proj
       if (patch.isNext !== undefined) {
         if (patch.isNext === false) delete task.isNext
         else task.isNext = true
+      }
+      if (patch.isStarred !== undefined) {
+        if (patch.isStarred === false) delete task.isStarred
+        else task.isStarred = true
       }
       if (patch.dueDate !== undefined) {
         if (patch.dueDate === CLEAR) delete task.dueDate

@@ -268,6 +268,7 @@ export interface CreateTaskInput {
   agendaId?: AgendaId
   contextId?: ContextId
   isNext?: boolean
+  isStarred?: boolean
   dueDate?: string
   dueDateExpression?: string
 }
@@ -309,6 +310,7 @@ export function createTask(
     ...(input.agendaId          !== undefined && { agendaId:          input.agendaId }),
     ...(input.contextId         !== undefined && { contextId:         input.contextId }),
     ...(input.isNext            === true      && { isNext:            true }),
+    ...(input.isStarred         === true      && { isStarred:         true }),
     ...(input.dueDate           !== undefined && { dueDate:           input.dueDate }),
     ...(input.dueDateExpression !== undefined && { dueDateExpression: input.dueDateExpression }),
   }]
