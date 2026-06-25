@@ -1,6 +1,6 @@
 # TODO
 
-- [ ] Migrate into monorepo structure, with ../palimpsest coming into this repo.
+- [x] Migrate into monorepo structure, with ../palimpsest coming into this repo.
 - [ ] Abstract core app logic to be reusable across TUI, web, and phone. e.g. views and commands available.
 - [ ] Due date picker in TUI.
 - [ ] Project picker for tasks.
