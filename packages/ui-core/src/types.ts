@@ -10,6 +10,8 @@ export type Mode =
   | 'editing-task'
   | 'editing-description'
   | 'picking-agenda-for-task'
+  | 'picking-due-date'
+  | 'editing-due-date'
   | 'adding-project'
   | 'editing-project'
   | 'settings'
@@ -41,6 +43,7 @@ export interface UIState {
   mode: Mode
   viewPickerSelected: number
   agendaPickerSelected: number
+  dueDatePickerSelected: number
   settingsSelected: number
   pickerSelected: number
   agendaSphereId: SphereId | undefined
@@ -52,6 +55,7 @@ export const INITIAL_UI_STATE: UIState = {
   mode: 'list',
   viewPickerSelected: 0,
   agendaPickerSelected: 0,
+  dueDatePickerSelected: 0,
   settingsSelected: 0,
   pickerSelected: 0,
   agendaSphereId: undefined,
@@ -66,6 +70,7 @@ export type UIAction =
   | { type: 'set-sphere'; sphereId: SphereId }
   | { type: 'set-view-picker-selected'; index: number }
   | { type: 'set-agenda-picker-selected'; index: number }
+  | { type: 'set-due-date-picker-selected'; index: number }
   | { type: 'set-settings-selected'; index: number }
   | { type: 'set-picker-selected'; index: number }
   | { type: 'set-agenda-sphere'; sphereId: SphereId | undefined }
@@ -74,6 +79,7 @@ export type DataAction =
   | { type: 'create-task'; title: string; projectId?: ProjectId; sphereId?: SphereId }
   | { type: 'edit-task'; taskId: TaskId; title: string }
   | { type: 'edit-task-description'; taskId: TaskId; description: string }
+  | { type: 'set-task-due-date'; taskId: TaskId; dueDate: string | typeof CLEAR }
   | { type: 'complete-task'; taskId: TaskId }
   | { type: 'uncomplete-task'; taskId: TaskId }
   | { type: 'toggle-next'; taskId: TaskId }

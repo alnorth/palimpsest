@@ -216,6 +216,37 @@ describe('commands — task view', () => {
   })
 })
 
+describe('commands — pick-due-date', () => {
+  it('is available for open tasks in tasks view', () => {
+    const { projState, sphere, task1 } = buildTestState()
+    const tasks = [...projState.tasks.values()].filter(t => !t.projectId && t.status === 'open')
+    const idx = tasks.findIndex(t => t.id === task1.id)
+    const uiState = makeUIState({
+      currentSphereId: sphere.id,
+      navStack: [{ ...INITIAL_NAV, view: 'tasks', selected: idx }],
+    })
+    expect(commandIds(projState, uiState)).toContain('pick-due-date')
+  })
+
+  it('is available for open tasks in task view', () => {
+    const { projState, sphere, task1 } = buildTestState()
+    const uiState = makeUIState({
+      currentSphereId: sphere.id,
+      navStack: [{ ...INITIAL_NAV, view: 'task', activeTaskId: task1.id }],
+    })
+    expect(commandIds(projState, uiState)).toContain('pick-due-date')
+  })
+
+  it('is not available in projects view', () => {
+    const { projState, sphere } = buildTestState()
+    const uiState = makeUIState({
+      currentSphereId: sphere.id,
+      navStack: [{ ...INITIAL_NAV, view: 'projects' }],
+    })
+    expect(commandIds(projState, uiState)).not.toContain('pick-due-date')
+  })
+})
+
 describe('commands — toggle-completed', () => {
   it('is available in tasks and project views', () => {
     const { projState, sphere, proj } = buildTestState()

@@ -32,7 +32,7 @@ export function TaskList({ tasks, selected, state, showProject = false, emptyMes
             {task.description ? <Meta>¶</Meta> : null}
             {project !== undefined ? <Meta>{project.name}</Meta> : null}
             {agenda !== undefined ? <Meta>@{agenda.title}</Meta> : null}
-            {task.dueDate !== undefined ? <Meta>due {task.dueDate}</Meta> : null}
+            {task.dueDate !== undefined ? <Meta>{task.dueDate}</Meta> : null}
             {task.completedAt !== undefined ? <Meta>{formatDateTime(task.completedAt)}</Meta> : null}
           </Row>
         )

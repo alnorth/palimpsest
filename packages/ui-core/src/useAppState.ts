@@ -33,6 +33,7 @@ function isDataAction(action: Action): action is DataAction {
     action.type === 'create-task' ||
     action.type === 'edit-task' ||
     action.type === 'edit-task-description' ||
+    action.type === 'set-task-due-date' ||
     action.type === 'complete-task' ||
     action.type === 'uncomplete-task' ||
     action.type === 'toggle-next' ||
@@ -140,6 +141,13 @@ export function useAppState(store: PalimpsestStore): AppStateResult {
 
         case 'edit-task-description': {
           await store.appendEvents(updateTask(resolvedState, { taskId: action.taskId, patch: { description: action.description } }))
+          await refreshProj()
+          setUIState(prev => uiReducer(prev, { type: 'set-mode', mode: 'list' }))
+          break
+        }
+
+        case 'set-task-due-date': {
+          await store.appendEvents(updateTask(resolvedState, { taskId: action.taskId, patch: { dueDate: action.dueDate } }))
           await refreshProj()
           setUIState(prev => uiReducer(prev, { type: 'set-mode', mode: 'list' }))
           break

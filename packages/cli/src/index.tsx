@@ -5,10 +5,10 @@ import { Row, Meta } from './Row.js'
 import TextInput from 'ink-text-input'
 import { FilePalimpsestStore, CLEAR, getProject, getAgenda } from 'palimpsest'
 import type { PalimpsestStore } from 'palimpsest'
-import { useAppState, INITIAL_NAV, ClientPalimpsestStore } from 'palimpsest-ui-core'
+import { useAppState, INITIAL_NAV, ClientPalimpsestStore, addDays, nextWeekday, parseDueDate } from 'palimpsest-ui-core'
 import { FilePendingEventStore } from './FilePendingEventStore.js'
 import type { View } from 'palimpsest-ui-core'
-import { formatDate, formatDateTime } from './format.js'
+import { formatDate, formatDateWithDay, formatDateTime } from './format.js'
 import { homedir } from 'node:os'
 import { join, dirname } from 'node:path'
 import { mkdirSync } from 'node:fs'
@@ -58,7 +58,7 @@ function App() {
     isLoading, syncHealth, unsyncedCount, pendingConflicts, lastSyncError,
   } = useAppState(store)
 
-  const { viewPickerSelected, agendaPickerSelected, settingsSelected, pickerSelected, agendaSphereId } = uiState
+  const { viewPickerSelected, agendaPickerSelected, dueDatePickerSelected, settingsSelected, pickerSelected, agendaSphereId } = uiState
   const [formValue, setFormValue] = useState('')
   const { rows: termRows } = useWindowSize()
 
@@ -83,10 +83,16 @@ function App() {
   }
 
   useInput((input, key) => {
-    if (mode === 'adding' || mode === 'editing-task' || mode === 'editing-description' || mode === 'adding-project' || mode === 'editing-project' || mode === 'creating-sphere' || mode === 'creating-agenda') {
+    if (mode === 'adding' || mode === 'editing-task' || mode === 'editing-description' || mode === 'editing-due-date' || mode === 'adding-project' || mode === 'editing-project' || mode === 'creating-sphere' || mode === 'creating-agenda') {
       if (key.escape) {
         setFormValue('')
-        dispatch({ type: 'set-mode', mode: mode === 'creating-sphere' || mode === 'creating-agenda' ? 'settings' : 'list' })
+        if (mode === 'creating-sphere' || mode === 'creating-agenda') {
+          dispatch({ type: 'set-mode', mode: 'settings' })
+        } else if (mode === 'editing-due-date') {
+          dispatch({ type: 'set-mode', mode: 'picking-due-date' })
+        } else {
+          dispatch({ type: 'set-mode', mode: 'list' })
+        }
       }
       return
     }
@@ -109,6 +115,29 @@ function App() {
       if (key.return && currentTask !== undefined) {
         const agendaId = agendaPickerSelected === 0 ? CLEAR : agendas[agendaPickerSelected - 1]!.id
         dispatch({ type: 'set-task-agenda', taskId: currentTask.id, agendaId })
+      }
+      return
+    }
+    if (mode === 'picking-due-date') {
+      const today = new Date().toISOString().slice(0, 10)
+      const stockOptions = [
+        { label: 'Tomorrow', value: addDays(today, 1) },
+        { label: 'Next Saturday', value: nextWeekday(today, 6) },
+        { label: 'Next Monday', value: nextWeekday(today, 1) },
+      ]
+      const totalOptions = stockOptions.length + 2 // + Custom… + No due date
+      if (key.escape) { dispatch({ type: 'set-mode', mode: 'list' }); return }
+      if (key.upArrow) dispatch({ type: 'set-due-date-picker-selected', index: Math.max(0, dueDatePickerSelected - 1) })
+      if (key.downArrow) dispatch({ type: 'set-due-date-picker-selected', index: Math.min(totalOptions - 1, dueDatePickerSelected + 1) })
+      if (key.return && currentTask !== undefined) {
+        if (dueDatePickerSelected < stockOptions.length) {
+          dispatch({ type: 'set-task-due-date', taskId: currentTask.id, dueDate: stockOptions[dueDatePickerSelected]!.value })
+        } else if (dueDatePickerSelected === stockOptions.length) {
+          setFormValue('')
+          dispatch({ type: 'set-mode', mode: 'editing-due-date' })
+        } else {
+          dispatch({ type: 'set-task-due-date', taskId: currentTask.id, dueDate: CLEAR })
+        }
       }
       return
     }
@@ -200,6 +229,15 @@ function App() {
     setFormValue('')
   }
 
+  function handleDueDateSubmit(value: string) {
+    const today = new Date().toISOString().slice(0, 10)
+    const parsed = parseDueDate(value, today)
+    if (parsed !== null && currentTask !== undefined) {
+      dispatch({ type: 'set-task-due-date', taskId: currentTask.id, dueDate: parsed })
+      setFormValue('')
+    }
+  }
+
   function handleProjectSubmit(name: string) {
     const trimmed = name.trim()
     if (trimmed && activeSphere !== undefined) {
@@ -241,6 +279,14 @@ function App() {
     setFormValue('')
   }
 
+  const dueDatePreviewHint: React.ReactNode = (() => {
+    const today = new Date().toISOString().slice(0, 10)
+    const parsed = formValue.trim().length > 0 ? parseDueDate(formValue, today) : null
+    if (formValue.trim().length === 0) return <Text dimColor>  tomorrow · next monday · jul 4 · 2026-12-25</Text>
+    if (parsed !== null) return <Text color="green">  → {formatDateWithDay(parsed)}</Text>
+    return <Text color="red">  Can't parse — try "tomorrow", "next monday", "jul 4", "2026-12-25"</Text>
+  })()
+
   let title: React.ReactNode
   let content: React.ReactNode
   let footer: React.ReactNode
@@ -248,7 +294,22 @@ function App() {
   const stateCommands = commands.filter(c => c.group === 'state')
   const viewCommands = commands.filter(c => c.group === 'view')
 
-  if (mode === 'picking-agenda-for-task') {
+  if (mode === 'picking-due-date') {
+    const today = new Date().toISOString().slice(0, 10)
+    const stockOptions = [
+      { label: 'Tomorrow', value: addDays(today, 1) },
+      { label: 'Next Saturday', value: nextWeekday(today, 6) },
+      { label: 'Next Monday', value: nextWeekday(today, 1) },
+    ]
+    const allOptions = [...stockOptions.map(o => `${o.label} — ${formatDate(o.value)}`), 'Custom…', 'No due date']
+    title = <Text bold color="cyan">Due date{currentTask !== undefined ? ` — ${currentTask.title}` : ''}</Text>
+    content = allOptions.map((label, i) => (
+      <Text key={label} {...(i === dueDatePickerSelected ? { color: 'blue' as const } : {})}>
+        {i === dueDatePickerSelected ? '> ' : '  '}{label}
+      </Text>
+    ))
+    footer = <Text dimColor>↑↓ navigate  enter select  esc back</Text>
+  } else if (mode === 'picking-agenda-for-task') {
     const options = ['No agenda', ...agendas.map(a => a.title)]
     title = <Text bold color="cyan">Agenda{currentTask !== undefined ? ` — ${currentTask.title}` : ''}</Text>
     content = options.map((label, i) => (
@@ -379,6 +440,14 @@ function App() {
       <Box>
         <Text>Description: </Text>
         <TextInput value={formValue} onChange={setFormValue} onSubmit={handleEditDescriptionSubmit} />
+      </Box>
+    ) : mode === 'editing-due-date' ? (
+      <Box flexDirection="column">
+        <Box>
+          <Text>Due date: </Text>
+          <TextInput value={formValue} onChange={setFormValue} onSubmit={handleDueDateSubmit} />
+        </Box>
+        {dueDatePreviewHint}
       </Box>
     ) : mode === 'adding-project' ? (
       activeSphere === undefined ? (

@@ -109,6 +109,17 @@ export function getCommands(vm: ViewModel): Command[] {
     })
   }
 
+  // ── Pick due date ────────────────────────────────────────────────────────────
+  if (currentTask?.status === 'open') {
+    commands.push({
+      id: 'pick-due-date',
+      label: 'due date',
+      group: 'state',
+      key: 'u',
+      action: { type: 'set-mode', mode: 'picking-due-date' },
+    })
+  }
+
   // ── Pick agenda ──────────────────────────────────────────────────────────────
   if (currentTask?.status === 'open') {
     commands.push({

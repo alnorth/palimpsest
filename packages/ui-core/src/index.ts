@@ -1,4 +1,5 @@
 export type { View, Mode, NavState, UIState, Action, UIAction, DataAction, Command } from './types.js'
+export { addDays, nextWeekday, parseDueDate } from './dueDatePicker.js'
 export { INITIAL_NAV, INITIAL_UI_STATE } from './types.js'
 export { uiReducer } from './reducer.js'
 export type { ViewModel, ProjectStats } from './viewModel.js'
