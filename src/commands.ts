@@ -170,6 +170,7 @@ export interface CreateTaskInput {
   projectId?: ProjectId
   sphereId?: SphereId
   agendaId?: AgendaId
+  isNext?: boolean
   dueDate?: string
   dueDateExpression?: string
 }
@@ -190,6 +191,9 @@ export function createTask(
   if (input.agendaId !== undefined && !state.agendas.has(input.agendaId)) {
     throw new Error(`Agenda not found: ${input.agendaId}`)
   }
+  if (input.isNext === true && input.projectId === undefined) {
+    throw new Error('isNext can only be set on tasks that belong to a project')
+  }
   if (input.dueDateExpression !== undefined && !isValidExpression(input.dueDateExpression)) {
     throw new Error(`Invalid dueDateExpression: "${input.dueDateExpression}"`)
   }
@@ -203,6 +207,7 @@ export function createTask(
     ...(input.projectId         !== undefined && { projectId:         input.projectId }),
     ...(input.sphereId          !== undefined && { sphereId:          input.sphereId }),
     ...(input.agendaId          !== undefined && { agendaId:          input.agendaId }),
+    ...(input.isNext            === true      && { isNext:            true }),
     ...(input.dueDate           !== undefined && { dueDate:           input.dueDate }),
     ...(input.dueDateExpression !== undefined && { dueDateExpression: input.dueDateExpression }),
   }]
@@ -230,6 +235,12 @@ export function updateTask(
   }
   if (patch.agendaId !== undefined && patch.agendaId !== null && !state.agendas.has(patch.agendaId)) {
     throw new Error(`Agenda not found: ${patch.agendaId}`)
+  }
+  if (patch.isNext === true) {
+    const effectiveProjectId = patch.projectId !== null ? (patch.projectId ?? task.projectId) : undefined
+    if (effectiveProjectId === undefined) {
+      throw new Error('isNext can only be set on tasks that belong to a project')
+    }
   }
   if (
     patch.dueDateExpression !== undefined &&
