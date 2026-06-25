@@ -3,10 +3,20 @@ import type { PalimpsestEvent } from './events.js'
 import type { ProjectionState } from './projection.js'
 import { project } from './projection.js'
 
-export class PalimpsestStore {
+export abstract class PalimpsestStore {
+  abstract readAllEvents(): PalimpsestEvent[]
+  abstract appendEvents(events: PalimpsestEvent[]): void
+
+  getState(): ProjectionState {
+    return project(this.readAllEvents())
+  }
+}
+
+export class FilePalimpsestStore extends PalimpsestStore {
   readonly filePath: string
 
   constructor(filePath: string) {
+    super()
     this.filePath = filePath
   }
 
@@ -17,16 +27,8 @@ export class PalimpsestStore {
     return raw.split('\n').map((line: string) => JSON.parse(line) as PalimpsestEvent)
   }
 
-  appendEvent(event: PalimpsestEvent): void {
-    appendFileSync(this.filePath, JSON.stringify(event) + '\n', 'utf-8')
-  }
-
   appendEvents(events: PalimpsestEvent[]): void {
     if (events.length === 0) return
     appendFileSync(this.filePath, events.map(e => JSON.stringify(e)).join('\n') + '\n', 'utf-8')
-  }
-
-  getState(): ProjectionState {
-    return project(this.readAllEvents())
   }
 }

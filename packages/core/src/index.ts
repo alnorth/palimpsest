@@ -18,7 +18,7 @@ export type {
 export type { TaskFilter } from './query.js'
 
 export { project, applyEvent, createEmptyState } from './projection.js'
-export { PalimpsestStore } from './store.js'
+export { PalimpsestStore, FilePalimpsestStore } from './store.js'
 export {
   createSphere, updateSphere, deleteSphere,
   createProject, updateProject, deleteProject, archiveProject, unarchiveProject,

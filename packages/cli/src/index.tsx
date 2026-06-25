@@ -3,7 +3,7 @@ import { render, Box, Text, useInput, useWindowSize } from 'ink'
 import { TaskList } from './TaskList.js'
 import { Row, Meta } from './Row.js'
 import TextInput from 'ink-text-input'
-import { PalimpsestStore, CLEAR, getProject, getAgenda } from 'palimpsest'
+import { FilePalimpsestStore, CLEAR, getProject, getAgenda } from 'palimpsest'
 import { useAppState, INITIAL_NAV } from 'palimpsest-ui-core'
 import type { View } from 'palimpsest-ui-core'
 import { formatDate, formatDateTime } from './format.js'
@@ -13,7 +13,7 @@ import { mkdirSync } from 'node:fs'
 
 const filePath = process.env['PALIMPSEST_FILE'] ?? join(homedir(), '.palimpsest', 'events.jsonl')
 mkdirSync(dirname(filePath), { recursive: true })
-const store = new PalimpsestStore(filePath)
+const store = new FilePalimpsestStore(filePath)
 
 const VIEW_CONFIG = {
   tasks:    { label: 'Tasks',    key: 't' },

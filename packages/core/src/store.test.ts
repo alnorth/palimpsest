@@ -2,7 +2,7 @@ import { describe, it, expect, afterEach } from 'vitest'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
-import { PalimpsestStore } from './store.js'
+import { FilePalimpsestStore } from './store.js'
 import { createSphere, createTask } from './commands.js'
 import { createEmptyState, project } from './projection.js'
 import { listOpenTasks } from './query.js'
@@ -16,10 +16,10 @@ afterEach(() => {
 
 function makeTempStore() {
   tempDir = mkdtempSync(join(tmpdir(), 'palimpsest-test-'))
-  return new PalimpsestStore(join(tempDir, 'events.jsonl'))
+  return new FilePalimpsestStore(join(tempDir, 'events.jsonl'))
 }
 
-describe('PalimpsestStore', () => {
+describe('FilePalimpsestStore', () => {
   it('returns empty array when file does not exist', () => {
     const store = makeTempStore()
     expect(store.readAllEvents()).toEqual([])
