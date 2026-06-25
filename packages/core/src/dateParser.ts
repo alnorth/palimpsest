@@ -46,6 +46,20 @@ export function nextWeekday(today: string, targetDay: number): string {
   return addDays(today, daysAhead)
 }
 
+function findNthWeekdayInMonth(year: number, mo: number, n: number, dow: number): string | null {
+  const firstDow = new Date(Date.UTC(year, mo, 1)).getUTCDay()
+  const day = 1 + ((dow - firstDow + 7) % 7) + (n - 1) * 7
+  const candidate = new Date(Date.UTC(year, mo, day))
+  if (candidate.getUTCMonth() !== mo) return null
+  return toDateString(candidate)
+}
+
+function findLastWeekdayInMonth(year: number, mo: number, dow: number): string {
+  const last = new Date(Date.UTC(year, mo + 1, 0))
+  const day = last.getUTCDate() - ((last.getUTCDay() - dow + 7) % 7)
+  return toDateString(new Date(Date.UTC(year, mo, day)))
+}
+
 function nextDayOfMonth(today: string, day: number): string | null {
   if (day < 1 || day > 31) return null
   const d = new Date(today + 'T00:00:00Z')
@@ -175,10 +189,15 @@ type ParsedExpression =
   | { kind: 'interval'; days: number }
   | { kind: 'weekday'; dayOfWeek: number }
   | { kind: 'workday' }
+  | { kind: 'weekend' }
   | { kind: 'monthly-specific'; dayOfMonth: number }
   | { kind: 'monthly-relative'; n: number }
+  | { kind: 'nth-weekday-of-month'; n: number; dayOfWeek: number }
+  | { kind: 'last-weekday-of-month'; dayOfWeek: number }
   | { kind: 'yearly-specific'; month: number; day: number }
   | { kind: 'yearly-relative'; n: number }
+  | { kind: 'nth-weekday-of-year'; n: number; dayOfWeek: number; month: number }
+  | { kind: 'last-weekday-of-year'; dayOfWeek: number; month: number }
 
 function parseExpression(expression: string): ParsedExpression | null {
   const s = expression.toLowerCase().trim().replace(/!/g, '')
@@ -203,6 +222,7 @@ function parseExpression(expression: string): ParsedExpression | null {
   if (rest === 'month')                           return { kind: 'monthly-relative', n: 1 }
   if (rest === 'year')                            return { kind: 'yearly-relative', n: 1 }
   if (rest === 'workday' || rest === 'weekday')   return { kind: 'workday' }
+  if (rest === 'weekend')                         return { kind: 'weekend' }
 
   const daysM = rest.match(/^(\d+) days?$/)
   if (daysM) { const n = parseInt(daysM[1]!, 10); return n >= 1 ? { kind: 'interval', days: n } : null }
@@ -229,6 +249,40 @@ function parseExpression(expression: string): ParsedExpression | null {
   if (ordM) {
     const d = parseInt(ordM[1]!, 10)
     if (d >= 1 && d <= 28) return { kind: 'monthly-specific', dayOfMonth: d }
+    return null
+  }
+
+  // "every <ordinal> <weekday> in/of <month>" — Nth weekday of a specific month yearly
+  const nthWdYM = rest.match(/^(1st|2nd|3rd|4th|5th) ([a-z]+) (?:in|of) ([a-z]+)$/)
+  if (nthWdYM) {
+    const wd = weekday(nthWdYM[2]!), mo = month(nthWdYM[3]!)
+    if (wd !== undefined && mo !== undefined)
+      return { kind: 'nth-weekday-of-year', n: parseInt(nthWdYM[1]!, 10), dayOfWeek: wd, month: mo }
+    return null
+  }
+
+  // "every last <weekday> in/of <month>" — last weekday of a specific month yearly
+  const lastWdYM = rest.match(/^last ([a-z]+) (?:in|of) ([a-z]+)$/)
+  if (lastWdYM) {
+    const wd = weekday(lastWdYM[1]!), mo = month(lastWdYM[2]!)
+    if (wd !== undefined && mo !== undefined)
+      return { kind: 'last-weekday-of-year', dayOfWeek: wd, month: mo }
+    return null
+  }
+
+  // "every <ordinal> <weekday>" — Nth weekday of month (fall through if word is a month name, not weekday)
+  const nthWdM = rest.match(/^(1st|2nd|3rd|4th|5th) ([a-z]+)$/)
+  if (nthWdM) {
+    const wd = weekday(nthWdM[2]!)
+    if (wd !== undefined) return { kind: 'nth-weekday-of-month', n: parseInt(nthWdM[1]!, 10), dayOfWeek: wd }
+    // Fall through — could be a reversed yearly date like "1st jan"
+  }
+
+  // "every last <weekday>" — last weekday of month
+  const lastWdM = rest.match(/^last ([a-z]+)$/)
+  if (lastWdM) {
+    const wd = weekday(lastWdM[1]!)
+    if (wd !== undefined) return { kind: 'last-weekday-of-month', dayOfWeek: wd }
     return null
   }
 
@@ -277,6 +331,61 @@ export function nextDueDate(expression: string, completedAt: string): string | n
       if (dow === 6) return addDays(next, 2) // Saturday → Monday
       if (dow === 0) return addDays(next, 1) // Sunday → Monday
       return next
+    }
+
+    case 'weekend': {
+      const next = addDays(completedAt, 1)
+      const dow = new Date(next + 'T00:00:00Z').getUTCDay()
+      if (dow === 6 || dow === 0) return next // Already Sat or Sun
+      return addDays(next, 6 - dow) // Next Saturday
+    }
+
+    case 'nth-weekday-of-month': {
+      const base = addDays(completedAt, 1)
+      const d = new Date(base + 'T00:00:00Z')
+      let year = d.getUTCFullYear(), mo = d.getUTCMonth()
+      for (let i = 0; i < 13; i++) {
+        const candidate = findNthWeekdayInMonth(year, mo, parsed.n, parsed.dayOfWeek)
+        if (candidate !== null && new Date(candidate + 'T00:00:00Z') >= d) return candidate
+        if (++mo > 11) { mo = 0; year++ }
+      }
+      return null
+    }
+
+    case 'last-weekday-of-month': {
+      const base = addDays(completedAt, 1)
+      const d = new Date(base + 'T00:00:00Z')
+      let year = d.getUTCFullYear(), mo = d.getUTCMonth()
+      for (let i = 0; i < 13; i++) {
+        const candidate = findLastWeekdayInMonth(year, mo, parsed.dayOfWeek)
+        if (new Date(candidate + 'T00:00:00Z') >= d) return candidate
+        if (++mo > 11) { mo = 0; year++ }
+      }
+      return null
+    }
+
+    case 'nth-weekday-of-year': {
+      const base = addDays(completedAt, 1)
+      const d = new Date(base + 'T00:00:00Z')
+      let year = d.getUTCFullYear()
+      for (let i = 0; i < 3; i++) {
+        const candidate = findNthWeekdayInMonth(year, parsed.month, parsed.n, parsed.dayOfWeek)
+        if (candidate !== null && new Date(candidate + 'T00:00:00Z') >= d) return candidate
+        year++
+      }
+      return null
+    }
+
+    case 'last-weekday-of-year': {
+      const base = addDays(completedAt, 1)
+      const d = new Date(base + 'T00:00:00Z')
+      let year = d.getUTCFullYear()
+      for (let i = 0; i < 3; i++) {
+        const candidate = findLastWeekdayInMonth(year, parsed.month, parsed.dayOfWeek)
+        if (new Date(candidate + 'T00:00:00Z') >= d) return candidate
+        year++
+      }
+      return null
     }
 
     case 'monthly-specific':

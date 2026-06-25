@@ -334,6 +334,25 @@ describe('isValidExpression', () => {
       expect(isValidExpression('every weekday')).toBe(true)
       expect(isValidExpression('ev weekday')).toBe(true)
     })
+
+    it('accepts "every weekend"', () => {
+      expect(isValidExpression('every weekend')).toBe(true)
+      expect(isValidExpression('ev weekend')).toBe(true)
+    })
+
+    it('accepts Nth weekday of month', () => {
+      expect(isValidExpression('every 1st monday')).toBe(true)
+      expect(isValidExpression('ev 2nd mon')).toBe(true)
+      expect(isValidExpression('every 5th wednesday')).toBe(true)
+      expect(isValidExpression('every last thursday')).toBe(true)
+      expect(isValidExpression('ev last fri')).toBe(true)
+    })
+
+    it('accepts Nth weekday of specific month (yearly)', () => {
+      expect(isValidExpression('every 1st monday in october')).toBe(true)
+      expect(isValidExpression('ev 2nd mon of jan')).toBe(true)
+      expect(isValidExpression('every last thursday in november')).toBe(true)
+    })
   })
 
   describe('case insensitivity and shorthands', () => {
@@ -595,6 +614,75 @@ describe('nextDueDate — every! prefix', () => {
 
   it('"every! 2 months" behaves the same as "every 2 months"', () => {
     expect(nextN('every! 2 months', '2026-06-25')).toEqual(nextN('every 2 months', '2026-06-25'))
+  })
+})
+
+describe('nextDueDate — weekend', () => {
+  it('alternates Sat/Sun, starting from the next weekend day', () => {
+    // 2026-06-25 is Thu; Sat Jun 27, Sun Jun 28, Sat Jul 4, Sun Jul 5, Sat Jul 11
+    expect(nextN('every weekend', '2026-06-25')).toEqual([
+      '2026-06-27', '2026-06-28', '2026-07-04', '2026-07-05', '2026-07-11',
+    ])
+  })
+
+  it('completing on Saturday returns Sunday', () => {
+    expect(nextN('every weekend', '2026-06-27', 1)).toEqual(['2026-06-28'])
+  })
+
+  it('completing on Sunday returns next Saturday', () => {
+    expect(nextN('every weekend', '2026-06-28', 1)).toEqual(['2026-07-04'])
+  })
+})
+
+describe('nextDueDate — Nth weekday of month', () => {
+  it('"every 1st monday" returns the first Monday of each month', () => {
+    // 1st Mon of Jul=Jul 6, Aug=Aug 3, Sep=Sep 7
+    expect(nextN('every 1st monday', '2026-06-25', 3)).toEqual([
+      '2026-07-06', '2026-08-03', '2026-09-07',
+    ])
+  })
+
+  it('abbreviated form is equivalent', () => {
+    expect(nextN('ev 2nd mon', '2026-06-25', 3)).toEqual(nextN('every 2nd monday', '2026-06-25', 3))
+  })
+
+  it('"every last thursday" returns the last Thursday of each month', () => {
+    // Last Thu Jun=Jun 25 (already past), Jul=Jul 30, Aug=Aug 27, Sep=Sep 24
+    expect(nextN('every last thursday', '2026-06-25', 3)).toEqual([
+      '2026-07-30', '2026-08-27', '2026-09-24',
+    ])
+  })
+
+  it('when completedAt equals the target, skips to next month', () => {
+    // 1st Mon of Jul is Jul 6; completing on Jul 6 → next is Aug 3
+    expect(nextN('every 1st monday', '2026-07-06', 1)).toEqual(['2026-08-03'])
+  })
+
+  it('"every 5th wednesday" skips months that have no 5th Wednesday', () => {
+    // Jul has 5 Wednesdays (Jul 29 is 5th); Aug does not; Sep 30 is 5th Wed of Sep
+    expect(nextN('every 5th wednesday', '2026-06-25', 2)).toEqual([
+      '2026-07-29', '2026-09-30',
+    ])
+  })
+})
+
+describe('nextDueDate — Nth weekday of year', () => {
+  it('"every 1st monday in october" returns first Monday of October each year', () => {
+    expect(nextN('every 1st monday in october', '2026-06-25', 3)).toEqual([
+      '2026-10-05', '2027-10-04', '2028-10-02',
+    ])
+  })
+
+  it('"ev 2nd mon of jan" returns the second Monday of January each year', () => {
+    expect(nextN('ev 2nd mon of jan', '2026-06-25', 3)).toEqual([
+      '2027-01-11', '2028-01-10', '2029-01-08',
+    ])
+  })
+
+  it('"every last thursday in november" returns the last Thursday of November each year', () => {
+    expect(nextN('every last thursday in november', '2026-06-25', 3)).toEqual([
+      '2026-11-26', '2027-11-25', '2028-11-30',
+    ])
   })
 })
 
