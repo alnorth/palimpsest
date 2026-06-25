@@ -59,6 +59,16 @@ export interface ProjectDeletedEvent extends EventBase {
   projectId: ProjectId
 }
 
+export interface ProjectArchivedEvent extends EventBase {
+  type: 'project.archived'
+  projectId: ProjectId
+}
+
+export interface ProjectUnarchivedEvent extends EventBase {
+  type: 'project.unarchived'
+  projectId: ProjectId
+}
+
 // ── Agenda events ─────────────────────────────────────────────────────────────
 
 export interface AgendaCreatedEvent extends EventBase {
@@ -141,6 +151,8 @@ export type PalimpsestEvent =
   | ProjectCreatedEvent
   | ProjectUpdatedEvent
   | ProjectDeletedEvent
+  | ProjectArchivedEvent
+  | ProjectUnarchivedEvent
   | AgendaCreatedEvent
   | AgendaUpdatedEvent
   | AgendaDeletedEvent

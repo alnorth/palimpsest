@@ -3,7 +3,7 @@ export type { TaskId, ProjectId, SphereId, AgendaId, EventId } from './ids.js'
 export type {
   PalimpsestEvent,
   SphereCreatedEvent, SphereUpdatedEvent, SphereDeletedEvent,
-  ProjectCreatedEvent, ProjectUpdatedEvent, ProjectDeletedEvent,
+  ProjectCreatedEvent, ProjectUpdatedEvent, ProjectDeletedEvent, ProjectArchivedEvent, ProjectUnarchivedEvent,
   AgendaCreatedEvent, AgendaUpdatedEvent, AgendaDeletedEvent,
   TaskCreatedEvent, TaskUpdatedEvent, TaskCompletedEvent, TaskRecurredEvent, TaskDeletedEvent,
   TaskPatch, ProjectPatch, SpherePatch, AgendaPatch,
@@ -20,7 +20,7 @@ export { project, applyEvent, createEmptyState } from './projection.js'
 export { PalimpsestStore } from './store.js'
 export {
   createSphere, updateSphere, deleteSphere,
-  createProject, updateProject, deleteProject,
+  createProject, updateProject, deleteProject, archiveProject, unarchiveProject,
   createAgenda, updateAgenda, deleteAgenda,
   createTask, updateTask, completeTask, deleteTask,
 } from './commands.js'

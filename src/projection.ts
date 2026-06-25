@@ -79,6 +79,24 @@ export function applyEvent(state: ProjectionState, event: PalimpsestEvent): Proj
       return state
     }
 
+    case 'project.archived': {
+      const project = state.projects.get(event.projectId)
+      if (!project) return state
+      project.isArchived = true
+      project.archivedAt = event.occurredAt
+      project.updatedAt  = event.occurredAt
+      return state
+    }
+
+    case 'project.unarchived': {
+      const project = state.projects.get(event.projectId)
+      if (!project) return state
+      delete project.isArchived
+      delete project.archivedAt
+      project.updatedAt = event.occurredAt
+      return state
+    }
+
     case 'agenda.created': {
       const agenda: Agenda = {
         id: event.agendaId,

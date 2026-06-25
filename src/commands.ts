@@ -112,6 +112,36 @@ export function deleteProject(
   }]
 }
 
+export function archiveProject(
+  state: ProjectionState,
+  projectId: ProjectId,
+): PalimpsestEvent[] {
+  const project = state.projects.get(projectId)
+  if (!project) throw new Error(`Project not found: ${projectId}`)
+  if (project.isArchived) throw new Error('Project is already archived')
+  return [{
+    id: newEventId(),
+    type: 'project.archived',
+    projectId,
+    occurredAt: now(),
+  }]
+}
+
+export function unarchiveProject(
+  state: ProjectionState,
+  projectId: ProjectId,
+): PalimpsestEvent[] {
+  const project = state.projects.get(projectId)
+  if (!project) throw new Error(`Project not found: ${projectId}`)
+  if (!project.isArchived) throw new Error('Project is not archived')
+  return [{
+    id: newEventId(),
+    type: 'project.unarchived',
+    projectId,
+    occurredAt: now(),
+  }]
+}
+
 // ── Agenda commands ───────────────────────────────────────────────────────────
 
 export interface CreateAgendaInput {

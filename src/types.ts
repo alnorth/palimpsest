@@ -32,8 +32,10 @@ export interface Project {
   sphereId: SphereId
   name: string
   description?: string
+  isArchived?: boolean
   createdAt: string
   updatedAt: string
+  archivedAt?: string
 }
 
 export interface Sphere {

@@ -56,9 +56,17 @@ export function getProject(state: ProjectionState, projectId: ProjectId): Projec
   return state.projects.get(projectId)
 }
 
-export function listProjects(state: ProjectionState, filter?: { sphereId?: SphereId }): Project[] {
+export function listProjects(
+  state: ProjectionState,
+  filter?: { sphereId?: SphereId; isArchived?: boolean },
+): Project[] {
   let projects = [...state.projects.values()]
-  if (filter?.sphereId !== undefined) projects = projects.filter(p => p.sphereId === filter.sphereId)
+  if (filter?.sphereId  !== undefined) projects = projects.filter(p => p.sphereId === filter.sphereId)
+  if (filter?.isArchived !== undefined) {
+    projects = filter.isArchived
+      ? projects.filter(p => p.isArchived === true)
+      : projects.filter(p => !p.isArchived)
+  }
   return projects
 }
 
