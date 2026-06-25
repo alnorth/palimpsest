@@ -6,25 +6,31 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **When tagging a release**, always bump the `version` field in the relevant `package.json` to match the tag before committing.
 
+## Git workflow
+
+Commit directly on `main`. Do not create feature branches or pull requests unless explicitly asked.
+
 ## Monorepo structure
 
 This is an npm workspaces monorepo:
 
 ```
-packages/core/   — the palimpsest library (published to npm / GitHub)
-packages/cli/    — the palimpsest TUI (ink + react, depends on core via workspace)
+packages/core/     — the palimpsest library (published to npm / GitHub)
+packages/ui-core/  — shared app logic: state machine, view models, commands hook (React, no Ink)
+packages/cli/      — the palimpsest TUI (ink + react, depends on core and ui-core via workspace)
 ```
 
 Run commands from the repo root, or `cd` into a package directory:
 
 ```bash
-npm test                                         # run core tests (vitest)
-npm run build --workspaces                       # build all packages
-npm run typecheck --workspaces                   # typecheck all packages
-npm run test --workspace=packages/core           # core tests only
-npm run test:watch --workspace=packages/core     # core tests in watch mode
-npm run dev --workspace=packages/cli             # run CLI dev server (tsx)
-npm run build --workspace=packages/cli           # build CLI
+npm test                                           # run core tests (vitest)
+npm run build --workspaces                         # build all packages
+npm run typecheck --workspaces                     # typecheck all packages
+npm run test --workspace=packages/core             # core tests only
+npm run test:watch --workspace=packages/core       # core tests in watch mode
+npm run test --workspace=packages/ui-core          # ui-core tests
+npm run dev --workspace=packages/cli               # run CLI dev server (tsx)
+npm run build --workspace=packages/cli             # build CLI
 ```
 
 To run a single test file (from packages/core):
@@ -38,6 +44,22 @@ npx vitest run -t "weekly"
 ```
 
 ## Architecture
+
+### packages/ui-core
+
+Framework-agnostic app logic shared across TUI, web, and phone (all React surfaces).
+
+```
+types.ts      — View, Mode, NavState, UIState, Action, Command
+reducer.ts    — uiReducer(UIState, UIAction) → UIState  (pure, no I/O)
+viewModel.ts  — deriveViewModel(ProjectionState, UIState) → ViewModel
+commands.ts   — getCommands(ViewModel) → Command[]  (context-sensitive)
+useAppState.ts — React hook: owns PalimpsestStore, wires everything, exposes dispatch(Action)
+```
+
+`dispatch` accepts both `UIAction` (handled by reducer) and `DataAction` (calls core commands, appends to store, refreshes projection state). The CLI imports `useAppState` and is a thin rendering-and-keyboard layer.
+
+### packages/core
 
 `packages/core` is a pure TypeScript library with no runtime framework. The architecture is strict event-sourcing: all state is derived by replaying an append-only log of events; there is no mutable store of current state.
 
