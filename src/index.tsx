@@ -48,6 +48,17 @@ function App() {
     () => activeSphere !== undefined ? listAgendas(state, { sphereId: activeSphere.id }) : [],
     [state, activeSphere],
   )
+  const projectStats = useMemo(() => {
+    const hasNext = new Set<ProjectId>()
+    const taskCount = new Map<ProjectId, number>()
+    for (const task of state.tasks.values()) {
+      if (task.projectId !== undefined && task.status === 'open') {
+        taskCount.set(task.projectId, (taskCount.get(task.projectId) ?? 0) + 1)
+        if (task.isNext === true) hasNext.add(task.projectId)
+      }
+    }
+    return { hasNext, taskCount }
+  }, [state])
   const [view, setView] = useState<View>('tasks')
   const [activeProjectId, setActiveProjectId] = useState<ProjectId | undefined>(undefined)
   const activeProject = useMemo(
@@ -374,11 +385,13 @@ function App() {
             <Text dimColor>No projects.</Text>
           ) : projects.map((project, i) => {
             const isSelected = i === selected
+            const hasNext = projectStats.hasNext.has(project.id)
+            const count = projectStats.taskCount.get(project.id) ?? 0
             return (
               <Box key={project.id}>
-                <Text {...(isSelected ? { color: 'blue' as const } : {})}>
+                <Text {...(isSelected ? { color: 'blue' as const } : !hasNext ? { color: 'red' as const } : {})}>
                   {isSelected ? '▶ ' : '  '}
-                  {project.name}
+                  {project.name}<Text dimColor> {count}</Text>
                 </Text>
               </Box>
             )
