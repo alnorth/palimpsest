@@ -17,3 +17,6 @@
 - [ ] Search across tasks and projects.
 - [ ] Toggle isWaiting on a task.
 - [ ] Track what a task is waiting for.
+- [ ] Build the problem lists into the ui-core.
+- [ ] Expose problem lists in the TUI.
+- [ ] Implement a script that imports events from a Todoist export.

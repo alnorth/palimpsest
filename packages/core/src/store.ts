@@ -4,11 +4,11 @@ import type { ProjectionState } from './projection.js'
 import { project } from './projection.js'
 
 export abstract class PalimpsestStore {
-  abstract readAllEvents(): PalimpsestEvent[]
-  abstract appendEvents(events: PalimpsestEvent[]): void
+  abstract readAllEvents(): Promise<PalimpsestEvent[]>
+  abstract appendEvents(events: PalimpsestEvent[]): Promise<void>
 
-  getState(): ProjectionState {
-    return project(this.readAllEvents())
+  async getState(): Promise<ProjectionState> {
+    return project(await this.readAllEvents())
   }
 }
 
@@ -20,15 +20,18 @@ export class FilePalimpsestStore extends PalimpsestStore {
     this.filePath = filePath
   }
 
-  readAllEvents(): PalimpsestEvent[] {
-    if (!existsSync(this.filePath)) return []
+  readAllEvents(): Promise<PalimpsestEvent[]> {
+    if (!existsSync(this.filePath)) return Promise.resolve([])
     const raw = readFileSync(this.filePath, 'utf-8').trim()
-    if (!raw) return []
-    return raw.split('\n').map((line: string) => JSON.parse(line) as PalimpsestEvent)
+    if (!raw) return Promise.resolve([])
+    return Promise.resolve(
+      raw.split('\n').map((line: string) => JSON.parse(line) as PalimpsestEvent)
+    )
   }
 
-  appendEvents(events: PalimpsestEvent[]): void {
-    if (events.length === 0) return
+  appendEvents(events: PalimpsestEvent[]): Promise<void> {
+    if (events.length === 0) return Promise.resolve()
     appendFileSync(this.filePath, events.map(e => JSON.stringify(e)).join('\n') + '\n', 'utf-8')
+    return Promise.resolve()
   }
 }

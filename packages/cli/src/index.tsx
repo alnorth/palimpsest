@@ -4,16 +4,41 @@ import { TaskList } from './TaskList.js'
 import { Row, Meta } from './Row.js'
 import TextInput from 'ink-text-input'
 import { FilePalimpsestStore, CLEAR, getProject, getAgenda } from 'palimpsest'
-import { useAppState, INITIAL_NAV } from 'palimpsest-ui-core'
+import type { PalimpsestStore } from 'palimpsest'
+import { useAppState, INITIAL_NAV, ClientPalimpsestStore } from 'palimpsest-ui-core'
+import { FilePendingEventStore } from './FilePendingEventStore.js'
 import type { View } from 'palimpsest-ui-core'
 import { formatDate, formatDateTime } from './format.js'
 import { homedir } from 'node:os'
 import { join, dirname } from 'node:path'
 import { mkdirSync } from 'node:fs'
 
-const filePath = process.env['PALIMPSEST_FILE'] ?? join(homedir(), '.palimpsest', 'events.jsonl')
-mkdirSync(dirname(filePath), { recursive: true })
-const store = new FilePalimpsestStore(filePath)
+const apiUrl = process.env['PALIMPSEST_API_URL']
+const authToken = process.env['PALIMPSEST_AUTH_TOKEN']
+
+let store: PalimpsestStore
+if (apiUrl !== undefined && authToken !== undefined) {
+  const pendingPath = join(homedir(), '.palimpsest', 'pending.json')
+  store = new ClientPalimpsestStore(
+    async (clientSeq, events) => {
+      const res = await fetch(`${apiUrl}/sync`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ clientSeq, events }),
+      })
+      if (!res.ok) throw new Error(`Sync failed: ${res.status} ${await res.text()}`)
+      return res.json() as Promise<any>
+    },
+    { pendingStore: new FilePendingEventStore(pendingPath) },
+  )
+} else {
+  const filePath = process.env['PALIMPSEST_FILE'] ?? join(homedir(), '.palimpsest', 'events.jsonl')
+  mkdirSync(dirname(filePath), { recursive: true })
+  store = new FilePalimpsestStore(filePath)
+}
 
 const VIEW_CONFIG = {
   tasks:    { label: 'Tasks',    key: 't' },
@@ -30,6 +55,7 @@ function App() {
     view, mode, selected, tasks, projects, projectTasks, activeTask, activeProject,
     activeSphere, agendas, projectStats, listLength, currentTask, spheres,
     projState, uiState, commands, dispatch, canGoBack, showCompleted, showArchived,
+    isLoading, syncHealth, unsyncedCount, pendingConflicts, lastSyncError,
   } = useAppState(store)
 
   const { viewPickerSelected, agendaPickerSelected, settingsSelected, pickerSelected, agendaSphereId } = uiState
@@ -371,12 +397,32 @@ function App() {
     ) : listHint
   }
 
+  if (isLoading) {
+    return (
+      <Box flexDirection="column" height={termRows} paddingX={1}>
+        <Box paddingTop={1}><Text bold color="cyan">Palimpsest</Text></Box>
+        <Box flexGrow={1} flexDirection="column" paddingTop={1}>
+          <Text dimColor>Connecting…</Text>
+        </Box>
+      </Box>
+    )
+  }
+
+  const syncRow = syncHealth === 'error' ? (
+    <Text color="red">sync error: {lastSyncError ?? 'unknown'} — changes saved locally, will retry</Text>
+  ) : syncHealth === 'conflict' ? (
+    <Text color="red">conflict: {pendingConflicts[0]?.reason ?? 'unknown'}</Text>
+  ) : unsyncedCount > 0 ? (
+    <Text dimColor>{unsyncedCount} unsynced</Text>
+  ) : null
+
   return (
     <Box flexDirection="column" height={termRows} paddingX={1}>
       <Box paddingTop={1}>{title}</Box>
       <Box flexGrow={1} flexDirection="column" paddingTop={1} overflow="hidden">
         {content}
       </Box>
+      {syncRow !== null && <Box>{syncRow}</Box>}
       <Box paddingBottom={1}>{footer}</Box>
     </Box>
   )

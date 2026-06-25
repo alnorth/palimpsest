@@ -1,24 +1,31 @@
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useEffect } from 'react'
 import {
   listSpheres, listTasks, listProjects,
   createTask, updateTask, completeTask, uncompleteTask,
   createProject, updateProject, archiveProject, unarchiveProject,
   createSphere, createAgenda,
+  createEmptyState,
 } from 'palimpsest'
 import type { PalimpsestStore, ProjectionState } from 'palimpsest'
-import { INITIAL_UI_STATE, INITIAL_NAV } from './types.js'
+import { INITIAL_UI_STATE } from './types.js'
 import type { UIState, Action, UIAction, DataAction } from './types.js'
 import { uiReducer } from './reducer.js'
 import { deriveViewModel } from './viewModel.js'
 import { getCommands } from './commands.js'
 import type { ViewModel } from './viewModel.js'
 import type { Command } from './types.js'
+import type { SyncHealth, PendingConflict } from './ClientPalimpsestStore.js'
 
 export interface AppStateResult extends ViewModel {
   projState: ProjectionState
   uiState: UIState
   commands: Command[]
   dispatch: (action: Action) => void
+  isLoading: boolean
+  syncHealth: SyncHealth
+  unsyncedCount: number
+  pendingConflicts: PendingConflict[]
+  lastSyncError: string | undefined
 }
 
 function isDataAction(action: Action): action is DataAction {
@@ -40,21 +47,63 @@ function isDataAction(action: Action): action is DataAction {
   )
 }
 
-export function useAppState(store: PalimpsestStore): AppStateResult {
-  const [projState, setProjState] = useState<ProjectionState>(() => store.getState())
-  const [uiState, setUIState] = useState<UIState>(() => ({
-    ...INITIAL_UI_STATE,
-    currentSphereId: store.getState().spheres.values().next().value?.id,
-  }))
+// Duck-typed interface for stores that support push-based sync (e.g. ClientPalimpsestStore)
+interface SubscribableStore {
+  subscribe(listener: () => void): () => void
+  start(): void
+  stop(): void
+  readonly syncHealth?: SyncHealth
+  readonly unsyncedCount?: number
+  readonly pendingConflicts?: PendingConflict[]
+  readonly lastSyncError?: string
+}
 
-  function refreshProj(): ProjectionState {
-    const next = store.getState()
+function isSubscribable(store: PalimpsestStore): store is PalimpsestStore & SubscribableStore {
+  return typeof (store as any).subscribe === 'function'
+}
+
+export function useAppState(store: PalimpsestStore): AppStateResult {
+  const [projState, setProjState] = useState<ProjectionState | undefined>(undefined)
+  const [uiState, setUIState] = useState<UIState>(INITIAL_UI_STATE)
+  const [syncHealth, setSyncHealth] = useState<SyncHealth>('idle')
+  const [unsyncedCount, setUnsyncedCount] = useState(0)
+  const [pendingConflicts, setPendingConflicts] = useState<PendingConflict[]>([])
+  const [lastSyncError, setLastSyncError] = useState<string | undefined>(undefined)
+
+  const applyState = useCallback((state: ProjectionState) => {
+    setProjState(state)
+    setUIState(prev => ({
+      ...prev,
+      currentSphereId: prev.currentSphereId ?? state.spheres.values().next().value?.id,
+    }))
+  }, [])
+
+  useEffect(() => {
+    if (isSubscribable(store)) {
+      store.start()
+      const unsub = store.subscribe(() => {
+        void store.getState().then(applyState)
+        setSyncHealth(store.syncHealth ?? 'idle')
+        setUnsyncedCount(store.unsyncedCount ?? 0)
+        setPendingConflicts(store.pendingConflicts ?? [])
+        setLastSyncError(store.lastSyncError)
+      })
+      return () => { unsub(); store.stop() }
+    } else {
+      void store.getState().then(applyState)
+    }
+  }, [store, applyState])
+
+  async function refreshProj(): Promise<ProjectionState> {
+    const next = await store.getState()
     setProjState(next)
     return next
   }
 
-  const vm = useMemo(() => deriveViewModel(projState, uiState), [projState, uiState])
+  const resolvedState = projState ?? createEmptyState()
+  const vm = useMemo(() => deriveViewModel(resolvedState, uiState), [resolvedState, uiState])
   const commands = useMemo(() => getCommands(vm), [vm])
+  const isLoading = projState === undefined
 
   const dispatch = useCallback((action: Action) => {
     if (!isDataAction(action)) {
@@ -62,163 +111,165 @@ export function useAppState(store: PalimpsestStore): AppStateResult {
       return
     }
 
-    switch (action.type) {
-      case 'create-task': {
-        const sphereId = action.sphereId ?? vm.activeSphere?.id
-        const projectId = action.projectId
-        if (projectId !== undefined) {
-          store.appendEvents(createTask(projState, { title: action.title, projectId }))
-          const next = refreshProj()
-          const newTasks = listTasks(next, { projectId, status: 'open' })
-          setUIState(prev => uiReducer(prev, { type: 'update-nav', patch: { selected: newTasks.length - 1 } }))
-        } else if (sphereId !== undefined) {
-          store.appendEvents(createTask(projState, { title: action.title, sphereId }))
-          const next = refreshProj()
-          const newTasks = listTasks(next, { sphereId, status: 'open' })
-          setUIState(prev => uiReducer(prev, { type: 'update-nav', patch: { selected: newTasks.length - 1 } }))
+    void (async () => {
+      switch (action.type) {
+        case 'create-task': {
+          const sphereId = action.sphereId ?? vm.activeSphere?.id
+          const projectId = action.projectId
+          if (projectId !== undefined) {
+            await store.appendEvents(createTask(resolvedState, { title: action.title, projectId }))
+            const next = await refreshProj()
+            const newTasks = listTasks(next, { projectId, status: 'open' })
+            setUIState(prev => uiReducer(prev, { type: 'update-nav', patch: { selected: newTasks.length - 1 } }))
+          } else if (sphereId !== undefined) {
+            await store.appendEvents(createTask(resolvedState, { title: action.title, sphereId }))
+            const next = await refreshProj()
+            const newTasks = listTasks(next, { sphereId, status: 'open' })
+            setUIState(prev => uiReducer(prev, { type: 'update-nav', patch: { selected: newTasks.length - 1 } }))
+          }
+          setUIState(prev => uiReducer(prev, { type: 'set-mode', mode: 'list' }))
+          break
         }
-        setUIState(prev => uiReducer(prev, { type: 'set-mode', mode: 'list' }))
-        break
-      }
 
-      case 'edit-task': {
-        store.appendEvents(updateTask(projState, { taskId: action.taskId, patch: { title: action.title } }))
-        refreshProj()
-        setUIState(prev => uiReducer(prev, { type: 'set-mode', mode: 'list' }))
-        break
-      }
+        case 'edit-task': {
+          await store.appendEvents(updateTask(resolvedState, { taskId: action.taskId, patch: { title: action.title } }))
+          await refreshProj()
+          setUIState(prev => uiReducer(prev, { type: 'set-mode', mode: 'list' }))
+          break
+        }
 
-      case 'edit-task-description': {
-        store.appendEvents(updateTask(projState, { taskId: action.taskId, patch: { description: action.description } }))
-        refreshProj()
-        setUIState(prev => uiReducer(prev, { type: 'set-mode', mode: 'list' }))
-        break
-      }
+        case 'edit-task-description': {
+          await store.appendEvents(updateTask(resolvedState, { taskId: action.taskId, patch: { description: action.description } }))
+          await refreshProj()
+          setUIState(prev => uiReducer(prev, { type: 'set-mode', mode: 'list' }))
+          break
+        }
 
-      case 'complete-task': {
-        store.appendEvents(completeTask(projState, action.taskId))
-        const next = refreshProj()
-        if (vm.view !== 'task') {
-          const activeProjectId = vm.activeProject?.id
+        case 'complete-task': {
+          await store.appendEvents(completeTask(resolvedState, action.taskId))
+          const next = await refreshProj()
+          if (vm.view !== 'task') {
+            const activeProjectId = vm.activeProject?.id
+            const activeSphereId = vm.activeSphere?.id
+            const remainingTasks = activeProjectId !== undefined
+              ? listTasks(next, { projectId: activeProjectId, status: 'open' })
+              : activeSphereId !== undefined
+                ? listTasks(next, { sphereId: activeSphereId, status: 'open' })
+                : []
+            setUIState(prev => uiReducer(prev, {
+              type: 'update-nav',
+              patch: { selected: Math.max(0, Math.min(prev.navStack[prev.navStack.length - 1]?.selected ?? 0, remainingTasks.length - 1)) },
+            }))
+          }
+          break
+        }
+
+        case 'uncomplete-task': {
+          await store.appendEvents(uncompleteTask(resolvedState, action.taskId))
+          const next = await refreshProj()
+          if (vm.view !== 'task') {
+            const activeProjectId = vm.activeProject?.id
+            const activeSphereId = vm.activeSphere?.id
+            const remainingTasks = activeProjectId !== undefined
+              ? listTasks(next, { projectId: activeProjectId, status: 'completed' })
+              : activeSphereId !== undefined
+                ? listTasks(next, { sphereId: activeSphereId, status: 'completed' })
+                : []
+            setUIState(prev => uiReducer(prev, {
+              type: 'update-nav',
+              patch: { selected: Math.max(0, Math.min(prev.navStack[prev.navStack.length - 1]?.selected ?? 0, remainingTasks.length - 1)) },
+            }))
+          }
+          break
+        }
+
+        case 'toggle-next': {
+          const task = resolvedState.tasks.get(action.taskId)
+          if (task !== undefined) {
+            await store.appendEvents(updateTask(resolvedState, { taskId: action.taskId, patch: { isNext: task.isNext !== true } }))
+            await refreshProj()
+          }
+          break
+        }
+
+        case 'toggle-starred': {
+          const task = resolvedState.tasks.get(action.taskId)
+          if (task !== undefined) {
+            await store.appendEvents(updateTask(resolvedState, { taskId: action.taskId, patch: { isStarred: task.isStarred !== true } }))
+            await refreshProj()
+          }
+          break
+        }
+
+        case 'set-task-agenda': {
+          await store.appendEvents(updateTask(resolvedState, { taskId: action.taskId, patch: { agendaId: action.agendaId } }))
+          await refreshProj()
+          setUIState(prev => uiReducer(prev, { type: 'set-mode', mode: 'list' }))
+          break
+        }
+
+        case 'create-project': {
+          await store.appendEvents(createProject(resolvedState, { name: action.name, sphereId: action.sphereId }))
+          await refreshProj()
+          setUIState(prev => uiReducer(prev, { type: 'set-mode', mode: 'list' }))
+          break
+        }
+
+        case 'edit-project': {
+          await store.appendEvents(updateProject(resolvedState, action.projectId, { name: action.name }))
+          await refreshProj()
+          setUIState(prev => uiReducer(prev, { type: 'set-mode', mode: 'list' }))
+          break
+        }
+
+        case 'archive-project': {
+          await store.appendEvents(archiveProject(resolvedState, action.projectId))
+          const next = await refreshProj()
           const activeSphereId = vm.activeSphere?.id
-          const remainingTasks = activeProjectId !== undefined
-            ? listTasks(next, { projectId: activeProjectId, status: 'open' })
-            : activeSphereId !== undefined
-              ? listTasks(next, { sphereId: activeSphereId, status: 'open' })
-              : []
+          const remaining = activeSphereId !== undefined
+            ? listProjects(next, { sphereId: activeSphereId, isArchived: false })
+            : []
           setUIState(prev => uiReducer(prev, {
             type: 'update-nav',
-            patch: { selected: Math.max(0, Math.min(prev.navStack[prev.navStack.length - 1]?.selected ?? 0, remainingTasks.length - 1)) },
+            patch: { selected: Math.max(0, Math.min(prev.navStack[prev.navStack.length - 1]?.selected ?? 0, remaining.length - 1)) },
           }))
+          break
         }
-        break
-      }
 
-      case 'uncomplete-task': {
-        store.appendEvents(uncompleteTask(projState, action.taskId))
-        const next = refreshProj()
-        if (vm.view !== 'task') {
-          const activeProjectId = vm.activeProject?.id
+        case 'unarchive-project': {
+          await store.appendEvents(unarchiveProject(resolvedState, action.projectId))
+          const next = await refreshProj()
           const activeSphereId = vm.activeSphere?.id
-          const remainingTasks = activeProjectId !== undefined
-            ? listTasks(next, { projectId: activeProjectId, status: 'completed' })
-            : activeSphereId !== undefined
-              ? listTasks(next, { sphereId: activeSphereId, status: 'completed' })
-              : []
+          const remaining = activeSphereId !== undefined
+            ? listProjects(next, { sphereId: activeSphereId, isArchived: true })
+            : []
           setUIState(prev => uiReducer(prev, {
             type: 'update-nav',
-            patch: { selected: Math.max(0, Math.min(prev.navStack[prev.navStack.length - 1]?.selected ?? 0, remainingTasks.length - 1)) },
+            patch: { selected: Math.max(0, Math.min(prev.navStack[prev.navStack.length - 1]?.selected ?? 0, remaining.length - 1)) },
           }))
+          break
         }
-        break
-      }
 
-      case 'toggle-next': {
-        const task = projState.tasks.get(action.taskId)
-        if (task !== undefined) {
-          store.appendEvents(updateTask(projState, { taskId: action.taskId, patch: { isNext: task.isNext !== true } }))
-          refreshProj()
+        case 'create-sphere': {
+          await store.appendEvents(createSphere(resolvedState, { name: action.name }))
+          const next = await refreshProj()
+          setUIState(prev => ({
+            ...uiReducer(prev, { type: 'set-mode', mode: 'settings' }),
+            currentSphereId: prev.currentSphereId ?? listSpheres(next)[0]?.id,
+          }))
+          break
         }
-        break
-      }
 
-      case 'toggle-starred': {
-        const task = projState.tasks.get(action.taskId)
-        if (task !== undefined) {
-          store.appendEvents(updateTask(projState, { taskId: action.taskId, patch: { isStarred: task.isStarred !== true } }))
-          refreshProj()
+        case 'create-agenda': {
+          await store.appendEvents(createAgenda(resolvedState, { title: action.title, sphereId: action.sphereId }))
+          await refreshProj()
+          setUIState(prev => uiReducer(prev, { type: 'set-mode', mode: 'settings' }))
+          break
         }
-        break
       }
-
-      case 'set-task-agenda': {
-        store.appendEvents(updateTask(projState, { taskId: action.taskId, patch: { agendaId: action.agendaId } }))
-        refreshProj()
-        setUIState(prev => uiReducer(prev, { type: 'set-mode', mode: 'list' }))
-        break
-      }
-
-      case 'create-project': {
-        store.appendEvents(createProject(projState, { name: action.name, sphereId: action.sphereId }))
-        refreshProj()
-        setUIState(prev => uiReducer(prev, { type: 'set-mode', mode: 'list' }))
-        break
-      }
-
-      case 'edit-project': {
-        store.appendEvents(updateProject(projState, action.projectId, { name: action.name }))
-        refreshProj()
-        setUIState(prev => uiReducer(prev, { type: 'set-mode', mode: 'list' }))
-        break
-      }
-
-      case 'archive-project': {
-        store.appendEvents(archiveProject(projState, action.projectId))
-        const next = refreshProj()
-        const activeSphereId = vm.activeSphere?.id
-        const remaining = activeSphereId !== undefined
-          ? listProjects(next, { sphereId: activeSphereId, isArchived: false })
-          : []
-        setUIState(prev => uiReducer(prev, {
-          type: 'update-nav',
-          patch: { selected: Math.max(0, Math.min(prev.navStack[prev.navStack.length - 1]?.selected ?? 0, remaining.length - 1)) },
-        }))
-        break
-      }
-
-      case 'unarchive-project': {
-        store.appendEvents(unarchiveProject(projState, action.projectId))
-        const next = refreshProj()
-        const activeSphereId = vm.activeSphere?.id
-        const remaining = activeSphereId !== undefined
-          ? listProjects(next, { sphereId: activeSphereId, isArchived: true })
-          : []
-        setUIState(prev => uiReducer(prev, {
-          type: 'update-nav',
-          patch: { selected: Math.max(0, Math.min(prev.navStack[prev.navStack.length - 1]?.selected ?? 0, remaining.length - 1)) },
-        }))
-        break
-      }
-
-      case 'create-sphere': {
-        store.appendEvents(createSphere(projState, { name: action.name }))
-        const next = refreshProj()
-        setUIState(prev => ({
-          ...uiReducer(prev, { type: 'set-mode', mode: 'settings' }),
-          currentSphereId: prev.currentSphereId ?? listSpheres(next)[0]?.id,
-        }))
-        break
-      }
-
-      case 'create-agenda': {
-        store.appendEvents(createAgenda(projState, { title: action.title, sphereId: action.sphereId }))
-        refreshProj()
-        setUIState(prev => uiReducer(prev, { type: 'set-mode', mode: 'settings' }))
-        break
-      }
-    }
+    })()
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [projState, uiState, vm])
+  }, [resolvedState, uiState, vm])
 
-  return { ...vm, projState, uiState, commands, dispatch }
+  return { ...vm, projState: resolvedState, uiState, commands, dispatch, isLoading, syncHealth, unsyncedCount, pendingConflicts, lastSyncError }
 }
