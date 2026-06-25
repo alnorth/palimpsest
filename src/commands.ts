@@ -322,6 +322,21 @@ export function completeTask(
   }]
 }
 
+export function uncompleteTask(
+  state: ProjectionState,
+  taskId: TaskId,
+): PalimpsestEvent[] {
+  const task = state.tasks.get(taskId)
+  if (!task) throw new Error(`Task not found: ${taskId}`)
+  if (task.status !== 'completed') throw new Error(`Task is not completed`)
+  return [{
+    id: newEventId(),
+    type: 'task.uncompleted',
+    taskId,
+    occurredAt: now(),
+  }]
+}
+
 export function deleteTask(
   state: ProjectionState,
   taskId: TaskId,

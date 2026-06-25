@@ -137,6 +137,11 @@ export interface TaskRecurredEvent extends EventBase {
   newDueDate: string
 }
 
+export interface TaskUncompletedEvent extends EventBase {
+  type: 'task.uncompleted'
+  taskId: TaskId
+}
+
 export interface TaskDeletedEvent extends EventBase {
   type: 'task.deleted'
   taskId: TaskId
@@ -159,5 +164,6 @@ export type PalimpsestEvent =
   | TaskCreatedEvent
   | TaskUpdatedEvent
   | TaskCompletedEvent
+  | TaskUncompletedEvent
   | TaskRecurredEvent
   | TaskDeletedEvent

@@ -5,7 +5,7 @@ export type {
   SphereCreatedEvent, SphereUpdatedEvent, SphereDeletedEvent,
   ProjectCreatedEvent, ProjectUpdatedEvent, ProjectDeletedEvent, ProjectArchivedEvent, ProjectUnarchivedEvent,
   AgendaCreatedEvent, AgendaUpdatedEvent, AgendaDeletedEvent,
-  TaskCreatedEvent, TaskUpdatedEvent, TaskCompletedEvent, TaskRecurredEvent, TaskDeletedEvent,
+  TaskCreatedEvent, TaskUpdatedEvent, TaskCompletedEvent, TaskUncompletedEvent, TaskRecurredEvent, TaskDeletedEvent,
   TaskPatch, ProjectPatch, SpherePatch, AgendaPatch,
 } from './events.js'
 export { CLEAR } from './events.js'
@@ -22,7 +22,7 @@ export {
   createSphere, updateSphere, deleteSphere,
   createProject, updateProject, deleteProject, archiveProject, unarchiveProject,
   createAgenda, updateAgenda, deleteAgenda,
-  createTask, updateTask, completeTask, deleteTask,
+  createTask, updateTask, completeTask, uncompleteTask, deleteTask,
 } from './commands.js'
 export {
   getTask, listTasks, listOpenTasks, listTasksByProject, listTasksBySphere, listTasksByAgenda,

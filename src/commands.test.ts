@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { createEmptyState, project } from './projection.js'
 import {
   createSphere, createProject, createTask, updateTask,
-  completeTask, deleteTask,
+  completeTask, uncompleteTask, deleteTask,
 } from './commands.js'
 import type { PalimpsestEvent } from './events.js'
 import type { SphereId, ProjectId, TaskId } from './ids.js'
@@ -114,6 +114,37 @@ describe('completeTask', () => {
     expect(() =>
       completeTask(createEmptyState(), 'nope' as TaskId)
     ).toThrow('Task not found')
+  })
+})
+
+describe('uncompleteTask', () => {
+  it('restores a completed task to open', () => {
+    const sphereEvts = createSphere(createEmptyState(), { name: 'W' })
+    const s1 = buildState(sphereEvts)
+    const sid = (sphereEvts[0] as any).sphereId as SphereId
+    const taskEvts = createTask(s1, { title: 'T', sphereId: sid, dueDate: '2026-06-25' })
+    const s2 = buildState([...sphereEvts, ...taskEvts])
+    const tid = (taskEvts[0] as any).taskId as TaskId
+    const compEvts = completeTask(s2, tid)
+    const s3 = buildState([...sphereEvts, ...taskEvts, ...compEvts])
+    const uncompEvts = uncompleteTask(s3, tid)
+    const s4 = buildState([...sphereEvts, ...taskEvts, ...compEvts, ...uncompEvts])
+    expect(s4.tasks.get(tid)?.status).toBe('open')
+    expect(s4.tasks.get(tid)?.completedAt).toBeUndefined()
+  })
+
+  it('throws if task is not completed', () => {
+    const sphereEvts = createSphere(createEmptyState(), { name: 'W' })
+    const s1 = buildState(sphereEvts)
+    const sid = (sphereEvts[0] as any).sphereId as SphereId
+    const taskEvts = createTask(s1, { title: 'T', sphereId: sid })
+    const s2 = buildState([...sphereEvts, ...taskEvts])
+    const tid = (taskEvts[0] as any).taskId as TaskId
+    expect(() => uncompleteTask(s2, tid)).toThrow('not completed')
+  })
+
+  it('throws if task does not exist', () => {
+    expect(() => uncompleteTask(createEmptyState(), 'nope' as TaskId)).toThrow('Task not found')
   })
 })
 

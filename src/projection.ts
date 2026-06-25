@@ -185,6 +185,15 @@ export function applyEvent(state: ProjectionState, event: PalimpsestEvent): Proj
       return state
     }
 
+    case 'task.uncompleted': {
+      const task = state.tasks.get(event.taskId)
+      if (!task || task.status !== 'completed') return state
+      task.status    = 'open'
+      task.updatedAt = event.occurredAt
+      delete task.completedAt
+      return state
+    }
+
     case 'task.recurred': {
       const task = state.tasks.get(event.taskId)
       // no-op if task doesn't exist or is not a recurring task
