@@ -21,26 +21,40 @@ const SETTINGS_OPTIONS = ['Create Sphere', 'Create Agenda'] as const
 
 function App() {
   const [state, setState] = useState<ProjectionState>(() => store.getState())
-  const tasks = useMemo(() => listTasks(state), [state])
   const spheres = useMemo(() => listSpheres(state), [state])
+  const [currentSphereId, setCurrentSphereId] = useState<SphereId | undefined>(() => store.getState().spheres.values().next().value?.id)
+  const activeSphere = useMemo(
+    () => (currentSphereId !== undefined ? state.spheres.get(currentSphereId) : undefined) ?? spheres[0],
+    [state, currentSphereId, spheres],
+  )
+  const tasks = useMemo(
+    () => activeSphere !== undefined ? listTasks(state, { sphereId: activeSphere.id, status: 'open' }) : [],
+    [state, activeSphere],
+  )
   const [selected, setSelected] = useState(0)
   const [settingsSelected, setSettingsSelected] = useState(0)
   const [pickerSelected, setPickerSelected] = useState(0)
-  const [selectedSphereId, setSelectedSphereId] = useState<SphereId | undefined>(undefined)
+  const [agendaSphereId, setAgendaSphereId] = useState<SphereId | undefined>(undefined)
   const [mode, setMode] = useState<Mode>('list')
   const [formValue, setFormValue] = useState('')
   const { exit } = useApp()
 
+  function refreshState() {
+    const newState = store.getState()
+    setState(newState)
+    return newState
+  }
+
   function appendAndRefresh(events: ReturnType<typeof createTask>) {
     store.appendEvents(events)
-    setState(store.getState())
+    refreshState()
   }
 
   function startCreateAgenda() {
     if (spheres.length === 0) {
       setMode('picking-sphere-for-agenda') // will show error
     } else if (spheres.length === 1) {
-      setSelectedSphereId(spheres[0]!.id)
+      setAgendaSphereId(spheres[0]!.id)
       setMode('creating-agenda')
     } else {
       setPickerSelected(0)
@@ -61,7 +75,7 @@ function App() {
       if (key.upArrow) setPickerSelected(i => Math.max(0, i - 1))
       if (key.downArrow) setPickerSelected(i => Math.min(spheres.length - 1, i + 1))
       if (key.return && spheres.length > 0) {
-        setSelectedSphereId(spheres[pickerSelected]!.id)
+        setAgendaSphereId(spheres[pickerSelected]!.id)
         setMode('creating-agenda')
       }
       return
@@ -80,15 +94,18 @@ function App() {
     if (input === 'q' || key.escape) exit()
     if (input === 'n') setMode('adding')
     if (input === 's') setMode('settings')
+    if (input === ']') {
+      const idx = spheres.findIndex(s => s.id === activeSphere?.id)
+      setCurrentSphereId(spheres[(idx + 1) % spheres.length]?.id)
+    }
     if (key.upArrow) setSelected(i => Math.max(0, i - 1))
     if (key.downArrow) setSelected(i => Math.min(tasks.length - 1, i + 1))
   })
 
   function handleTaskSubmit(title: string) {
     const trimmed = title.trim()
-    const sphere = spheres[0]
-    if (trimmed && sphere !== undefined) {
-      appendAndRefresh(createTask(state, { title: trimmed, sphereId: sphere.id }))
+    if (trimmed && activeSphere !== undefined) {
+      appendAndRefresh(createTask(state, { title: trimmed, sphereId: activeSphere.id }))
     }
     setFormValue('')
     setMode('list')
@@ -96,18 +113,25 @@ function App() {
 
   function handleSphereSubmit(name: string) {
     const trimmed = name.trim()
-    if (trimmed) appendAndRefresh(createSphere(state, { name: trimmed }))
+    if (trimmed) {
+      const events = createSphere(state, { name: trimmed })
+      store.appendEvents(events)
+      const newState = refreshState()
+      if (currentSphereId === undefined) {
+        setCurrentSphereId(listSpheres(newState)[0]?.id)
+      }
+    }
     setFormValue('')
     setMode('settings')
   }
 
   function handleAgendaSubmit(title: string) {
     const trimmed = title.trim()
-    if (trimmed && selectedSphereId !== undefined) {
-      appendAndRefresh(createAgenda(state, { title: trimmed, sphereId: selectedSphereId }))
+    if (trimmed && agendaSphereId !== undefined) {
+      appendAndRefresh(createAgenda(state, { title: trimmed, sphereId: agendaSphereId }))
     }
     setFormValue('')
-    setSelectedSphereId(undefined)
+    setAgendaSphereId(undefined)
     setMode('settings')
   }
 
@@ -156,21 +180,23 @@ function App() {
 
   return (
     <Box flexDirection="column" paddingY={1}>
-      <Text bold color="cyan">Palimpsest — All Tasks</Text>
+      <Text bold color="cyan">
+        Palimpsest{activeSphere !== undefined ? ` — ${activeSphere.name}` : ''}
+      </Text>
       <Box marginTop={1} flexDirection="column">
-        {tasks.length === 0 ? (
+        {activeSphere === undefined ? (
+          <Text dimColor>No spheres yet — press s to open settings and create one.</Text>
+        ) : tasks.length === 0 ? (
           <Text dimColor>No tasks found.</Text>
         ) : tasks.map((task, i) => {
           const project = task.projectId !== undefined ? getProject(state, task.projectId) : undefined
           const isSelected = i === selected
-          const statusColor = task.status === 'open' ? 'green' : task.status === 'completed' ? 'gray' : 'red'
 
           return (
             <Box key={task.id}>
               <Text {...(isSelected ? { color: 'blue' as const } : {})}>
                 {isSelected ? '▶ ' : '  '}
-                <Text color={statusColor}>[{task.status[0]?.toUpperCase()}]</Text>
-                {' '}{task.title}
+                {task.title}
                 {project !== undefined ? <Text dimColor> · {project.name}</Text> : null}
                 {task.dueDate !== undefined ? <Text dimColor> · due {task.dueDate}</Text> : null}
               </Text>
@@ -180,7 +206,7 @@ function App() {
       </Box>
       <Box marginTop={1}>
         {mode === 'adding' ? (
-          spheres.length === 0 ? (
+          activeSphere === undefined ? (
             <Text color="red">No spheres found — create a sphere first.</Text>
           ) : (
             <Box>
@@ -189,7 +215,7 @@ function App() {
             </Box>
           )
         ) : (
-          <Text dimColor>↑↓ navigate  n new  s settings  q quit</Text>
+          <Text dimColor>↑↓ navigate  n new  ] sphere  s settings  q quit</Text>
         )}
       </Box>
     </Box>
