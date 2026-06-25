@@ -1,4 +1,4 @@
-import type { TaskId, ProjectId, SphereId, EventId } from './ids.js'
+import type { TaskId, ProjectId, SphereId, AgendaId, EventId } from './ids.js'
 
 export const CLEAR = null
 
@@ -59,6 +59,30 @@ export interface ProjectDeletedEvent extends EventBase {
   projectId: ProjectId
 }
 
+// ── Agenda events ─────────────────────────────────────────────────────────────
+
+export interface AgendaCreatedEvent extends EventBase {
+  type: 'agenda.created'
+  agendaId: AgendaId
+  sphereId: SphereId
+  title: string
+}
+
+export type AgendaPatch = {
+  title?: string
+}
+
+export interface AgendaUpdatedEvent extends EventBase {
+  type: 'agenda.updated'
+  agendaId: AgendaId
+  patch: AgendaPatch
+}
+
+export interface AgendaDeletedEvent extends EventBase {
+  type: 'agenda.deleted'
+  agendaId: AgendaId
+}
+
 // ── Task events ───────────────────────────────────────────────────────────────
 
 export interface TaskCreatedEvent extends EventBase {
@@ -68,6 +92,7 @@ export interface TaskCreatedEvent extends EventBase {
   description: string
   projectId?: ProjectId
   sphereId?: SphereId
+  agendaId?: AgendaId
   dueDate?: string
   dueDateExpression?: string
 }
@@ -77,6 +102,7 @@ export type TaskPatch = {
   description?: string
   projectId?: ProjectId | typeof CLEAR
   sphereId?: SphereId | typeof CLEAR
+  agendaId?: AgendaId | typeof CLEAR
   dueDate?: string | typeof CLEAR
   dueDateExpression?: string | typeof CLEAR
 }
@@ -113,6 +139,9 @@ export type PalimpsestEvent =
   | ProjectCreatedEvent
   | ProjectUpdatedEvent
   | ProjectDeletedEvent
+  | AgendaCreatedEvent
+  | AgendaUpdatedEvent
+  | AgendaDeletedEvent
   | TaskCreatedEvent
   | TaskUpdatedEvent
   | TaskCompletedEvent

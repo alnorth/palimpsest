@@ -1,16 +1,17 @@
-import type { Task, Project, Sphere } from './types.js'
-import type { TaskId, ProjectId, SphereId } from './ids.js'
+import type { Task, Project, Sphere, Agenda } from './types.js'
+import type { TaskId, ProjectId, SphereId, AgendaId } from './ids.js'
 import type { PalimpsestEvent } from './events.js'
 import { CLEAR } from './events.js'
 
 export interface ProjectionState {
   spheres:  Map<SphereId, Sphere>
   projects: Map<ProjectId, Project>
+  agendas:  Map<AgendaId, Agenda>
   tasks:    Map<TaskId, Task>
 }
 
 export function createEmptyState(): ProjectionState {
-  return { spheres: new Map(), projects: new Map(), tasks: new Map() }
+  return { spheres: new Map(), projects: new Map(), agendas: new Map(), tasks: new Map() }
 }
 
 export function applyEvent(state: ProjectionState, event: PalimpsestEvent): ProjectionState {
@@ -78,6 +79,31 @@ export function applyEvent(state: ProjectionState, event: PalimpsestEvent): Proj
       return state
     }
 
+    case 'agenda.created': {
+      const agenda: Agenda = {
+        id: event.agendaId,
+        sphereId: event.sphereId,
+        title: event.title,
+        createdAt: event.occurredAt,
+        updatedAt: event.occurredAt,
+      }
+      state.agendas.set(agenda.id, agenda)
+      return state
+    }
+
+    case 'agenda.updated': {
+      const agenda = state.agendas.get(event.agendaId)
+      if (!agenda) return state
+      if (event.patch.title !== undefined) agenda.title = event.patch.title
+      agenda.updatedAt = event.occurredAt
+      return state
+    }
+
+    case 'agenda.deleted': {
+      state.agendas.delete(event.agendaId)
+      return state
+    }
+
     case 'task.created': {
       const task: Task = {
         id: event.taskId,
@@ -88,6 +114,7 @@ export function applyEvent(state: ProjectionState, event: PalimpsestEvent): Proj
         updatedAt: event.occurredAt,
         ...(event.projectId         !== undefined && { projectId:         event.projectId }),
         ...(event.sphereId          !== undefined && { sphereId:          event.sphereId }),
+        ...(event.agendaId          !== undefined && { agendaId:          event.agendaId }),
         ...(event.dueDate           !== undefined && { dueDate:           event.dueDate }),
         ...(event.dueDateExpression !== undefined && { dueDateExpression: event.dueDateExpression }),
       }
@@ -108,6 +135,10 @@ export function applyEvent(state: ProjectionState, event: PalimpsestEvent): Proj
       if (patch.sphereId !== undefined) {
         if (patch.sphereId === CLEAR) delete task.sphereId
         else task.sphereId = patch.sphereId
+      }
+      if (patch.agendaId !== undefined) {
+        if (patch.agendaId === CLEAR) delete task.agendaId
+        else task.agendaId = patch.agendaId
       }
       if (patch.dueDate !== undefined) {
         if (patch.dueDate === CLEAR) delete task.dueDate

@@ -1,4 +1,4 @@
-import type { TaskId, ProjectId, SphereId } from './ids.js'
+import type { TaskId, ProjectId, SphereId, AgendaId } from './ids.js'
 
 export type TaskStatus = 'open' | 'completed' | 'deleted'
 
@@ -13,8 +13,17 @@ export interface Task {
   sphereId?: SphereId
   dueDate?: string
   dueDateExpression?: string
+  agendaId?: AgendaId
   completedAt?: string
   lastRecurredAt?: string
+}
+
+export interface Agenda {
+  id: AgendaId
+  sphereId: SphereId
+  title: string
+  createdAt: string
+  updatedAt: string
 }
 
 export interface Project {

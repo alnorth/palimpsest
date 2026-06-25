@@ -1,7 +1,7 @@
 import type { ProjectionState } from './projection.js'
-import type { PalimpsestEvent, TaskPatch, ProjectPatch, SpherePatch } from './events.js'
-import type { TaskId, ProjectId, SphereId } from './ids.js'
-import { newTaskId, newProjectId, newSphereId, newEventId } from './ids.js'
+import type { PalimpsestEvent, TaskPatch, ProjectPatch, SpherePatch, AgendaPatch } from './events.js'
+import type { TaskId, ProjectId, SphereId, AgendaId } from './ids.js'
+import { newTaskId, newProjectId, newSphereId, newAgendaId, newEventId } from './ids.js'
 import { nextDueDate, isValidExpression } from './recurrence.js'
 
 function now(): string {
@@ -112,6 +112,56 @@ export function deleteProject(
   }]
 }
 
+// ── Agenda commands ───────────────────────────────────────────────────────────
+
+export interface CreateAgendaInput {
+  sphereId: SphereId
+  title: string
+}
+
+export function createAgenda(
+  state: ProjectionState,
+  input: CreateAgendaInput,
+): PalimpsestEvent[] {
+  if (!state.spheres.has(input.sphereId)) throw new Error(`Sphere not found: ${input.sphereId}`)
+  return [{
+    id: newEventId(),
+    type: 'agenda.created',
+    agendaId: newAgendaId(),
+    occurredAt: now(),
+    sphereId: input.sphereId,
+    title: input.title,
+  }]
+}
+
+export function updateAgenda(
+  state: ProjectionState,
+  agendaId: AgendaId,
+  patch: AgendaPatch,
+): PalimpsestEvent[] {
+  if (!state.agendas.has(agendaId)) throw new Error(`Agenda not found: ${agendaId}`)
+  return [{
+    id: newEventId(),
+    type: 'agenda.updated',
+    agendaId,
+    occurredAt: now(),
+    patch,
+  }]
+}
+
+export function deleteAgenda(
+  state: ProjectionState,
+  agendaId: AgendaId,
+): PalimpsestEvent[] {
+  if (!state.agendas.has(agendaId)) throw new Error(`Agenda not found: ${agendaId}`)
+  return [{
+    id: newEventId(),
+    type: 'agenda.deleted',
+    agendaId,
+    occurredAt: now(),
+  }]
+}
+
 // ── Task commands ─────────────────────────────────────────────────────────────
 
 export interface CreateTaskInput {
@@ -119,6 +169,7 @@ export interface CreateTaskInput {
   description?: string
   projectId?: ProjectId
   sphereId?: SphereId
+  agendaId?: AgendaId
   dueDate?: string
   dueDateExpression?: string
 }
@@ -136,6 +187,9 @@ export function createTask(
   if (input.sphereId !== undefined && !state.spheres.has(input.sphereId)) {
     throw new Error(`Sphere not found: ${input.sphereId}`)
   }
+  if (input.agendaId !== undefined && !state.agendas.has(input.agendaId)) {
+    throw new Error(`Agenda not found: ${input.agendaId}`)
+  }
   if (input.dueDateExpression !== undefined && !isValidExpression(input.dueDateExpression)) {
     throw new Error(`Invalid dueDateExpression: "${input.dueDateExpression}"`)
   }
@@ -148,6 +202,7 @@ export function createTask(
     description: input.description ?? '',
     ...(input.projectId         !== undefined && { projectId:         input.projectId }),
     ...(input.sphereId          !== undefined && { sphereId:          input.sphereId }),
+    ...(input.agendaId          !== undefined && { agendaId:          input.agendaId }),
     ...(input.dueDate           !== undefined && { dueDate:           input.dueDate }),
     ...(input.dueDateExpression !== undefined && { dueDateExpression: input.dueDateExpression }),
   }]
@@ -172,6 +227,9 @@ export function updateTask(
   }
   if (patch.sphereId !== undefined && patch.sphereId !== null && !state.spheres.has(patch.sphereId)) {
     throw new Error(`Sphere not found: ${patch.sphereId}`)
+  }
+  if (patch.agendaId !== undefined && patch.agendaId !== null && !state.agendas.has(patch.agendaId)) {
+    throw new Error(`Agenda not found: ${patch.agendaId}`)
   }
   if (
     patch.dueDateExpression !== undefined &&
