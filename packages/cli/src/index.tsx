@@ -119,20 +119,16 @@ function App() {
       return
     }
     if (mode === 'picking-due-date') {
-      const today = new Date().toISOString().slice(0, 10)
-      const stockOptions = [
-        { label: 'Tomorrow', value: addDays(today, 1) },
-        { label: 'Next Saturday', value: nextWeekday(today, 6) },
-        { label: 'Next Monday', value: nextWeekday(today, 1) },
-      ]
-      const totalOptions = stockOptions.length + 2 // + Custom… + No due date
       if (key.escape) { dispatch({ type: 'set-mode', mode: 'list' }); return }
       if (key.upArrow) dispatch({ type: 'set-due-date-picker-selected', index: Math.max(0, dueDatePickerSelected - 1) })
-      if (key.downArrow) dispatch({ type: 'set-due-date-picker-selected', index: Math.min(totalOptions - 1, dueDatePickerSelected + 1) })
-      if (key.return && currentTask !== undefined) {
-        if (dueDatePickerSelected < stockOptions.length) {
-          dispatch({ type: 'set-task-due-date', taskId: currentTask.id, dueDate: stockOptions[dueDatePickerSelected]!.value })
-        } else if (dueDatePickerSelected === stockOptions.length) {
+      if (key.downArrow) dispatch({ type: 'set-due-date-picker-selected', index: Math.min(dueDateOptions.length - 1, dueDatePickerSelected + 1) })
+      const shortcutIdx = dueDateOptions.findIndex(o => o.key === input)
+      const activeIdx = shortcutIdx !== -1 ? shortcutIdx : (key.return ? dueDatePickerSelected : -1)
+      if (activeIdx !== -1 && currentTask !== undefined) {
+        const opt = dueDateOptions[activeIdx]!
+        if (opt.date !== null) {
+          dispatch({ type: 'set-task-due-date', taskId: currentTask.id, dueDate: opt.date })
+        } else if (opt.key === 'c') {
           setFormValue('')
           dispatch({ type: 'set-mode', mode: 'editing-due-date' })
         } else {
@@ -230,7 +226,6 @@ function App() {
   }
 
   function handleDueDateSubmit(value: string) {
-    const today = new Date().toISOString().slice(0, 10)
     const parsed = parseDueDate(value, today)
     if (parsed !== null && currentTask !== undefined) {
       dispatch({ type: 'set-task-due-date', taskId: currentTask.id, dueDate: parsed })
@@ -279,8 +274,17 @@ function App() {
     setFormValue('')
   }
 
+  const _d = new Date()
+  const today = `${_d.getFullYear()}-${String(_d.getMonth() + 1).padStart(2, '0')}-${String(_d.getDate()).padStart(2, '0')}`
+  const dueDateOptions = [
+    { label: 'Tomorrow',     date: addDays(today, 1),       key: 't' },
+    { label: 'Next Saturday', date: nextWeekday(today, 6),  key: 's' },
+    { label: 'Next Monday',  date: nextWeekday(today, 1),   key: 'm' },
+    { label: 'Custom…',      date: null,                    key: 'c' },
+    { label: 'No due date',  date: null,                    key: 'x' },
+  ]
+
   const dueDatePreviewHint: React.ReactNode = (() => {
-    const today = new Date().toISOString().slice(0, 10)
     const parsed = formValue.trim().length > 0 ? parseDueDate(formValue, today) : null
     if (formValue.trim().length === 0) return <Text dimColor>  tomorrow · next monday · jul 4 · 2026-12-25</Text>
     if (parsed !== null) return <Text color="green">  → {formatDateWithDay(parsed)}</Text>
@@ -295,20 +299,17 @@ function App() {
   const viewCommands = commands.filter(c => c.group === 'view')
 
   if (mode === 'picking-due-date') {
-    const today = new Date().toISOString().slice(0, 10)
-    const stockOptions = [
-      { label: 'Tomorrow', value: addDays(today, 1) },
-      { label: 'Next Saturday', value: nextWeekday(today, 6) },
-      { label: 'Next Monday', value: nextWeekday(today, 1) },
-    ]
-    const allOptions = [...stockOptions.map(o => `${o.label} — ${formatDate(o.value)}`), 'Custom…', 'No due date']
     title = <Text bold color="cyan">Due date{currentTask !== undefined ? ` — ${currentTask.title}` : ''}</Text>
-    content = allOptions.map((label, i) => (
-      <Text key={label} {...(i === dueDatePickerSelected ? { color: 'blue' as const } : {})}>
-        {i === dueDatePickerSelected ? '> ' : '  '}{label}
-      </Text>
-    ))
-    footer = <Text dimColor>↑↓ navigate  enter select  esc back</Text>
+    content = dueDateOptions.map((opt, i) => {
+      const isSelected = i === dueDatePickerSelected
+      const label = opt.date !== null ? `${opt.label} — ${formatDate(opt.date)}` : opt.label
+      return (
+        <Text key={opt.key} {...(isSelected ? { color: 'blue' as const } : {})}>
+          {isSelected ? '> ' : '  '}{label}<Text dimColor>  {opt.key}</Text>
+        </Text>
+      )
+    })
+    footer = <Text dimColor>↑↓ navigate  enter/key select  esc back</Text>
   } else if (mode === 'picking-agenda-for-task') {
     const options = ['No agenda', ...agendas.map(a => a.title)]
     title = <Text bold color="cyan">Agenda{currentTask !== undefined ? ` — ${currentTask.title}` : ''}</Text>
