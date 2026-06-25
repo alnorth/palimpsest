@@ -1,0 +1,67 @@
+import type { Task, Project, Sphere, TaskStatus } from './types.js'
+import type { TaskId, ProjectId, SphereId } from './ids.js'
+import type { ProjectionState } from './projection.js'
+
+export function getTaskSphereId(state: ProjectionState, task: Task): SphereId | undefined {
+  if (task.projectId !== undefined) {
+    return state.projects.get(task.projectId)?.sphereId
+  }
+  return task.sphereId
+}
+
+// ── Tasks ─────────────────────────────────────────────────────────────────────
+
+export function getTask(state: ProjectionState, taskId: TaskId): Task | undefined {
+  return state.tasks.get(taskId)
+}
+
+export interface TaskFilter {
+  status?: TaskStatus
+  projectId?: ProjectId
+  sphereId?: SphereId
+}
+
+export function listTasks(state: ProjectionState, filter?: TaskFilter): Task[] {
+  let tasks = [...state.tasks.values()]
+  if (filter?.status    !== undefined) tasks = tasks.filter(t => t.status === filter.status)
+  if (filter?.projectId !== undefined) tasks = tasks.filter(t => t.projectId === filter.projectId)
+  if (filter?.sphereId  !== undefined) {
+    const sid = filter.sphereId
+    tasks = tasks.filter(t => getTaskSphereId(state, t) === sid)
+  }
+  return tasks
+}
+
+export function listOpenTasks(state: ProjectionState): Task[] {
+  return listTasks(state, { status: 'open' })
+}
+
+export function listTasksByProject(state: ProjectionState, projectId: ProjectId): Task[] {
+  return listTasks(state, { projectId, status: 'open' })
+}
+
+export function listTasksBySphere(state: ProjectionState, sphereId: SphereId): Task[] {
+  return listTasks(state, { sphereId, status: 'open' })
+}
+
+// ── Projects ──────────────────────────────────────────────────────────────────
+
+export function getProject(state: ProjectionState, projectId: ProjectId): Project | undefined {
+  return state.projects.get(projectId)
+}
+
+export function listProjects(state: ProjectionState, filter?: { sphereId?: SphereId }): Project[] {
+  let projects = [...state.projects.values()]
+  if (filter?.sphereId !== undefined) projects = projects.filter(p => p.sphereId === filter.sphereId)
+  return projects
+}
+
+// ── Spheres ───────────────────────────────────────────────────────────────────
+
+export function getSphere(state: ProjectionState, sphereId: SphereId): Sphere | undefined {
+  return state.spheres.get(sphereId)
+}
+
+export function listSpheres(state: ProjectionState): Sphere[] {
+  return [...state.spheres.values()]
+}
