@@ -418,8 +418,7 @@ function App() {
             const color = isSelected ? 'blue' as const : !isArchived && !hasNext ? 'red' as const : undefined
             const count = projectStats.taskCount.get(project.id) ?? 0
             return (
-              <Row key={project.id} isSelected={isSelected} color={color} dimColor={isArchived && !isSelected}>
-                {project.name}
+              <Row key={project.id} isSelected={isSelected} color={color} dimColor={isArchived && !isSelected} title={project.name}>
                 {isArchived ? <Meta>[archived]</Meta> : null}
                 <Meta>{count}</Meta>
               </Row>

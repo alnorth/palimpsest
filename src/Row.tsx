@@ -5,15 +5,17 @@ interface Props {
   isSelected: boolean
   color: 'blue' | 'red' | undefined
   dimColor?: boolean
-  children: React.ReactNode
+  title: React.ReactNode
+  children?: React.ReactNode
 }
 
-export function Row({ isSelected, color, dimColor, children }: Props) {
+export function Row({ isSelected, color, dimColor, title, children }: Props) {
   return (
     <Box>
       <Text {...(color !== undefined ? { color } : {})} dimColor={dimColor === true}>
-        {isSelected ? '▶ ' : '  '}{children}
+        {isSelected ? '> ' : '  '}{title}
       </Text>
+      {children}
     </Box>
   )
 }

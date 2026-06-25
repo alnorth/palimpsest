@@ -22,8 +22,12 @@ export function TaskList({ tasks, selected, state, showProject = false, emptyMes
         const agenda = task.agendaId !== undefined ? getAgenda(state, task.agendaId) : undefined
         const isSelected = i === selected
         return (
-          <Row key={task.id} isSelected={isSelected} color={isSelected ? 'blue' : undefined}>
-            <Text color="yellow">{task.isNext === true ? '→' : ' '} </Text>{task.title}
+          <Row
+            key={task.id}
+            isSelected={isSelected}
+            color={isSelected ? 'blue' : undefined}
+            title={<><Text color="yellow">{task.isNext === true ? '→' : ' '} </Text>{task.title}</>}
+          >
             {project !== undefined ? <Meta>{project.name}</Meta> : null}
             {agenda !== undefined ? <Meta>@{agenda.title}</Meta> : null}
             {task.dueDate !== undefined ? <Meta>due {task.dueDate}</Meta> : null}
