@@ -20,3 +20,4 @@
 - [ ] Build the problem lists into the ui-core.
 - [ ] Expose problem lists in the TUI.
 - [ ] Implement a script that imports events from a Todoist export.
+- [ ] Show the day of the week when showing due dates in the TUI. Maybe replace the current date display with the day-of-week when it's in the next week. And have "Today", "Tomorrow" for those days too.

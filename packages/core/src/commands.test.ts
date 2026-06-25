@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { createEmptyState, project } from './projection.js'
 import {
   createSphere, createProject, createTask, updateTask,
-  completeTask, uncompleteTask, deleteTask,
+  completeTask, uncompleteTask, deleteTask, postponeTask, finishRecurringTask,
 } from './commands.js'
 import type { PalimpsestEvent } from './events.js'
 import type { SphereId, ProjectId, TaskId } from './ids.js'
@@ -69,7 +69,7 @@ describe('completeTask', () => {
       title: 'Task',
       sphereId,
       dueDate: '2026-06-25',
-      ...(withRecurrence && { dueDateExpression: 'daily' }),
+      ...(withRecurrence && { dueDateExpression: 'every day' }),
     })
     state = buildState([...sphereEvents, ...taskEvents])
     const taskId = (taskEvents[0] as { taskId: TaskId }).taskId
@@ -163,15 +163,127 @@ describe('deleteTask', () => {
 })
 
 describe('updateTask', () => {
-  it('throws for invalid dueDateExpression in patch', () => {
+  function setup() {
     const sphereEvts = createSphere(createEmptyState(), { name: 'W' })
     const s1 = buildState(sphereEvts)
     const sid = (sphereEvts[0] as any).sphereId as SphereId
     const taskEvts = createTask(s1, { title: 'T', sphereId: sid })
     const s2 = buildState([...sphereEvts, ...taskEvts])
     const tid = (taskEvts[0] as any).taskId as TaskId
+    return { s2, tid }
+  }
+
+  it('throws for invalid dueDateExpression in patch', () => {
+    const { s2, tid } = setup()
     expect(() =>
       updateTask(s2, { taskId: tid, patch: { dueDateExpression: 'bad-expr' } })
     ).toThrow('Invalid dueDateExpression')
+  })
+
+  it('auto-sets dueDate when expression is set and dueDate is not in patch', () => {
+    const { s2, tid } = setup()
+    const events = updateTask(s2, { taskId: tid, patch: { dueDateExpression: 'every monday' } })
+    const patch = (events[0] as any).patch
+    expect(patch.dueDateExpression).toBe('every monday')
+    expect(typeof patch.dueDate).toBe('string')
+  })
+
+  it('does not override an explicit dueDate in the patch', () => {
+    const { s2, tid } = setup()
+    const events = updateTask(s2, { taskId: tid, patch: { dueDateExpression: 'every monday', dueDate: '2030-01-01' } })
+    const patch = (events[0] as any).patch
+    expect(patch.dueDate).toBe('2030-01-01')
+  })
+})
+
+describe('createTask — auto-set dueDate from expression', () => {
+  it('auto-sets dueDate when only expression is provided', () => {
+    const sphereEvts = createSphere(createEmptyState(), { name: 'W' })
+    const s1 = buildState(sphereEvts)
+    const sid = (sphereEvts[0] as any).sphereId as SphereId
+    const events = createTask(s1, { title: 'T', sphereId: sid, dueDateExpression: 'every monday' })
+    const event = events[0] as any
+    expect(typeof event.dueDate).toBe('string')
+    expect(event.dueDateExpression).toBe('every monday')
+  })
+
+  it('does not override an explicit dueDate', () => {
+    const sphereEvts = createSphere(createEmptyState(), { name: 'W' })
+    const s1 = buildState(sphereEvts)
+    const sid = (sphereEvts[0] as any).sphereId as SphereId
+    const events = createTask(s1, { title: 'T', sphereId: sid, dueDateExpression: 'every monday', dueDate: '2030-01-01' })
+    const event = events[0] as any
+    expect(event.dueDate).toBe('2030-01-01')
+  })
+})
+
+describe('postponeTask', () => {
+  function setup() {
+    const sphereEvts = createSphere(createEmptyState(), { name: 'W' })
+    const s1 = buildState(sphereEvts)
+    const sid = (sphereEvts[0] as any).sphereId as SphereId
+    const taskEvts = createTask(s1, { title: 'T', sphereId: sid, dueDate: '2026-06-25', dueDateExpression: 'every week' })
+    const s2 = buildState([...sphereEvts, ...taskEvts])
+    const tid = (taskEvts[0] as any).taskId as TaskId
+    return { s2, tid }
+  }
+
+  it('emits task.updated with a new dueDate', () => {
+    const { s2, tid } = setup()
+    const events = postponeTask(s2, tid)
+    expect(events).toHaveLength(1)
+    expect(events[0]?.type).toBe('task.updated')
+    const patch = (events[0] as any).patch
+    expect(typeof patch.dueDate).toBe('string')
+  })
+
+  it('throws if task has no expression', () => {
+    const sphereEvts = createSphere(createEmptyState(), { name: 'W' })
+    const s1 = buildState(sphereEvts)
+    const sid = (sphereEvts[0] as any).sphereId as SphereId
+    const taskEvts = createTask(s1, { title: 'T', sphereId: sid })
+    const s2 = buildState([...sphereEvts, ...taskEvts])
+    const tid = (taskEvts[0] as any).taskId as TaskId
+    expect(() => postponeTask(s2, tid)).toThrow('no recurrence expression')
+  })
+})
+
+describe('finishRecurringTask', () => {
+  function setup() {
+    const sphereEvts = createSphere(createEmptyState(), { name: 'W' })
+    const s1 = buildState(sphereEvts)
+    const sid = (sphereEvts[0] as any).sphereId as SphereId
+    const taskEvts = createTask(s1, { title: 'T', sphereId: sid, dueDateExpression: 'every week' })
+    const s2 = buildState([...sphereEvts, ...taskEvts])
+    const tid = (taskEvts[0] as any).taskId as TaskId
+    return { sphereEvts, taskEvts, s2, tid }
+  }
+
+  it('emits task.updated (clearing expression) then task.completed', () => {
+    const { s2, tid } = setup()
+    const events = finishRecurringTask(s2, tid)
+    expect(events).toHaveLength(2)
+    expect(events[0]?.type).toBe('task.updated')
+    expect((events[0] as any).patch.dueDateExpression).toBeNull()
+    expect(events[1]?.type).toBe('task.completed')
+  })
+
+  it('results in a completed task with no expression', () => {
+    const { sphereEvts, taskEvts, s2, tid } = setup()
+    const finishEvts = finishRecurringTask(s2, tid)
+    const finalState = buildState([...sphereEvts, ...taskEvts, ...finishEvts])
+    const task = finalState.tasks.get(tid)
+    expect(task?.status).toBe('completed')
+    expect(task?.dueDateExpression).toBeUndefined()
+  })
+
+  it('throws if task has no expression', () => {
+    const sphereEvts = createSphere(createEmptyState(), { name: 'W' })
+    const s1 = buildState(sphereEvts)
+    const sid = (sphereEvts[0] as any).sphereId as SphereId
+    const taskEvts = createTask(s1, { title: 'T', sphereId: sid })
+    const s2 = buildState([...sphereEvts, ...taskEvts])
+    const tid = (taskEvts[0] as any).taskId as TaskId
+    expect(() => finishRecurringTask(s2, tid)).toThrow('no recurrence expression')
   })
 })

@@ -298,11 +298,15 @@ export function createTask(
   if (input.dueDateExpression !== undefined && !isValidExpression(input.dueDateExpression)) {
     throw new Error(`Invalid dueDateExpression: "${input.dueDateExpression}"`)
   }
+  const occurredAt = now()
+  const today = occurredAt.slice(0, 10)
+  const dueDate: string | undefined = input.dueDate
+    ?? (input.dueDateExpression !== undefined ? (nextDueDate(input.dueDateExpression, today) ?? undefined) : undefined)
   return [{
     id: newEventId(),
     type: 'task.created',
     taskId: newTaskId(),
-    occurredAt: now(),
+    occurredAt,
     title: input.title,
     description: input.description ?? '',
     ...(input.projectId         !== undefined && { projectId:         input.projectId }),
@@ -311,7 +315,7 @@ export function createTask(
     ...(input.contextId         !== undefined && { contextId:         input.contextId }),
     ...(input.isNext            === true      && { isNext:            true }),
     ...(input.isStarred         === true      && { isStarred:         true }),
-    ...(input.dueDate           !== undefined && { dueDate:           input.dueDate }),
+    ...(dueDate                 !== undefined && { dueDate }),
     ...(input.dueDateExpression !== undefined && { dueDateExpression: input.dueDateExpression }),
   }]
 }
@@ -356,12 +360,19 @@ export function updateTask(
     throw new Error(`Invalid dueDateExpression: "${patch.dueDateExpression}"`)
   }
 
+  const emittedPatch: TaskPatch = { ...patch }
+  if (patch.dueDateExpression !== undefined && patch.dueDateExpression !== null && patch.dueDate === undefined) {
+    const today = now().slice(0, 10)
+    const computed = nextDueDate(patch.dueDateExpression, today)
+    if (computed !== null) emittedPatch.dueDate = computed
+  }
+
   return [{
     id: newEventId(),
     type: 'task.updated',
     taskId: input.taskId,
     occurredAt: now(),
-    patch,
+    patch: emittedPatch,
   }]
 }
 
@@ -426,4 +437,50 @@ export function deleteTask(
     taskId,
     occurredAt: now(),
   }]
+}
+
+export function postponeTask(
+  state: ProjectionState,
+  taskId: TaskId,
+): PalimpsestEvent[] {
+  const task = state.tasks.get(taskId)
+  if (!task) throw new Error(`Task not found: ${taskId}`)
+  if (task.status !== 'open') throw new Error(`Task is already ${task.status}`)
+  if (task.dueDateExpression === undefined) throw new Error('Task has no recurrence expression')
+  const today = now().slice(0, 10)
+  const newDueDate = nextDueDate(task.dueDateExpression, today)
+  if (newDueDate === null) throw new Error(`No future occurrence for expression: "${task.dueDateExpression}"`)
+  return [{
+    id: newEventId(),
+    type: 'task.updated',
+    taskId,
+    occurredAt: now(),
+    patch: { dueDate: newDueDate },
+  }]
+}
+
+export function finishRecurringTask(
+  state: ProjectionState,
+  taskId: TaskId,
+): PalimpsestEvent[] {
+  const task = state.tasks.get(taskId)
+  if (!task) throw new Error(`Task not found: ${taskId}`)
+  if (task.status !== 'open') throw new Error(`Task is already ${task.status}`)
+  if (task.dueDateExpression === undefined) throw new Error('Task has no recurrence expression; use completeTask instead')
+  const occurredAt = now()
+  return [
+    {
+      id: newEventId(),
+      type: 'task.updated',
+      taskId,
+      occurredAt,
+      patch: { dueDateExpression: null },
+    },
+    {
+      id: newEventId(),
+      type: 'task.completed',
+      taskId,
+      occurredAt,
+    },
+  ]
 }

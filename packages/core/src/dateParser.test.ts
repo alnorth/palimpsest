@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { addDays, nextWeekday, parseDueDate } from './dueDatePicker.js'
+import { addDays, nextWeekday, parseDueDate } from './dateParser.js'
 
 // 2026-06-25 is a Thursday (UTC day 4)
 const TODAY = '2026-06-25'

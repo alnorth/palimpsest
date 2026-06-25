@@ -24,7 +24,7 @@ export {
   createProject, updateProject, deleteProject, archiveProject, unarchiveProject,
   createContext, updateContext, deleteContext,
   createAgenda, updateAgenda, deleteAgenda,
-  createTask, updateTask, completeTask, uncompleteTask, deleteTask,
+  createTask, updateTask, completeTask, uncompleteTask, deleteTask, postponeTask, finishRecurringTask,
 } from './commands.js'
 export {
   getTask, listTasks, listOpenTasks, listTasksByProject, listTasksBySphere, listTasksByAgenda,
@@ -35,3 +35,4 @@ export {
   getTaskSphereId,
 } from './query.js'
 export { nextDueDate, isValidExpression } from './recurrence.js'
+export { parseDueDate, addDays, nextWeekday } from './dateParser.js'

@@ -1,7 +1,9 @@
-const WEEKDAY_NAMES = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
-const WEEKDAY_ABBREVS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat']
-const MONTH_NAMES_SHORT = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec']
-const MONTH_NAMES_FULL = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december']
+import { parseWeekday, parseMonth, WEEKDAY_FULL, WEEKDAY_ABBREV } from './dateNames.js'
+
+const WEEKDAY_PATTERN = [
+  ...Object.keys(WEEKDAY_FULL),
+  ...Object.keys(WEEKDAY_ABBREV),
+].join('|')
 
 export function addDays(dateStr: string, days: number): string {
   const d = new Date(dateStr + 'T00:00:00Z')
@@ -17,27 +19,15 @@ export function nextWeekday(today: string, targetDay: number): string {
   return addDays(today, daysAhead)
 }
 
-function parseMonth(s: string): number | null {
-  const lower = s.toLowerCase()
-  const shortIdx = MONTH_NAMES_SHORT.indexOf(lower)
-  if (shortIdx !== -1) return shortIdx
-  const fullIdx = MONTH_NAMES_FULL.indexOf(lower)
-  if (fullIdx !== -1) return fullIdx
-  return null
-}
-
 function nextDayOfMonth(today: string, day: number): string | null {
   if (day < 1 || day > 31) return null
   const todayDate = new Date(today + 'T00:00:00Z')
   let year = todayDate.getUTCFullYear()
   let month = todayDate.getUTCMonth()
-  // Try current month first; if the day has passed (or is today), advance to next month
   if (day <= todayDate.getUTCDate()) month += 1
-  // Find the first month from `month` onward where this day exists
   for (let i = 0; i < 12; i++) {
     const candidate = new Date(Date.UTC(year, month + i, day))
     if (candidate.getUTCDate() === day) return candidate.toISOString().slice(0, 10)
-    // Date.UTC rolls over (e.g. Feb 30 → Mar 1/2), skip if the month rolled
   }
   return null
 }
@@ -67,11 +57,12 @@ export function parseDueDate(input: string, today: string): string | null {
   if (lower === 'tomorrow' || lower === 'tom') return addDays(today, 1)
   if (lower === 'next week') return nextWeekday(today, 1)
 
-  const weekdayMatch = lower.match(/^(next\s+|this\s+)?(sunday|monday|tuesday|wednesday|thursday|friday|saturday|sun|mon|tue|wed|thu|fri|sat)$/)
+  const weekdayMatch = lower.match(new RegExp(`^(next\\s+|this\\s+)?(${WEEKDAY_PATTERN})$`))
   if (weekdayMatch) {
     const prefix = weekdayMatch[1]?.trim() ?? ''
     const name = weekdayMatch[2]!
-    const targetDay = WEEKDAY_NAMES.indexOf(name) !== -1 ? WEEKDAY_NAMES.indexOf(name) : WEEKDAY_ABBREVS.indexOf(name)
+    const targetDay = parseWeekday(name)
+    if (targetDay === undefined) return null
     const todayDay = new Date(today + 'T00:00:00Z').getUTCDay()
     if (prefix === 'this' && targetDay === todayDay) return today
     return nextWeekday(today, targetDay)
@@ -91,19 +82,18 @@ export function parseDueDate(input: string, today: string): string | null {
     const monthIdx = parseInt(isoMatch[2]!, 10) - 1
     const day = parseInt(isoMatch[3]!, 10)
     if (monthIdx >= 0 && monthIdx <= 11 && day >= 1 && day <= 31) {
-      const result = resolveMonthDay(today, monthIdx, day, year)
-      return result
+      return resolveMonthDay(today, monthIdx, day, year)
     }
   }
 
   const bareMonthIdx = parseMonth(lower)
-  if (bareMonthIdx !== null) return resolveMonthDay(today, bareMonthIdx, 1, undefined)
+  if (bareMonthIdx !== undefined) return resolveMonthDay(today, bareMonthIdx, 1, undefined)
 
   const monthDayMatch = lower.match(/^([a-z]+)\s+(\d{1,2})(?:st|nd|rd|th)?(?:\s+(\d{4}|\d{2}))?$/)
   if (monthDayMatch) {
     const monthIdx = parseMonth(monthDayMatch[1]!)
     const day = parseInt(monthDayMatch[2]!, 10)
-    if (monthIdx !== null && day >= 1 && day <= 31) {
+    if (monthIdx !== undefined && day >= 1 && day <= 31) {
       return resolveMonthDay(today, monthIdx, day, monthDayMatch[3] !== undefined ? parseYear(monthDayMatch[3]) : undefined)
     }
   }
@@ -112,7 +102,7 @@ export function parseDueDate(input: string, today: string): string | null {
   if (dayMonthMatch) {
     const day = parseInt(dayMonthMatch[1]!, 10)
     const monthIdx = parseMonth(dayMonthMatch[2]!)
-    if (monthIdx !== null && day >= 1 && day <= 31) {
+    if (monthIdx !== undefined && day >= 1 && day <= 31) {
       return resolveMonthDay(today, monthIdx, day, dayMonthMatch[3] !== undefined ? parseYear(dayMonthMatch[3]) : undefined)
     }
   }
