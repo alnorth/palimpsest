@@ -103,6 +103,9 @@ describe('parseDueDate', () => {
   it('parses ISO date strings', () => {
     expect(parseDueDate('2026-12-25', TODAY)).toBe('2026-12-25')
     expect(parseDueDate('2027-01-01', TODAY)).toBe('2027-01-01')
+    expect(parseDueDate('2026-1-3', TODAY)).toBe('2026-01-03')
+    expect(parseDueDate('2026-12-1', TODAY)).toBe('2026-12-01')
+    expect(parseDueDate('2027-1-1', TODAY)).toBe('2027-01-01')
   })
 
   it('parses a bare month name as the 1st of that month', () => {
@@ -168,5 +171,26 @@ describe('parseDueDate', () => {
     expect(parseDueDate('32', TODAY)).toBeNull()
     expect(parseDueDate('0th', TODAY)).toBeNull()
     expect(parseDueDate('32nd', TODAY)).toBeNull()
+  })
+
+  it('parses UK numeric dates DD/MM/YY and DD/MM/YYYY', () => {
+    expect(parseDueDate('12/1/26', TODAY)).toBe('2026-01-12')
+    expect(parseDueDate('1/12/26', TODAY)).toBe('2026-12-01')
+    expect(parseDueDate('12/01/26', TODAY)).toBe('2026-01-12')
+    expect(parseDueDate('12/1/2026', TODAY)).toBe('2026-01-12')
+    expect(parseDueDate('25/12/26', TODAY)).toBe('2026-12-25')
+  })
+
+  it('parses UK numeric dates DD/MM without year', () => {
+    // Jan 12 is in the past relative to TODAY (Jun 25 2026) → resolves to 2027
+    expect(parseDueDate('12/1', TODAY)).toBe('2027-01-12')
+    // Dec 25 is still in the future relative to TODAY → 2026
+    expect(parseDueDate('25/12', TODAY)).toBe('2026-12-25')
+  })
+
+  it('returns null for invalid UK numeric dates', () => {
+    expect(parseDueDate('32/1/26', TODAY)).toBeNull()
+    expect(parseDueDate('12/13/26', TODAY)).toBeNull()
+    expect(parseDueDate('0/1/26', TODAY)).toBeNull()
   })
 })

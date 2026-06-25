@@ -79,9 +79,15 @@ export function parseDueDate(input: string, today: string): string | null {
   const dayNumberMatch = lower.match(/^(\d{1,2})(?:st|nd|rd|th)?$/)
   if (dayNumberMatch) return nextDayOfMonth(today, parseInt(dayNumberMatch[1]!, 10))
 
-  if (/^\d{4}-\d{2}-\d{2}$/.test(lower)) {
-    const d = new Date(lower + 'T00:00:00Z')
-    if (!isNaN(d.getTime())) return lower
+  const isoMatch = trimmed.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/)
+  if (isoMatch) {
+    const year = parseInt(isoMatch[1]!, 10)
+    const monthIdx = parseInt(isoMatch[2]!, 10) - 1
+    const day = parseInt(isoMatch[3]!, 10)
+    if (monthIdx >= 0 && monthIdx <= 11 && day >= 1 && day <= 31) {
+      const result = resolveMonthDay(today, monthIdx, day, year)
+      return result
+    }
   }
 
   const bareMonthIdx = parseMonth(lower)
@@ -102,6 +108,20 @@ export function parseDueDate(input: string, today: string): string | null {
     const monthIdx = parseMonth(dayMonthMatch[2]!)
     if (monthIdx !== null && day >= 1 && day <= 31) {
       return resolveMonthDay(today, monthIdx, day, dayMonthMatch[3] !== undefined ? parseInt(dayMonthMatch[3], 10) : undefined)
+    }
+  }
+
+  // UK numeric format: DD/MM, DD/MM/YY, DD/MM/YYYY
+  const ukDateMatch = trimmed.match(/^(\d{1,2})\/(\d{1,2})(?:\/(\d{2}|\d{4}))?$/)
+  if (ukDateMatch) {
+    const day = parseInt(ukDateMatch[1]!, 10)
+    const monthIdx = parseInt(ukDateMatch[2]!, 10) - 1
+    if (day >= 1 && day <= 31 && monthIdx >= 0 && monthIdx <= 11) {
+      let year: number | undefined
+      if (ukDateMatch[3] !== undefined) {
+        year = ukDateMatch[3].length === 2 ? 2000 + parseInt(ukDateMatch[3], 10) : parseInt(ukDateMatch[3], 10)
+      }
+      return resolveMonthDay(today, monthIdx, day, year)
     }
   }
 

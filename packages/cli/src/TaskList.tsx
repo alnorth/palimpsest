@@ -3,7 +3,7 @@ import { Text } from 'ink'
 import { getProject, getAgenda } from 'palimpsest'
 import type { Task, ProjectionState } from 'palimpsest'
 import { Row, Meta } from './Row.js'
-import { formatDateTime } from './format.js'
+import { formatDateTime, dueDateColor } from './format.js'
 
 interface Props {
   tasks: Task[]
@@ -22,6 +22,7 @@ export function TaskList({ tasks, selected, state, showProject = false, emptyMes
         const project = showProject && task.projectId !== undefined ? getProject(state, task.projectId) : undefined
         const agenda = task.agendaId !== undefined ? getAgenda(state, task.agendaId) : undefined
         const isSelected = i === selected
+        const ddColor = task.dueDate !== undefined ? dueDateColor(task.dueDate) : undefined
         return (
           <Row
             key={task.id}
@@ -32,7 +33,7 @@ export function TaskList({ tasks, selected, state, showProject = false, emptyMes
             {task.description ? <Meta>¶</Meta> : null}
             {project !== undefined ? <Meta>{project.name}</Meta> : null}
             {agenda !== undefined ? <Meta>@{agenda.title}</Meta> : null}
-            {task.dueDate !== undefined ? <Meta>{task.dueDate}</Meta> : null}
+            {task.dueDate !== undefined ? <><Text dimColor> · </Text><Text {...(ddColor !== undefined ? { color: ddColor } : { dimColor: true })}>{task.dueDate}</Text></> : null}
             {task.completedAt !== undefined ? <Meta>{formatDateTime(task.completedAt)}</Meta> : null}
           </Row>
         )
