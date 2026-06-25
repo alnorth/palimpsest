@@ -193,4 +193,60 @@ describe('parseDueDate', () => {
     expect(parseDueDate('12/13/26', TODAY)).toBeNull()
     expect(parseDueDate('0/1/26', TODAY)).toBeNull()
   })
+
+  it('parses "DD Mon YY" and "DD Mon YYYY"', () => {
+    expect(parseDueDate('12 jan 26', TODAY)).toBe('2026-01-12')
+    expect(parseDueDate('12 jan 2026', TODAY)).toBe('2026-01-12')
+    expect(parseDueDate('12 january 26', TODAY)).toBe('2026-01-12')
+    expect(parseDueDate('25 dec 26', TODAY)).toBe('2026-12-25')
+    expect(parseDueDate('1 jan 27', TODAY)).toBe('2027-01-01')
+  })
+
+  it('parses "Mon DD YY" and "Mon DD YYYY"', () => {
+    expect(parseDueDate('jan 12 26', TODAY)).toBe('2026-01-12')
+    expect(parseDueDate('jan 12 2026', TODAY)).toBe('2026-01-12')
+    expect(parseDueDate('december 25 26', TODAY)).toBe('2026-12-25')
+    expect(parseDueDate('jan 1 27', TODAY)).toBe('2027-01-01')
+  })
+})
+
+// 2026-12-28 is a Monday
+const TODAY_DEC = '2026-12-28'
+
+describe('parseDueDate — year-boundary cases', () => {
+  it('bare day numbers advance into next year from late December', () => {
+    expect(parseDueDate('31', TODAY_DEC)).toBe('2026-12-31')
+    expect(parseDueDate('5', TODAY_DEC)).toBe('2027-01-05')
+    expect(parseDueDate('1', TODAY_DEC)).toBe('2027-01-01')
+  })
+
+  it('weekday names cross into next year from late December', () => {
+    // Dec 28 is Monday; Friday is 4 days ahead → Jan 1 2027
+    expect(parseDueDate('friday', TODAY_DEC)).toBe('2027-01-01')
+    // Sunday is 6 days ahead → Jan 3 2027
+    expect(parseDueDate('sunday', TODAY_DEC)).toBe('2027-01-03')
+  })
+
+  it('"next week" and "in N days" cross into next year', () => {
+    expect(parseDueDate('next week', TODAY_DEC)).toBe('2027-01-04')
+    expect(parseDueDate('in 7 days', TODAY_DEC)).toBe('2027-01-04')
+    expect(parseDueDate('in 4 days', TODAY_DEC)).toBe('2027-01-01')
+  })
+
+  it('month names advance to next year when the month has already passed', () => {
+    expect(parseDueDate('jan', TODAY_DEC)).toBe('2027-01-01')
+    expect(parseDueDate('june', TODAY_DEC)).toBe('2027-06-01')
+  })
+
+  it('"DD mon" and "mon DD" advance to next year from late December', () => {
+    expect(parseDueDate('15 jan', TODAY_DEC)).toBe('2027-01-15')
+    expect(parseDueDate('jan 15', TODAY_DEC)).toBe('2027-01-15')
+    expect(parseDueDate('15 jan 27', TODAY_DEC)).toBe('2027-01-15')
+  })
+
+  it('UK numeric DD/MM without year advances to next year from late December', () => {
+    expect(parseDueDate('15/1', TODAY_DEC)).toBe('2027-01-15')
+    expect(parseDueDate('15/6', TODAY_DEC)).toBe('2027-06-15')
+    expect(parseDueDate('31/12', TODAY_DEC)).toBe('2026-12-31')
+  })
 })

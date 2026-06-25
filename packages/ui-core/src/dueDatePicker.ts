@@ -42,6 +42,10 @@ function nextDayOfMonth(today: string, day: number): string | null {
   return null
 }
 
+function parseYear(s: string): number {
+  return s.length === 2 ? 2000 + parseInt(s, 10) : parseInt(s, 10)
+}
+
 function resolveMonthDay(today: string, monthIdx: number, day: number, year: number | undefined): string | null {
   const todayDate = new Date(today + 'T00:00:00Z')
   const targetYear = year ?? (() => {
@@ -93,21 +97,21 @@ export function parseDueDate(input: string, today: string): string | null {
   const bareMonthIdx = parseMonth(lower)
   if (bareMonthIdx !== null) return resolveMonthDay(today, bareMonthIdx, 1, undefined)
 
-  const monthDayMatch = lower.match(/^([a-z]+)\s+(\d{1,2})(?:\s+(\d{4}))?$/)
+  const monthDayMatch = lower.match(/^([a-z]+)\s+(\d{1,2})(?:\s+(\d{4}|\d{2}))?$/)
   if (monthDayMatch) {
     const monthIdx = parseMonth(monthDayMatch[1]!)
     const day = parseInt(monthDayMatch[2]!, 10)
     if (monthIdx !== null && day >= 1 && day <= 31) {
-      return resolveMonthDay(today, monthIdx, day, monthDayMatch[3] !== undefined ? parseInt(monthDayMatch[3], 10) : undefined)
+      return resolveMonthDay(today, monthIdx, day, monthDayMatch[3] !== undefined ? parseYear(monthDayMatch[3]) : undefined)
     }
   }
 
-  const dayMonthMatch = lower.match(/^(\d{1,2})\s+([a-z]+)(?:\s+(\d{4}))?$/)
+  const dayMonthMatch = lower.match(/^(\d{1,2})\s+([a-z]+)(?:\s+(\d{4}|\d{2}))?$/)
   if (dayMonthMatch) {
     const day = parseInt(dayMonthMatch[1]!, 10)
     const monthIdx = parseMonth(dayMonthMatch[2]!)
     if (monthIdx !== null && day >= 1 && day <= 31) {
-      return resolveMonthDay(today, monthIdx, day, dayMonthMatch[3] !== undefined ? parseInt(dayMonthMatch[3], 10) : undefined)
+      return resolveMonthDay(today, monthIdx, day, dayMonthMatch[3] !== undefined ? parseYear(dayMonthMatch[3]) : undefined)
     }
   }
 
@@ -117,10 +121,7 @@ export function parseDueDate(input: string, today: string): string | null {
     const day = parseInt(ukDateMatch[1]!, 10)
     const monthIdx = parseInt(ukDateMatch[2]!, 10) - 1
     if (day >= 1 && day <= 31 && monthIdx >= 0 && monthIdx <= 11) {
-      let year: number | undefined
-      if (ukDateMatch[3] !== undefined) {
-        year = ukDateMatch[3].length === 2 ? 2000 + parseInt(ukDateMatch[3], 10) : parseInt(ukDateMatch[3], 10)
-      }
+      const year = ukDateMatch[3] !== undefined ? parseYear(ukDateMatch[3]) : undefined
       return resolveMonthDay(today, monthIdx, day, year)
     }
   }
