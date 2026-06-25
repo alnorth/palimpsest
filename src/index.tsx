@@ -4,7 +4,7 @@ import TextInput from 'ink-text-input'
 import {
   PalimpsestStore,
   listTasks, listSpheres, getProject,
-  createTask, createSphere, createAgenda,
+  createTask, updateTask, createSphere, createAgenda,
 } from 'palimpsest'
 import type { ProjectionState, SphereId } from 'palimpsest'
 import { homedir } from 'node:os'
@@ -15,7 +15,7 @@ const filePath = process.env['PALIMPSEST_FILE'] ?? join(homedir(), '.palimpsest'
 mkdirSync(dirname(filePath), { recursive: true })
 const store = new PalimpsestStore(filePath)
 
-type Mode = 'list' | 'adding' | 'settings' | 'creating-sphere' | 'picking-sphere-for-agenda' | 'creating-agenda'
+type Mode = 'list' | 'adding' | 'editing-task' | 'settings' | 'creating-sphere' | 'picking-sphere-for-agenda' | 'creating-agenda'
 
 const SETTINGS_OPTIONS = ['Create Sphere', 'Create Agenda'] as const
 
@@ -63,10 +63,10 @@ function App() {
   }
 
   useInput((input, key) => {
-    if (mode === 'adding' || mode === 'creating-sphere' || mode === 'creating-agenda') {
+    if (mode === 'adding' || mode === 'editing-task' || mode === 'creating-sphere' || mode === 'creating-agenda') {
       if (key.escape) {
         setFormValue('')
-        setMode(mode === 'adding' ? 'list' : 'settings')
+        setMode(mode === 'adding' || mode === 'editing-task' ? 'list' : 'settings')
       }
       return
     }
@@ -93,6 +93,13 @@ function App() {
     // list mode
     if (input === 'q' || key.escape) exit()
     if (input === 'n') setMode('adding')
+    if (input === 'e') {
+      const task = tasks[selected]
+      if (task !== undefined) {
+        setFormValue(task.title)
+        setMode('editing-task')
+      }
+    }
     if (input === 's') setMode('settings')
     if (input === ']') {
       const idx = spheres.findIndex(s => s.id === activeSphere?.id)
@@ -106,6 +113,16 @@ function App() {
     const trimmed = title.trim()
     if (trimmed && activeSphere !== undefined) {
       appendAndRefresh(createTask(state, { title: trimmed, sphereId: activeSphere.id }))
+    }
+    setFormValue('')
+    setMode('list')
+  }
+
+  function handleEditSubmit(title: string) {
+    const trimmed = title.trim()
+    const task = tasks[selected]
+    if (trimmed && task !== undefined) {
+      appendAndRefresh(updateTask(state, { taskId: task.id, patch: { title: trimmed } }))
     }
     setFormValue('')
     setMode('list')
@@ -214,8 +231,13 @@ function App() {
               <TextInput value={formValue} onChange={setFormValue} onSubmit={handleTaskSubmit} />
             </Box>
           )
+        ) : mode === 'editing-task' ? (
+          <Box>
+            <Text>Edit task: </Text>
+            <TextInput value={formValue} onChange={setFormValue} onSubmit={handleEditSubmit} />
+          </Box>
         ) : (
-          <Text dimColor>↑↓ navigate  n new  ] sphere  s settings  q quit</Text>
+          <Text dimColor>↑↓ navigate  n new  e edit  ] sphere  s settings  q quit</Text>
         )}
       </Box>
     </Box>
