@@ -19,6 +19,15 @@ describe('navigate', () => {
   })
 })
 
+describe('set-nav', () => {
+  it('replaces the nav stack with a single entry', () => {
+    const withTwo = uiReducer(INITIAL_UI_STATE, { type: 'navigate', navState: PROJECT_NAV })
+    const result = uiReducer(withTwo, { type: 'set-nav', navState: { ...INITIAL_NAV, view: 'projects' } })
+    expect(result.navStack).toHaveLength(1)
+    expect(result.navStack[0]?.view).toBe('projects')
+  })
+})
+
 describe('go-back', () => {
   it('pops the top nav state from the stack', () => {
     const withTwo = uiReducer(INITIAL_UI_STATE, { type: 'navigate', navState: PROJECT_NAV })

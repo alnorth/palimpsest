@@ -3,7 +3,7 @@ import type { Command } from './types.js'
 import type { ViewModel } from './viewModel.js'
 
 export function getCommands(vm: ViewModel): Command[] {
-  const { view, mode, selected, currentTask, activeSphere, projects, showCompleted, showArchived, canGoBack, agendas } = vm
+  const { view, mode, selected, currentTask, activeSphere, projects, showCompleted, showArchived, canGoBack, agendas, spheres } = vm
   const commands: Command[] = []
 
   if (mode !== 'list') return commands
@@ -111,15 +111,12 @@ export function getCommands(vm: ViewModel): Command[] {
 
   // ── Pick agenda ──────────────────────────────────────────────────────────────
   if (currentTask?.status === 'open') {
-    const agendaIdx = currentTask.agendaId !== undefined
-      ? agendas.findIndex(a => a.id === currentTask.agendaId) + 1
-      : 0
     commands.push({
       id: 'pick-agenda',
       label: 'agenda',
       group: 'state',
       key: 'a',
-      action: { type: 'set-agenda-picker-selected', index: Math.max(0, agendaIdx) },
+      action: { type: 'set-mode', mode: 'picking-agenda-for-task' },
     })
   }
 
@@ -212,13 +209,15 @@ export function getCommands(vm: ViewModel): Command[] {
   }
 
   // ── Cycle sphere ─────────────────────────────────────────────────────────────
-  if (isTopLevel) {
+  if (isTopLevel && spheres.length > 0) {
+    const sphereIdx = spheres.findIndex(s => s.id === activeSphere?.id)
+    const nextSphere = spheres[(sphereIdx + 1) % spheres.length]!
     commands.push({
       id: 'cycle-sphere',
       label: 'sphere',
       group: 'view',
       key: ']',
-      action: { type: 'set-sphere', sphereId: activeSphere?.id ?? ('' as never) },
+      action: { type: 'set-sphere', sphereId: nextSphere.id },
     })
   }
 

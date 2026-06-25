@@ -1,6 +1,5 @@
 import { useState, useMemo, useCallback } from 'react'
 import {
-  CLEAR,
   listSpheres, listTasks, listProjects,
   createTask, updateTask, completeTask, uncompleteTask,
   createProject, updateProject, archiveProject, unarchiveProject,
@@ -16,6 +15,7 @@ import type { ViewModel } from './viewModel.js'
 import type { Command } from './types.js'
 
 export interface AppStateResult extends ViewModel {
+  projState: ProjectionState
   uiState: UIState
   commands: Command[]
   dispatch: (action: Action) => void
@@ -220,5 +220,5 @@ export function useAppState(store: PalimpsestStore): AppStateResult {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projState, uiState, vm])
 
-  return { ...vm, uiState, commands, dispatch }
+  return { ...vm, projState, uiState, commands, dispatch }
 }

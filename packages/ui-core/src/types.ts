@@ -59,6 +59,7 @@ export const INITIAL_UI_STATE: UIState = {
 
 export type UIAction =
   | { type: 'navigate'; navState: NavState }
+  | { type: 'set-nav'; navState: NavState }
   | { type: 'go-back' }
   | { type: 'update-nav'; patch: Partial<NavState> }
   | { type: 'set-mode'; mode: Mode }

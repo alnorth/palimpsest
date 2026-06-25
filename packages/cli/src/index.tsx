@@ -1,14 +1,11 @@
-import React, { useState, useMemo, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import { render, Box, Text, useInput, useWindowSize } from 'ink'
 import { TaskList } from './TaskList.js'
 import { Row, Meta } from './Row.js'
 import TextInput from 'ink-text-input'
-import {
-  PalimpsestStore, CLEAR,
-  listTasks, listProjects, listSpheres, listAgendas, getProject, getAgenda,
-  createTask, updateTask, completeTask, uncompleteTask, createProject, updateProject, archiveProject, unarchiveProject, createSphere, createAgenda,
-} from 'palimpsest'
-import type { ProjectionState, SphereId, ProjectId, TaskId } from 'palimpsest'
+import { PalimpsestStore, CLEAR, getProject, getAgenda } from 'palimpsest'
+import { useAppState, INITIAL_NAV } from 'palimpsest-ui-core'
+import type { View } from 'palimpsest-ui-core'
 import { formatDate, formatDateTime } from './format.js'
 import { homedir } from 'node:os'
 import { join, dirname } from 'node:path'
@@ -17,9 +14,6 @@ import { mkdirSync } from 'node:fs'
 const filePath = process.env['PALIMPSEST_FILE'] ?? join(homedir(), '.palimpsest', 'events.jsonl')
 mkdirSync(dirname(filePath), { recursive: true })
 const store = new PalimpsestStore(filePath)
-
-type View = 'tasks' | 'projects' | 'project' | 'task'
-type Mode = 'list' | 'picking-view' | 'adding' | 'editing-task' | 'editing-description' | 'picking-agenda-for-task' | 'adding-project' | 'editing-project' | 'settings' | 'creating-sphere' | 'picking-sphere-for-agenda' | 'creating-agenda'
 
 const VIEW_CONFIG = {
   tasks:    { label: 'Tasks',    key: 't' },
@@ -31,86 +25,14 @@ const VIEW_CONFIG = {
 const TOP_LEVEL_VIEWS = (['tasks', 'projects'] as const).filter(v => VIEW_CONFIG[v].key !== undefined)
 const SETTINGS_OPTIONS = ['Create Sphere', 'Create Agenda'] as const
 
-interface NavState {
-  view: View
-  selected: number
-  activeProjectId: ProjectId | undefined
-  activeTaskId: TaskId | undefined
-  showCompleted: boolean
-  showArchived: boolean
-}
-
-const INITIAL_NAV: NavState = { view: 'tasks', selected: 0, activeProjectId: undefined, activeTaskId: undefined, showCompleted: false, showArchived: false }
-
-interface Shortcut {
-  key: string
-  label: string
-  row: 'state' | 'view'
-  when?: boolean
-  show?: boolean
-  action: () => void
-}
-
 function App() {
-  const [state, setState] = useState<ProjectionState>(() => store.getState())
-  const spheres = useMemo(() => listSpheres(state), [state])
-  const [currentSphereId, setCurrentSphereId] = useState<SphereId | undefined>(() => store.getState().spheres.values().next().value?.id)
-  const activeSphere = useMemo(
-    () => (currentSphereId !== undefined ? state.spheres.get(currentSphereId) : undefined) ?? spheres[0],
-    [state, currentSphereId, spheres],
-  )
-  const [navStack, setNavStack] = useState<NavState[]>([INITIAL_NAV])
-  const currentNav = navStack[navStack.length - 1] ?? INITIAL_NAV
-  const { view, selected, activeProjectId, activeTaskId, showCompleted, showArchived } = currentNav
+  const {
+    view, mode, selected, tasks, projects, projectTasks, activeTask, activeProject,
+    activeSphere, agendas, projectStats, listLength, currentTask, spheres,
+    projState, uiState, commands, dispatch, canGoBack, showCompleted, showArchived,
+  } = useAppState(store)
 
-  const tasks = useMemo(() => {
-    if (activeSphere === undefined) return []
-    const result = listTasks(state, { sphereId: activeSphere.id, status: showCompleted ? 'completed' : 'open' })
-    if (showCompleted) result.sort((a, b) => (b.completedAt ?? '').localeCompare(a.completedAt ?? ''))
-    return result
-  }, [state, activeSphere, showCompleted])
-  const projects = useMemo(() => {
-    if (activeSphere === undefined) return []
-    const result = listProjects(state, { sphereId: activeSphere.id, isArchived: showArchived })
-    if (showArchived) result.sort((a, b) => (b.archivedAt ?? '').localeCompare(a.archivedAt ?? ''))
-    return result
-  }, [state, activeSphere, showArchived])
-  const agendas = useMemo(
-    () => activeSphere !== undefined ? listAgendas(state, { sphereId: activeSphere.id }) : [],
-    [state, activeSphere],
-  )
-  const projectStats = useMemo(() => {
-    const hasNext = new Set<ProjectId>()
-    const taskCount = new Map<ProjectId, number>()
-    for (const task of state.tasks.values()) {
-      if (task.projectId !== undefined && task.status === 'open') {
-        taskCount.set(task.projectId, (taskCount.get(task.projectId) ?? 0) + 1)
-        if (task.isNext === true) hasNext.add(task.projectId)
-      }
-    }
-    return { hasNext, taskCount }
-  }, [state])
-  const activeProject = useMemo(
-    () => activeProjectId !== undefined ? state.projects.get(activeProjectId) : undefined,
-    [state, activeProjectId],
-  )
-  const projectTasks = useMemo(() => {
-    if (activeProjectId === undefined) return []
-    const result = listTasks(state, { projectId: activeProjectId, status: showCompleted ? 'completed' : 'open' })
-    if (showCompleted) result.sort((a, b) => (b.completedAt ?? '').localeCompare(a.completedAt ?? ''))
-    return result
-  }, [state, activeProjectId, showCompleted])
-  const activeTask = useMemo(
-    () => activeTaskId !== undefined ? state.tasks.get(activeTaskId) : undefined,
-    [state, activeTaskId],
-  )
-
-  const [viewPickerSelected, setViewPickerSelected] = useState(0)
-  const [agendaPickerSelected, setAgendaPickerSelected] = useState(0)
-  const [settingsSelected, setSettingsSelected] = useState(0)
-  const [pickerSelected, setPickerSelected] = useState(0)
-  const [agendaSphereId, setAgendaSphereId] = useState<SphereId | undefined>(undefined)
-  const [mode, setMode] = useState<Mode>('list')
+  const { viewPickerSelected, agendaPickerSelected, settingsSelected, pickerSelected, agendaSphereId } = uiState
   const [formValue, setFormValue] = useState('')
   const { rows: termRows } = useWindowSize()
 
@@ -122,336 +44,187 @@ function App() {
     return () => { process.stdout.write('\x1b]0;\x07') }
   }, [view, activeTask, activeProject])
 
-  const listLength = view === 'tasks' ? tasks.length : view === 'projects' ? projects.length : view === 'project' ? projectTasks.length : 0
-  const currentTask = view === 'task' ? activeTask : view === 'project' ? projectTasks[selected] : view === 'tasks' ? tasks[selected] : undefined
-
-  function refreshState() {
-    const newState = store.getState()
-    setState(newState)
-    return newState
-  }
-
-  function appendAndRefresh(events: ReturnType<typeof createTask>) {
-    store.appendEvents(events)
-    refreshState()
-  }
-
-  function updateCurrent(patch: Partial<NavState> | ((prev: NavState) => Partial<NavState>)) {
-    setNavStack(s => {
-      const last = s[s.length - 1] ?? INITIAL_NAV
-      const update = typeof patch === 'function' ? patch(last) : patch
-      return [...s.slice(0, -1), { ...last, ...update }]
-    })
-  }
-
-  function navigate(nextState: NavState) {
-    setNavStack(s => [...s, nextState])
-  }
-
-  function goBack() {
-    setNavStack(s => s.length > 1 ? s.slice(0, -1) : s)
-  }
-
   function startCreateAgenda() {
     if (spheres.length === 0) {
-      setMode('picking-sphere-for-agenda')
+      dispatch({ type: 'set-mode', mode: 'picking-sphere-for-agenda' })
     } else if (spheres.length === 1) {
-      setAgendaSphereId(spheres[0]!.id)
-      setMode('creating-agenda')
+      dispatch({ type: 'set-agenda-sphere', sphereId: spheres[0]!.id })
+      dispatch({ type: 'set-mode', mode: 'creating-agenda' })
     } else {
-      setPickerSelected(0)
-      setMode('picking-sphere-for-agenda')
+      dispatch({ type: 'set-picker-selected', index: 0 })
+      dispatch({ type: 'set-mode', mode: 'picking-sphere-for-agenda' })
     }
   }
-
-  const shortcuts: Shortcut[] = [
-    {
-      key: 'v', label: 'view', row: 'view',
-      show: view !== 'project' && view !== 'task',
-      action: () => {
-        const idx = view === 'project' ? TOP_LEVEL_VIEWS.indexOf('projects') : TOP_LEVEL_VIEWS.indexOf(view as 'tasks' | 'projects')
-        setViewPickerSelected(Math.max(0, idx))
-        setMode('picking-view')
-      },
-    },
-    {
-      key: 'q', label: 'new', row: 'state',
-      when: view === 'tasks' || view === 'project',
-      action: () => setMode('adding'),
-    },
-    {
-      key: 'q', label: 'new', row: 'state',
-      when: view === 'projects' && !showArchived,
-      action: () => setMode('adding-project'),
-    },
-    {
-      key: 'e', label: 'edit', row: 'state',
-      when: currentTask?.status === 'open',
-      action: () => { setFormValue(currentTask!.title); setMode('editing-task') },
-    },
-    {
-      key: 'd', label: 'description', row: 'state',
-      when: currentTask?.status === 'open',
-      action: () => { setFormValue(currentTask!.description); setMode('editing-description') },
-    },
-    {
-      key: 'e', label: 'edit', row: 'state',
-      when: view === 'projects' && !showArchived,
-      action: () => {
-        const project = projects[selected]
-        if (project !== undefined) { setFormValue(project.name); setMode('editing-project') }
-      },
-    },
-    {
-      key: 'c', label: currentTask?.status === 'completed' ? 'reopen' : 'complete', row: 'state',
-      when: currentTask !== undefined,
-      action: () => {
-        store.appendEvents(showCompleted ? uncompleteTask(state, currentTask!.id) : completeTask(state, currentTask!.id))
-        const newState = refreshState()
-        const status = showCompleted ? 'completed' : 'open'
-        if (view !== 'task') {
-          const newTasks = view === 'project' && activeProjectId !== undefined
-            ? listTasks(newState, { projectId: activeProjectId, status })
-            : activeSphere !== undefined
-              ? listTasks(newState, { sphereId: activeSphere.id, status })
-              : []
-          updateCurrent(prev => ({ selected: Math.max(0, Math.min(prev.selected, newTasks.length - 1)) }))
-        }
-      },
-    },
-    {
-      key: 'n', label: 'next', row: 'state',
-      when: (view === 'project' || view === 'task') && currentTask?.status === 'open',
-      action: () => {
-        appendAndRefresh(updateTask(state, { taskId: currentTask!.id, patch: { isNext: currentTask!.isNext !== true } }))
-      },
-    },
-    {
-      key: 's', label: 'star', row: 'state',
-      when: currentTask?.status === 'open',
-      action: () => {
-        appendAndRefresh(updateTask(state, { taskId: currentTask!.id, patch: { isStarred: currentTask!.isStarred !== true } }))
-      },
-    },
-    {
-      key: 'a', label: 'agenda', row: 'state',
-      when: currentTask?.status === 'open',
-      action: () => {
-        const idx = currentTask!.agendaId !== undefined ? agendas.findIndex(a => a.id === currentTask!.agendaId) + 1 : 0
-        setAgendaPickerSelected(Math.max(0, idx))
-        setMode('picking-agenda-for-task')
-      },
-    },
-    {
-      key: 'x', label: showArchived ? 'unarchive' : 'archive', row: 'state',
-      when: view === 'projects',
-      action: () => {
-        const project = projects[selected]
-        if (project !== undefined) {
-          store.appendEvents(project.isArchived ? unarchiveProject(state, project.id) : archiveProject(state, project.id))
-          const newState = refreshState()
-          const newProjects = activeSphere !== undefined
-            ? listProjects(newState, { sphereId: activeSphere.id, isArchived: showArchived })
-            : []
-          updateCurrent(prev => ({ selected: Math.max(0, Math.min(prev.selected, newProjects.length - 1)) }))
-        }
-      },
-    },
-    {
-      key: 'P', label: 'view project', row: 'view',
-      when: currentTask?.projectId !== undefined,
-      action: () => {
-        navigate({ ...currentNav, view: 'project', selected: 0, activeProjectId: currentTask!.projectId!, activeTaskId: undefined })
-      },
-    },
-    {
-      key: 'C', label: showCompleted ? 'open' : 'completed', row: 'view',
-      when: view === 'tasks' || view === 'project',
-      action: () => { navigate({ ...currentNav, showCompleted: !showCompleted, selected: 0 }) },
-    },
-    {
-      key: 'X', label: showArchived ? 'active' : 'archived', row: 'view',
-      when: view === 'projects',
-      action: () => { navigate({ ...currentNav, showArchived: !showArchived, selected: 0 }) },
-    },
-    {
-      key: ']', label: 'sphere', row: 'view',
-      show: view !== 'project' && view !== 'task',
-      action: () => {
-        const idx = spheres.findIndex(s => s.id === activeSphere?.id)
-        setCurrentSphereId(spheres[(idx + 1) % spheres.length]?.id)
-        setNavStack([INITIAL_NAV])
-      },
-    },
-    {
-      key: 'k', label: 'settings', row: 'view',
-      show: view !== 'project' && view !== 'task',
-      action: () => setMode('settings'),
-    },
-  ]
 
   useInput((input, key) => {
     if (mode === 'adding' || mode === 'editing-task' || mode === 'editing-description' || mode === 'adding-project' || mode === 'editing-project' || mode === 'creating-sphere' || mode === 'creating-agenda') {
       if (key.escape) {
         setFormValue('')
-        setMode(mode === 'creating-sphere' || mode === 'creating-agenda' ? 'settings' : 'list')
+        dispatch({ type: 'set-mode', mode: mode === 'creating-sphere' || mode === 'creating-agenda' ? 'settings' : 'list' })
       }
       return
     }
     if (mode === 'picking-view') {
-      if (key.escape) { setMode('list'); return }
-      if (key.upArrow) setViewPickerSelected(i => Math.max(0, i - 1))
-      if (key.downArrow) setViewPickerSelected(i => Math.min(TOP_LEVEL_VIEWS.length - 1, i + 1))
+      if (key.escape) { dispatch({ type: 'set-mode', mode: 'list' }); return }
+      if (key.upArrow) dispatch({ type: 'set-view-picker-selected', index: Math.max(0, viewPickerSelected - 1) })
+      if (key.downArrow) dispatch({ type: 'set-view-picker-selected', index: Math.min(TOP_LEVEL_VIEWS.length - 1, viewPickerSelected + 1) })
       const shortcutView = TOP_LEVEL_VIEWS.find(v => VIEW_CONFIG[v].key === input)
       if (shortcutView !== undefined || key.return) {
         const newView = shortcutView ?? TOP_LEVEL_VIEWS[viewPickerSelected]!
-        setNavStack([{ ...INITIAL_NAV, view: newView }])
-        setMode('list')
+        dispatch({ type: 'set-nav', navState: { ...INITIAL_NAV, view: newView } })
+        dispatch({ type: 'set-mode', mode: 'list' })
       }
       return
     }
     if (mode === 'picking-agenda-for-task') {
-      if (key.escape) { setMode('list'); return }
-      if (key.upArrow) setAgendaPickerSelected(i => Math.max(0, i - 1))
-      if (key.downArrow) setAgendaPickerSelected(i => Math.min(agendas.length, i + 1))
-      if (key.return) {
-        const task = currentTask
-        if (task !== undefined) {
-          const patch = agendaPickerSelected === 0
-            ? { agendaId: CLEAR }
-            : { agendaId: agendas[agendaPickerSelected - 1]!.id }
-          appendAndRefresh(updateTask(state, { taskId: task.id, patch }))
-        }
-        setMode('list')
+      if (key.escape) { dispatch({ type: 'set-mode', mode: 'list' }); return }
+      if (key.upArrow) dispatch({ type: 'set-agenda-picker-selected', index: Math.max(0, agendaPickerSelected - 1) })
+      if (key.downArrow) dispatch({ type: 'set-agenda-picker-selected', index: Math.min(agendas.length, agendaPickerSelected + 1) })
+      if (key.return && currentTask !== undefined) {
+        const agendaId = agendaPickerSelected === 0 ? CLEAR : agendas[agendaPickerSelected - 1]!.id
+        dispatch({ type: 'set-task-agenda', taskId: currentTask.id, agendaId })
       }
       return
     }
     if (mode === 'picking-sphere-for-agenda') {
-      if (key.escape) { setMode('settings'); return }
-      if (key.upArrow) setPickerSelected(i => Math.max(0, i - 1))
-      if (key.downArrow) setPickerSelected(i => Math.min(spheres.length - 1, i + 1))
+      if (key.escape) { dispatch({ type: 'set-mode', mode: 'settings' }); return }
+      if (key.upArrow) dispatch({ type: 'set-picker-selected', index: Math.max(0, pickerSelected - 1) })
+      if (key.downArrow) dispatch({ type: 'set-picker-selected', index: Math.min(spheres.length - 1, pickerSelected + 1) })
       if (key.return && spheres.length > 0) {
-        setAgendaSphereId(spheres[pickerSelected]!.id)
-        setMode('creating-agenda')
+        dispatch({ type: 'set-agenda-sphere', sphereId: spheres[pickerSelected]!.id })
+        dispatch({ type: 'set-mode', mode: 'creating-agenda' })
       }
       return
     }
     if (mode === 'settings') {
-      if (key.escape) { setMode('list'); return }
-      if (key.upArrow) setSettingsSelected(i => Math.max(0, i - 1))
-      if (key.downArrow) setSettingsSelected(i => Math.min(SETTINGS_OPTIONS.length - 1, i + 1))
+      if (key.escape) { dispatch({ type: 'set-mode', mode: 'list' }); return }
+      if (key.upArrow) dispatch({ type: 'set-settings-selected', index: Math.max(0, settingsSelected - 1) })
+      if (key.downArrow) dispatch({ type: 'set-settings-selected', index: Math.min(SETTINGS_OPTIONS.length - 1, settingsSelected + 1) })
       if (key.return) {
-        if (SETTINGS_OPTIONS[settingsSelected] === 'Create Sphere') setMode('creating-sphere')
+        if (SETTINGS_OPTIONS[settingsSelected] === 'Create Sphere') dispatch({ type: 'set-mode', mode: 'creating-sphere' })
         if (SETTINGS_OPTIONS[settingsSelected] === 'Create Agenda') startCreateAgenda()
       }
       return
     }
     // list mode
-    if (key.escape) goBack()
+    if (key.escape) dispatch({ type: 'go-back' })
     if (key.return && view === 'projects') {
       const project = projects[selected]
       if (project !== undefined) {
-        navigate({ ...currentNav, view: 'project', selected: 0, activeProjectId: project.id, activeTaskId: undefined })
+        dispatch({ type: 'navigate', navState: { ...INITIAL_NAV, view: 'project', selected: 0, activeProjectId: project.id, activeTaskId: undefined, showCompleted, showArchived } })
       }
     }
     if (key.return && (view === 'tasks' || view === 'project')) {
       const task = (view === 'project' ? projectTasks : tasks)[selected]
       if (task !== undefined) {
-        navigate({ ...currentNav, view: 'task', selected: 0, activeTaskId: task.id })
+        dispatch({ type: 'navigate', navState: { ...INITIAL_NAV, view: 'task', selected: 0, activeProjectId: undefined, activeTaskId: task.id, showCompleted, showArchived } })
       }
     }
-    if (key.upArrow) updateCurrent(prev => ({ selected: Math.max(0, prev.selected - 1) }))
-    if (key.downArrow) updateCurrent(prev => ({ selected: Math.min(listLength - 1, prev.selected + 1) }))
-    shortcuts.find(s => s.key === input && (s.when ?? true))?.action()
+    if (key.upArrow) dispatch({ type: 'update-nav', patch: { selected: Math.max(0, selected - 1) } })
+    if (key.downArrow) dispatch({ type: 'update-nav', patch: { selected: Math.min(listLength - 1, selected + 1) } })
+
+    const cmd = commands.find(c => c.key === input)
+    if (cmd) {
+      if (cmd.id === 'edit-task' && currentTask !== undefined) setFormValue(currentTask.title)
+      if (cmd.id === 'edit-description') setFormValue(currentTask?.description ?? '')
+      if (cmd.id === 'edit-project') setFormValue(projects[selected]?.name ?? '')
+      if (cmd.id === 'pick-agenda' && currentTask !== undefined) {
+        const idx = currentTask.agendaId !== undefined ? agendas.findIndex(a => a.id === currentTask.agendaId) + 1 : 0
+        dispatch({ type: 'set-agenda-picker-selected', index: Math.max(0, idx) })
+      }
+      if (cmd.id === 'pick-view') {
+        dispatch({ type: 'set-view-picker-selected', index: Math.max(0, TOP_LEVEL_VIEWS.indexOf(view as 'tasks' | 'projects')) })
+      }
+      dispatch(cmd.action)
+    }
   })
 
   function handleTaskSubmit(title: string) {
     const trimmed = title.trim()
     if (trimmed) {
-      if (view === 'project' && activeProjectId !== undefined) {
-        store.appendEvents(createTask(state, { title: trimmed, projectId: activeProjectId }))
-        const newState = refreshState()
-        updateCurrent({ selected: listTasks(newState, { projectId: activeProjectId, status: 'open' }).length - 1 })
-      } else if (activeSphere !== undefined) {
-        store.appendEvents(createTask(state, { title: trimmed, sphereId: activeSphere.id }))
-        const newState = refreshState()
-        updateCurrent({ selected: listTasks(newState, { sphereId: activeSphere.id, status: 'open' }).length - 1 })
-      }
+      const projectId = view === 'project' ? activeProject?.id : undefined
+      dispatch({
+        type: 'create-task',
+        title: trimmed,
+        ...(projectId !== undefined && { projectId }),
+        ...(activeSphere !== undefined && { sphereId: activeSphere.id }),
+      })
+    } else {
+      dispatch({ type: 'set-mode', mode: 'list' })
     }
     setFormValue('')
-    setMode('list')
   }
 
   function handleEditSubmit(title: string) {
     const trimmed = title.trim()
-    const task = currentTask
-    if (trimmed && task !== undefined) {
-      appendAndRefresh(updateTask(state, { taskId: task.id, patch: { title: trimmed } }))
+    if (trimmed && currentTask !== undefined) {
+      dispatch({ type: 'edit-task', taskId: currentTask.id, title: trimmed })
+    } else {
+      dispatch({ type: 'set-mode', mode: 'list' })
     }
     setFormValue('')
-    setMode('list')
   }
 
   function handleEditDescriptionSubmit(description: string) {
-    const task = currentTask
-    if (task !== undefined) {
-      appendAndRefresh(updateTask(state, { taskId: task.id, patch: { description: description.trim() } }))
+    if (currentTask !== undefined) {
+      dispatch({ type: 'edit-task-description', taskId: currentTask.id, description: description.trim() })
+    } else {
+      dispatch({ type: 'set-mode', mode: 'list' })
     }
     setFormValue('')
-    setMode('list')
   }
 
   function handleProjectSubmit(name: string) {
     const trimmed = name.trim()
     if (trimmed && activeSphere !== undefined) {
-      appendAndRefresh(createProject(state, { name: trimmed, sphereId: activeSphere.id }))
+      dispatch({ type: 'create-project', name: trimmed, sphereId: activeSphere.id })
+    } else {
+      dispatch({ type: 'set-mode', mode: 'list' })
     }
     setFormValue('')
-    setMode('list')
   }
 
   function handleEditProjectSubmit(name: string) {
     const trimmed = name.trim()
     const project = projects[selected]
     if (trimmed && project !== undefined) {
-      appendAndRefresh(updateProject(state, project.id, { name: trimmed }))
+      dispatch({ type: 'edit-project', projectId: project.id, name: trimmed })
+    } else {
+      dispatch({ type: 'set-mode', mode: 'list' })
     }
     setFormValue('')
-    setMode('list')
   }
 
   function handleSphereSubmit(name: string) {
     const trimmed = name.trim()
     if (trimmed) {
-      const events = createSphere(state, { name: trimmed })
-      store.appendEvents(events)
-      const newState = refreshState()
-      if (currentSphereId === undefined) {
-        setCurrentSphereId(listSpheres(newState)[0]?.id)
-      }
+      dispatch({ type: 'create-sphere', name: trimmed })
+    } else {
+      dispatch({ type: 'set-mode', mode: 'settings' })
     }
     setFormValue('')
-    setMode('settings')
   }
 
   function handleAgendaSubmit(title: string) {
     const trimmed = title.trim()
     if (trimmed && agendaSphereId !== undefined) {
-      appendAndRefresh(createAgenda(state, { title: trimmed, sphereId: agendaSphereId }))
+      dispatch({ type: 'create-agenda', title: trimmed, sphereId: agendaSphereId })
+    } else {
+      dispatch({ type: 'set-mode', mode: 'settings' })
     }
     setFormValue('')
-    setAgendaSphereId(undefined)
-    setMode('settings')
   }
 
   let title: React.ReactNode
   let content: React.ReactNode
   let footer: React.ReactNode
 
+  const stateCommands = commands.filter(c => c.group === 'state')
+  const viewCommands = commands.filter(c => c.group === 'view')
+
   if (mode === 'picking-agenda-for-task') {
-    const task = currentTask
     const options = ['No agenda', ...agendas.map(a => a.title)]
-    title = <Text bold color="cyan">Agenda{task !== undefined ? ` — ${task.title}` : ''}</Text>
+    title = <Text bold color="cyan">Agenda{currentTask !== undefined ? ` — ${currentTask.title}` : ''}</Text>
     content = options.map((label, i) => (
       <Text key={label} {...(i === agendaPickerSelected ? { color: 'blue' as const } : {})}>
         {i === agendaPickerSelected ? '> ' : '  '}{i > 0 ? '@' : ''}{label}
@@ -507,10 +280,9 @@ function App() {
   } else {
     const completedTag = showCompleted && view !== 'projects' ? <Text color="yellow"> completed</Text> : null
     const archivedTag = showArchived && view === 'projects' ? <Text color="yellow"> archived</Text> : null
-    const visible = (s: Shortcut) => s.show ?? s.when ?? true
-    const stateRow = shortcuts.filter(s => s.row === 'state' && visible(s)).map(s => `${s.key} ${s.label}`)
-    const viewRow = ['↑↓ navigate', ...shortcuts.filter(s => s.row === 'view' && visible(s)).map(s => `${s.key} ${s.label}`)]
-    if (navStack.length > 1) viewRow.push('esc back')
+    const stateRow = stateCommands.map(c => `${c.key} ${c.label}`)
+    const viewRow = ['↑↓ navigate', ...viewCommands.map(c => `${c.key} ${c.label}`)]
+    if (canGoBack) viewRow.push('esc back')
     const listHint = (
       <Box flexDirection="column">
         {stateRow.length > 0 && <Text dimColor>{stateRow.join('  ')}</Text>}
@@ -523,10 +295,10 @@ function App() {
       ? <><Text bold color="cyan">{activeSphere?.name ?? 'Palimpsest'}</Text><Text dimColor> — Project: {activeProject?.name ?? ''}</Text>{completedTag}</>
       : <><Text bold color="cyan">{activeSphere?.name ?? 'Palimpsest'}</Text><Text dimColor> — {VIEW_CONFIG[view].label}</Text>{archivedTag}{completedTag}</>
     content = activeSphere === undefined ? (
-      <Text dimColor>No spheres yet — press s to open settings and create one.</Text>
+      <Text dimColor>No spheres yet — press k to open settings and create one.</Text>
     ) : view === 'task' ? (() => {
-      const detailProject = activeTask?.projectId !== undefined ? getProject(state, activeTask.projectId) : undefined
-      const detailAgenda = activeTask?.agendaId !== undefined ? getAgenda(state, activeTask.agendaId) : undefined
+      const detailProject = activeTask?.projectId !== undefined ? getProject(projState, activeTask.projectId) : undefined
+      const detailAgenda = activeTask?.agendaId !== undefined ? getAgenda(projState, activeTask.agendaId) : undefined
       return (
         <Box flexDirection="column">
           {activeTask?.description
@@ -544,7 +316,7 @@ function App() {
         </Box>
       )
     })() : view === 'tasks' ? (
-      <TaskList tasks={tasks} selected={selected} state={state} showProject emptyMessage={showCompleted ? 'No completed tasks in this sphere.' : 'No open tasks in this sphere.'} />
+      <TaskList tasks={tasks} selected={selected} state={projState} showProject emptyMessage={showCompleted ? 'No completed tasks in this sphere.' : 'No open tasks in this sphere.'} />
     ) : view === 'projects' ? (
       projects.length === 0 ? (
         <Text dimColor>No projects.</Text>
@@ -561,7 +333,7 @@ function App() {
         )
       })
     ) : (
-      <TaskList tasks={projectTasks} selected={selected} state={state} emptyMessage={showCompleted ? 'No completed tasks in this project.' : 'No open tasks in this project.'} />
+      <TaskList tasks={projectTasks} selected={selected} state={projState} emptyMessage={showCompleted ? 'No completed tasks in this project.' : 'No open tasks in this project.'} />
     )
     footer = mode === 'adding' ? (
       activeSphere === undefined ? (

@@ -6,6 +6,9 @@ export function uiReducer(state: UIState, action: UIAction): UIState {
     case 'navigate':
       return { ...state, navStack: [...state.navStack, action.navState] }
 
+    case 'set-nav':
+      return { ...state, navStack: [action.navState] }
+
     case 'go-back':
       return state.navStack.length > 1
         ? { ...state, navStack: state.navStack.slice(0, -1) }
