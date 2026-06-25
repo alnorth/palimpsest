@@ -21,3 +21,4 @@
 - [ ] Expose problem lists in the TUI.
 - [ ] Implement a script that imports events from a Todoist export.
 - [ ] Show the day of the week when showing due dates in the TUI. Maybe replace the current date display with the day-of-week when it's in the next week. And have "Today", "Tomorrow" for those days too.
+- [ ] In the TUI, show the recurrence expression for a task.

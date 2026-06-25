@@ -2,7 +2,7 @@ import type { ProjectionState } from './projection.js'
 import type { PalimpsestEvent, TaskPatch, ProjectPatch, SpherePatch, AgendaPatch, ContextPatch } from './events.js'
 import type { TaskId, ProjectId, SphereId, AgendaId, ContextId } from './ids.js'
 import { newTaskId, newProjectId, newSphereId, newAgendaId, newContextId, newEventId } from './ids.js'
-import { nextDueDate, isValidExpression } from './recurrence.js'
+import { nextDueDate, isValidExpression } from './dateParser.js'
 
 function now(): string {
   return new Date().toISOString()

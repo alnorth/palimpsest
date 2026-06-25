@@ -34,5 +34,4 @@ export {
   getSphere, listSpheres,
   getTaskSphereId,
 } from './query.js'
-export { nextDueDate, isValidExpression } from './recurrence.js'
-export { parseDueDate, addDays, nextWeekday } from './dateParser.js'
+export { parseDueDate, addDays, nextWeekday, isValidExpression, nextDueDate } from './dateParser.js'

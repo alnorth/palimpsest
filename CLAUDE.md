@@ -35,7 +35,7 @@ npm run build --workspace=packages/cli             # build CLI
 
 To run a single test file (from packages/core):
 ```bash
-npx vitest run src/recurrence.test.ts
+npx vitest run src/dateParser.test.ts
 ```
 
 To run tests matching a name pattern:
@@ -83,7 +83,9 @@ commands.ts  →  events.ts  →  projection.ts  →  query.ts
 
 **`query.ts`** — Stateless read functions over `ProjectionState`. `getTaskSphereId(state, task)` is the key derived helper: tasks may belong to a sphere directly (`task.sphereId`) or inherit it from their project (`task.projectId → project.sphereId`).
 
-**`recurrence.ts`** — Custom DSL: `"daily"`, `"weekly:monday"`, `"monthly:1"` (days 1–28 only), `"yearly:jan-1"`. All dates computed in UTC. `isValidExpression()` is called by commands before storing an expression.
+**`dateParser.ts`** — Two sections with a shared two-phase structure (parse input → discriminated union, then compute):
+- *Due date parsing*: `parseDueDate(input, today)` accepts natural language (`"tomorrow"`, `"next monday"`, `"jan 15"`, `"25/12"`, ISO dates, etc.). Exports `addDays` and `nextWeekday` as utilities.
+- *Recurrence*: `isValidExpression(expr)` and `nextDueDate(expr, completedAt)`. Expressions are stored verbatim as entered. Accepted forms: aliases (`"daily"`, `"weekly"`, `"monthly"`, `"quarterly"`, `"yearly"`, `"annually"`, `"fortnightly"`), `"every …"` / `"ev …"` patterns (`"every day"`, `"every monday"`, `"ev mon"`, `"every 15th"`, `"every month"`, `"every jan 1"`, `"every 2 weeks"`, etc.). All dates computed in UTC. Ordinal monthly day is capped at 1–28 to guarantee the day exists in every month.
 
 ### Domain model
 
