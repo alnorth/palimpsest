@@ -4,6 +4,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Keep this file up to date.** When making structural changes to the codebase — new modules, changed data flow, new domain concepts, altered invariants — update the relevant sections of this file in the same commit.
 
+**When tagging a release**, always bump the `version` field in `package.json` to match the tag before committing.
+
 ## Commands
 
 ```bash
