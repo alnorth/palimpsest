@@ -120,6 +120,17 @@ export function getCommands(vm: ViewModel): Command[] {
     })
   }
 
+  // ── Set recurrence ────────────────────────────────────────────────────────────
+  if (currentTask?.status === 'open') {
+    commands.push({
+      id: 'set-recurrence',
+      label: 'recurring',
+      group: 'state',
+      key: 'r',
+      action: { type: 'set-mode', mode: 'editing-recurrence' },
+    })
+  }
+
   // ── Pick project ─────────────────────────────────────────────────────────────
   if (currentTask?.status === 'open') {
     commands.push({

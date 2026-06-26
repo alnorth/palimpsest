@@ -19,6 +19,7 @@ export type Mode =
   | 'creating-sphere'
   | 'picking-sphere-for-agenda'
   | 'creating-agenda'
+  | 'editing-recurrence'
 
 export interface NavState {
   view: View
@@ -84,6 +85,7 @@ export type DataAction =
   | { type: 'edit-task'; taskId: TaskId; title: string }
   | { type: 'edit-task-description'; taskId: TaskId; description: string }
   | { type: 'set-task-due-date'; taskId: TaskId; dueDate: string | typeof CLEAR }
+  | { type: 'set-task-due-date-expression'; taskId: TaskId; dueDateExpression: string | typeof CLEAR }
   | { type: 'set-task-project'; taskId: TaskId; projectId: ProjectId | typeof CLEAR }
   | { type: 'complete-task'; taskId: TaskId }
   | { type: 'uncomplete-task'; taskId: TaskId }

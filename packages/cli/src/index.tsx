@@ -3,7 +3,7 @@ import { render, Box, Text, useInput, useWindowSize } from 'ink'
 import { TaskList } from './TaskList.js'
 import { Row, Meta } from './Row.js'
 import TextInput from 'ink-text-input'
-import { FilePalimpsestStore, CLEAR, getProject, getAgenda, listProjects } from 'palimpsest'
+import { FilePalimpsestStore, CLEAR, getProject, getAgenda, listProjects, isValidExpression, nextDueDate } from 'palimpsest'
 import type { PalimpsestStore } from 'palimpsest'
 import { useAppState, INITIAL_NAV, ClientPalimpsestStore, addDays, nextWeekday, parseDueDate } from 'palimpsest-ui-core'
 import { FilePendingEventStore } from './FilePendingEventStore.js'
@@ -87,7 +87,7 @@ function App() {
     : []
 
   useInput((input, key) => {
-    if (mode === 'adding' || mode === 'editing-task' || mode === 'editing-description' || mode === 'editing-due-date' || mode === 'adding-project' || mode === 'editing-project' || mode === 'creating-sphere' || mode === 'creating-agenda' || mode === 'picking-project-for-task') {
+    if (mode === 'adding' || mode === 'editing-task' || mode === 'editing-description' || mode === 'editing-due-date' || mode === 'editing-recurrence' || mode === 'adding-project' || mode === 'editing-project' || mode === 'creating-sphere' || mode === 'creating-agenda' || mode === 'picking-project-for-task') {
       if (key.escape) {
         setFormValue('')
         if (mode === 'creating-sphere' || mode === 'creating-agenda') {
@@ -202,6 +202,7 @@ function App() {
     if (cmd) {
       if (cmd.id === 'edit-task' && currentTask !== undefined) setFormValue(currentTask.title)
       if (cmd.id === 'edit-description') setFormValue(currentTask?.description ?? '')
+      if (cmd.id === 'set-recurrence') setFormValue(currentTask?.dueDateExpression ?? '')
       if (cmd.id === 'edit-project') setFormValue(projects[selected]?.name ?? '')
       if (cmd.id === 'pick-project' && currentTask !== undefined) {
         setFormValue('')
@@ -262,6 +263,18 @@ function App() {
     }
   }
 
+  function handleRecurrenceSubmit(value: string) {
+    const trimmed = value.trim()
+    if (currentTask === undefined) return
+    if (trimmed === '') {
+      dispatch({ type: 'set-task-due-date-expression', taskId: currentTask.id, dueDateExpression: CLEAR })
+      setFormValue('')
+    } else if (isValidExpression(trimmed)) {
+      dispatch({ type: 'set-task-due-date-expression', taskId: currentTask.id, dueDateExpression: trimmed })
+      setFormValue('')
+    }
+  }
+
   function handleProjectSubmit(name: string) {
     const trimmed = name.trim()
     if (trimmed && activeSphere !== undefined) {
@@ -318,6 +331,22 @@ function App() {
     if (formValue.trim().length === 0) return <Text dimColor>  tomorrow · next monday · jul 4 · 2026-12-25</Text>
     if (parsed !== null) return <Text color="green">  → {formatDateWithDay(parsed)}</Text>
     return <Text color="red">  Can't parse — try "tomorrow", "next monday", "jul 4", "2026-12-25"</Text>
+  })()
+
+  const recurrencePreviewHint: React.ReactNode = (() => {
+    const trimmed = formValue.trim()
+    if (trimmed === '') return <Text dimColor>  daily · every monday · every 2 weeks · monthly  (empty to clear)</Text>
+    if (!isValidExpression(trimmed)) return <Text color="red">  Invalid expression</Text>
+    const dates: string[] = []
+    let cur = today
+    for (let i = 0; i < 3; i++) {
+      const next = nextDueDate(trimmed, cur)
+      if (next === null) break
+      dates.push(formatDateWithDay(next))
+      cur = next
+    }
+    if (dates.length === 0) return <Text color="red">  No future dates for this expression</Text>
+    return <Text color="green">  → {dates.join(' · ')}</Text>
   })()
 
   let title: React.ReactNode
@@ -453,6 +482,7 @@ function App() {
             {detailProject !== undefined ? <Text dimColor>project    {detailProject.name}</Text> : null}
             {detailAgenda !== undefined ? <Text dimColor>agenda     @{detailAgenda.title}</Text> : null}
             {activeTask?.dueDate !== undefined ? <Text dimColor>due        {activeTask.dueDate}</Text> : null}
+            {activeTask?.dueDateExpression !== undefined ? <Text dimColor>recurring  {activeTask.dueDateExpression}</Text> : null}
             {activeTask?.completedAt !== undefined ? <Text dimColor>completed  {formatDateTime(activeTask.completedAt)}</Text> : null}
             {activeTask?.isNext === true ? <Text dimColor>next action</Text> : null}
             {activeTask?.isStarred === true ? <Text dimColor>starred</Text> : null}
@@ -505,6 +535,14 @@ function App() {
           <TextInput value={formValue} onChange={setFormValue} onSubmit={handleDueDateSubmit} />
         </Box>
         {dueDatePreviewHint}
+      </Box>
+    ) : mode === 'editing-recurrence' ? (
+      <Box flexDirection="column">
+        <Box>
+          <Text>Recurring: </Text>
+          <TextInput value={formValue} onChange={setFormValue} onSubmit={handleRecurrenceSubmit} />
+        </Box>
+        {recurrencePreviewHint}
       </Box>
     ) : mode === 'adding-project' ? (
       activeSphere === undefined ? (
