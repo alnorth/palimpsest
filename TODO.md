@@ -4,7 +4,7 @@
 - [x] Abstract core app logic to be reusable across TUI, web, and phone. e.g. views and commands available. This should be done as a new workspace, building on core. Do this using a TDD approach.
 - [x] Add the necessary code for running this in a decentralized manner. We'll need to deal with out-of-sync client states and reconcile any resulting conflicts.
 - [x] Due date picker in TUI.
-- [ ] Project picker for tasks.
+- [x] Project picker for tasks.
 - [ ] Set due date expression on a task.
 - [ ] Completing a recurring task sets the due date to the next value from the expression.
 - [ ] Add/edit/delete spheres.
