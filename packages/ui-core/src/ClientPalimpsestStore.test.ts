@@ -1,7 +1,11 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { ClientPalimpsestStore } from './ClientPalimpsestStore.js'
 import type { PendingEventStore } from './PendingEventStore.js'
+import { createEmptyState, buildStateFromConfig } from 'palimpsest'
 import type { PalimpsestEvent, TaskId, SphereId, EventId } from 'palimpsest'
+
+const SPHERE_ID = 'sph1' as SphereId
+const testInitialState = { ...createEmptyState(), ...buildStateFromConfig([{ id: SPHERE_ID, name: 'Work', agendas: [], contexts: [] }]) }
 
 class SpyPendingStore implements PendingEventStore {
   saved: PalimpsestEvent[] | undefined
@@ -42,7 +46,7 @@ describe('ClientPalimpsestStore', () => {
   describe('getState()', () => {
     it('returns empty state when server has no events', async () => {
       const syncFn = makeServerWithEvents([])
-      const store = new ClientPalimpsestStore(syncFn)
+      const store = new ClientPalimpsestStore(syncFn, { initialState: testInitialState })
       await store.sync()
       const state = await store.getState()
       expect(state.tasks.size).toBe(0)
@@ -50,7 +54,7 @@ describe('ClientPalimpsestStore', () => {
 
     it('includes unsynced events once initial sync has completed', async () => {
       const syncFn = makeServerWithEvents([])
-      const store = new ClientPalimpsestStore(syncFn)
+      const store = new ClientPalimpsestStore(syncFn, { initialState: testInitialState })
       await store.sync()
       const ev = makeTaskEvent()
       await store.appendEvents([ev])
@@ -61,7 +65,7 @@ describe('ClientPalimpsestStore', () => {
     it('reflects server events after sync', async () => {
       const ev = makeTaskEvent()
       const syncFn = makeServerWithEvents([ev])
-      const store = new ClientPalimpsestStore(syncFn)
+      const store = new ClientPalimpsestStore(syncFn, { initialState: testInitialState })
       await store.sync()
       const state = await store.getState()
       expect(state.tasks.size).toBe(1)
@@ -70,19 +74,19 @@ describe('ClientPalimpsestStore', () => {
 
   describe('unsyncedCount', () => {
     it('is 0 initially', async () => {
-      const store = new ClientPalimpsestStore(makeServerWithEvents([]))
+      const store = new ClientPalimpsestStore(makeServerWithEvents([]), { initialState: testInitialState })
       expect(store.unsyncedCount).toBe(0)
     })
 
     it('increments when events are appended', async () => {
-      const store = new ClientPalimpsestStore(makeServerWithEvents([]))
+      const store = new ClientPalimpsestStore(makeServerWithEvents([]), { initialState: testInitialState })
       const ev = makeTaskEvent()
       await store.appendEvents([ev])
       expect(store.unsyncedCount).toBe(1)
     })
 
     it('returns to 0 after successful sync', async () => {
-      const store = new ClientPalimpsestStore(makeServerWithEvents([]))
+      const store = new ClientPalimpsestStore(makeServerWithEvents([]), { initialState: testInitialState })
       const ev = makeTaskEvent()
       await store.appendEvents([ev])
       await store.sync()
@@ -92,7 +96,7 @@ describe('ClientPalimpsestStore', () => {
 
   describe('subscribe()', () => {
     it('fires callback when appendEvents is called', async () => {
-      const store = new ClientPalimpsestStore(makeServerWithEvents([]))
+      const store = new ClientPalimpsestStore(makeServerWithEvents([]), { initialState: testInitialState })
       const listener = vi.fn()
       store.subscribe(listener)
       await store.appendEvents([makeTaskEvent()])
@@ -102,7 +106,7 @@ describe('ClientPalimpsestStore', () => {
     it('fires callback when sync brings new events', async () => {
       const ev = makeTaskEvent()
       const syncFn = makeServerWithEvents([ev])
-      const store = new ClientPalimpsestStore(syncFn)
+      const store = new ClientPalimpsestStore(syncFn, { initialState: testInitialState })
       const listener = vi.fn()
       store.subscribe(listener)
       await store.sync()
@@ -110,7 +114,7 @@ describe('ClientPalimpsestStore', () => {
     })
 
     it('does not fire after unsubscribe', async () => {
-      const store = new ClientPalimpsestStore(makeServerWithEvents([]))
+      const store = new ClientPalimpsestStore(makeServerWithEvents([]), { initialState: testInitialState })
       const listener = vi.fn()
       const unsub = store.subscribe(listener)
       unsub()
@@ -119,7 +123,7 @@ describe('ClientPalimpsestStore', () => {
     })
 
     it('supports multiple subscribers', async () => {
-      const store = new ClientPalimpsestStore(makeServerWithEvents([]))
+      const store = new ClientPalimpsestStore(makeServerWithEvents([]), { initialState: testInitialState })
       const a = vi.fn()
       const b = vi.fn()
       store.subscribe(a)
@@ -134,7 +138,7 @@ describe('ClientPalimpsestStore', () => {
     it('advances baseSeq after pulling server events', async () => {
       const ev = makeTaskEvent()
       const syncFn = makeServerWithEvents([ev], 1)
-      const store = new ClientPalimpsestStore(syncFn)
+      const store = new ClientPalimpsestStore(syncFn, { initialState: testInitialState })
       await store.sync()
       // A second sync with the same server state should not request events again
       await store.sync()
@@ -144,7 +148,7 @@ describe('ClientPalimpsestStore', () => {
     })
 
     it('clears unsyncedEvents after successful upload', async () => {
-      const store = new ClientPalimpsestStore(makeServerWithEvents([]))
+      const store = new ClientPalimpsestStore(makeServerWithEvents([]), { initialState: testInitialState })
       await store.appendEvents([makeTaskEvent()])
       expect(store.unsyncedCount).toBe(1)
       await store.sync()
@@ -152,7 +156,7 @@ describe('ClientPalimpsestStore', () => {
     })
 
     it('getState() still reflects submitted events after successful sync', async () => {
-      const store = new ClientPalimpsestStore(makeServerWithEvents([]))
+      const store = new ClientPalimpsestStore(makeServerWithEvents([]), { initialState: testInitialState })
       await store.appendEvents([makeTaskEvent()])
       await store.sync()
       const state = await store.getState()
@@ -161,7 +165,7 @@ describe('ClientPalimpsestStore', () => {
 
     it('does not fire subscriber when sync returns no new events', async () => {
       const syncFn = makeServerWithEvents([])
-      const store = new ClientPalimpsestStore(syncFn)
+      const store = new ClientPalimpsestStore(syncFn, { initialState: testInitialState })
       const listener = vi.fn()
       store.subscribe(listener)
       await store.sync()
@@ -173,7 +177,7 @@ describe('ClientPalimpsestStore', () => {
     it('returns base events plus unsynced events', async () => {
       const serverEv = makeTaskEvent()
       const syncFn = makeServerWithEvents([serverEv])
-      const store = new ClientPalimpsestStore(syncFn)
+      const store = new ClientPalimpsestStore(syncFn, { initialState: testInitialState })
       await store.sync() // brings serverEv into baseState
       const localEv = makeTaskEvent()
       await store.appendEvents([localEv])
@@ -187,7 +191,7 @@ describe('ClientPalimpsestStore', () => {
     it('restores unsynced events from pending store on init', async () => {
       const ev = makeTaskEvent()
       const pending = new SpyPendingStore([ev])
-      const store = new ClientPalimpsestStore(makeServerWithEvents([]), { pendingStore: pending })
+      const store = new ClientPalimpsestStore(makeServerWithEvents([]), { pendingStore: pending, initialState: testInitialState })
       await store.init()
       const state = await store.getState()
       expect(state.tasks.size).toBe(1)
@@ -195,7 +199,7 @@ describe('ClientPalimpsestStore', () => {
 
     it('saves to pending store when appendEvents is called', async () => {
       const pending = new SpyPendingStore()
-      const store = new ClientPalimpsestStore(makeServerWithEvents([]), { pendingStore: pending })
+      const store = new ClientPalimpsestStore(makeServerWithEvents([]), { pendingStore: pending, initialState: testInitialState })
       await store.appendEvents([makeTaskEvent()])
       expect(pending.saved).toBeDefined()
       expect(pending.saved!).toHaveLength(1)
@@ -203,7 +207,7 @@ describe('ClientPalimpsestStore', () => {
 
     it('saves empty array to pending store after successful sync', async () => {
       const pending = new SpyPendingStore()
-      const store = new ClientPalimpsestStore(makeServerWithEvents([]), { pendingStore: pending })
+      const store = new ClientPalimpsestStore(makeServerWithEvents([]), { pendingStore: pending, initialState: testInitialState })
       await store.appendEvents([makeTaskEvent()])
       await store.sync()
       expect(pending.saved!).toHaveLength(0)
@@ -213,7 +217,7 @@ describe('ClientPalimpsestStore', () => {
       const ev = makeTaskEvent()
       const pending = new SpyPendingStore([ev])
       const syncFn = makeServerWithEvents([], 5)
-      const store = new ClientPalimpsestStore(syncFn, { pendingStore: pending })
+      const store = new ClientPalimpsestStore(syncFn, { pendingStore: pending, initialState: testInitialState })
       await store.init()
       await store.sync()
       const seqPassedToSync = (syncFn.mock.calls as any)[0][0]
@@ -224,18 +228,18 @@ describe('ClientPalimpsestStore', () => {
 
   describe('syncHealth', () => {
     it('starts idle', () => {
-      const store = new ClientPalimpsestStore(makeServerWithEvents([]))
+      const store = new ClientPalimpsestStore(makeServerWithEvents([]), { initialState: testInitialState })
       expect(store.syncHealth).toBe('idle')
     })
 
     it('becomes error when syncFn throws', async () => {
-      const store = new ClientPalimpsestStore(vi.fn().mockRejectedValue(new Error('network')))
+      const store = new ClientPalimpsestStore(vi.fn().mockRejectedValue(new Error('network')), { initialState: testInitialState })
       await store.sync()
       expect(store.syncHealth).toBe('error')
     })
 
     it('exposes the error message on lastSyncError', async () => {
-      const store = new ClientPalimpsestStore(vi.fn().mockRejectedValue(new Error('fetch failed: ECONNREFUSED')))
+      const store = new ClientPalimpsestStore(vi.fn().mockRejectedValue(new Error('fetch failed: ECONNREFUSED')), { initialState: testInitialState })
       await store.sync()
       expect(store.lastSyncError).toBe('fetch failed: ECONNREFUSED')
     })
@@ -246,7 +250,7 @@ describe('ClientPalimpsestStore', () => {
         if (fail) throw new Error('timeout')
         return { status: 'ok' as const, serverSeq: 0, missedEvents: [] }
       })
-      const store = new ClientPalimpsestStore(syncFn)
+      const store = new ClientPalimpsestStore(syncFn, { initialState: testInitialState })
       await store.sync()
       expect(store.lastSyncError).toBe('timeout')
       fail = false
@@ -255,7 +259,7 @@ describe('ClientPalimpsestStore', () => {
     })
 
     it('handles non-Error throws by converting to string', async () => {
-      const store = new ClientPalimpsestStore(vi.fn().mockRejectedValue('plain string error'))
+      const store = new ClientPalimpsestStore(vi.fn().mockRejectedValue('plain string error'), { initialState: testInitialState })
       await store.sync()
       expect(store.lastSyncError).toBe('plain string error')
     })
@@ -269,7 +273,7 @@ describe('ClientPalimpsestStore', () => {
         reason: 'task-deleted',
         conflictingEvents: [conflictEv],
       })
-      const store = new ClientPalimpsestStore(syncFn)
+      const store = new ClientPalimpsestStore(syncFn, { initialState: testInitialState })
       await store.sync()
       expect(store.syncHealth).toBe('conflict')
       expect(store.pendingConflicts).toHaveLength(1)
@@ -282,7 +286,7 @@ describe('ClientPalimpsestStore', () => {
         if (fail) throw new Error('network')
         return { status: 'ok' as const, serverSeq: 0, missedEvents: [] }
       })
-      const store = new ClientPalimpsestStore(syncFn)
+      const store = new ClientPalimpsestStore(syncFn, { initialState: testInitialState })
       await store.sync()
       expect(store.syncHealth).toBe('error')
       fail = false
@@ -292,7 +296,7 @@ describe('ClientPalimpsestStore', () => {
     })
 
     it('notifies subscribers when sync health changes', async () => {
-      const store = new ClientPalimpsestStore(vi.fn().mockRejectedValue(new Error('network')))
+      const store = new ClientPalimpsestStore(vi.fn().mockRejectedValue(new Error('network')), { initialState: testInitialState })
       const listener = vi.fn()
       store.subscribe(listener)
       await store.sync()
@@ -300,7 +304,7 @@ describe('ClientPalimpsestStore', () => {
     })
 
     it('does not notify subscribers when sync returns no changes and stays idle', async () => {
-      const store = new ClientPalimpsestStore(makeServerWithEvents([]))
+      const store = new ClientPalimpsestStore(makeServerWithEvents([]), { initialState: testInitialState })
       const listener = vi.fn()
       store.subscribe(listener)
       await store.sync()

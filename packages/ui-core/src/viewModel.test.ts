@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   project, createEmptyState, buildStateFromConfig,
-  createProject, createTask, completeTask,
+  createProject, createTask,
 } from 'palimpsest'
 import type { SphereId } from 'palimpsest'
 import { deriveViewModel } from './viewModel.js'
@@ -14,15 +14,12 @@ function buildTestState() {
   const baseState = { ...createEmptyState(), ...buildStateFromConfig([{ id: SPHERE_ID, name: 'Work', agendas: [], contexts: [] }]) }
   const sphere = baseState.spheres.get(SPHERE_ID)!
 
-  const projectEvents = createProject(baseState, { name: 'Alpha', sphereId: sphere.id })
+  const projectEvents = createProject({ name: 'Alpha', sphereId: sphere.id })
   const withProject = project(projectEvents, baseState)
   const proj = [...withProject.projects.values()][0]!
 
-  const task1Events = createTask(withProject, { title: 'Task One', sphereId: sphere.id })
-  const task2Events = createTask(
-    project([...projectEvents, ...task1Events], baseState),
-    { title: 'Task Two', projectId: proj.id },
-  )
+  const task1Events = createTask({ title: 'Task One', sphereId: sphere.id })
+  const task2Events = createTask({ title: 'Task Two', projectId: proj.id })
 
   const allEvents = [...projectEvents, ...task1Events, ...task2Events]
   const finalState = project(allEvents, baseState)

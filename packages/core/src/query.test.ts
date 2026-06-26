@@ -10,12 +10,12 @@ const sphereId = 'sph1' as SphereId
 const baseState = { ...createEmptyState(), ...buildStateFromConfig([{ id: sphereId, name: 'Work', agendas: [], contexts: [] }]) }
 
 function setup() {
-  const projEvts = createProject(baseState, { sphereId, name: 'Project A' })
+  const projEvts = createProject({ sphereId, name: 'Project A' })
   const s1 = project(projEvts, baseState)
   const projId = (projEvts[0] as any).projectId as ProjectId
 
-  const taskViaProject = createTask(s1, { title: 'Task via project', projectId: projId })
-  const taskDirectSphere = createTask(s1, { title: 'Task direct sphere', sphereId })
+  const taskViaProject = createTask({ title: 'Task via project', projectId: projId })
+  const taskDirectSphere = createTask({ title: 'Task direct sphere', sphereId })
 
   const allEvents: PalimpsestEvent[] = [...projEvts, ...taskViaProject, ...taskDirectSphere]
   const state = project(allEvents, baseState)

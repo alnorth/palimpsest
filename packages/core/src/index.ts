@@ -10,7 +10,7 @@ export { CLEAR } from './events.js'
 export type { ProjectionState } from './projection.js'
 export type {
   CreateProjectInput,
-  CreateTaskInput, UpdateTaskInput,
+  CreateTaskInput,
 } from './commands.js'
 export type { TaskFilter } from './query.js'
 export type { SphereConfig, AgendaConfig, ContextConfig } from './config.js'
@@ -31,3 +31,4 @@ export {
 } from './query.js'
 export { parseDueDate, addDays, nextWeekday, isValidExpression, nextDueDate } from './dateParser.js'
 export { buildStateFromConfig, PALIMPSEST_CONFIG } from './config.js'
+export { validateBatch } from './validation.js'

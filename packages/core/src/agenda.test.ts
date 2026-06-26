@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { createEmptyState, project } from './projection.js'
 import { buildStateFromConfig } from './config.js'
 import { createTask } from './commands.js'
+import { validateBatch } from './validation.js'
 import { getAgenda, listAgendas, listTasksByAgenda } from './query.js'
 import type { SphereId, AgendaId } from './ids.js'
 
@@ -39,15 +40,14 @@ describe('getAgenda', () => {
 
 describe('task agendaId', () => {
   it('creates a task linked to an agenda', () => {
-    const taskEvts = createTask(baseState, { title: 'Prepare slides', sphereId, agendaId })
+    const taskEvts = createTask({ title: 'Prepare slides', sphereId, agendaId })
     const state = project(taskEvts, baseState)
     expect(listTasksByAgenda(state, agendaId)).toHaveLength(1)
     expect(listTasksByAgenda(state, agendaId)[0]?.title).toBe('Prepare slides')
   })
 
-  it('throws if agenda does not exist when creating a task', () => {
-    expect(() =>
-      createTask(baseState, { title: 'T', sphereId, agendaId: 'nope' as AgendaId })
-    ).toThrow('Agenda not found')
+  it('validateBatch throws if agenda does not exist when creating a task', () => {
+    const evts = createTask({ title: 'T', sphereId, agendaId: 'nope' as AgendaId })
+    expect(() => validateBatch(baseState, evts)).toThrow('Agenda not found')
   })
 })

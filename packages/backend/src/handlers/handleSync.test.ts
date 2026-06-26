@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { handleSync } from './handleSync.js'
 import type { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb'
-import { createEmptyState, buildStateFromConfig, createTask } from 'palimpsest'
+import { createTask } from 'palimpsest'
 import type { PalimpsestEvent, SphereId } from 'palimpsest'
 
 // Minimal DynamoDB mock factory — returns an empty store by default
@@ -52,8 +52,7 @@ function makeClient(overrides: {
 
 function makeTestEvents(): PalimpsestEvent[] {
   const sphereId = 'sph1' as SphereId
-  const state = { ...createEmptyState(), ...buildStateFromConfig([{ id: sphereId, name: 'Work', agendas: [], contexts: [] }]) }
-  return createTask(state, { title: 'Test', sphereId })
+  return createTask({ title: 'Test', sphereId })
 }
 
 describe('handleSync — authentication', () => {
@@ -134,8 +133,7 @@ describe('handleSync — event submission', () => {
   it('returns conflict when submitted events conflict with server state', async () => {
     // Simulate: server has a task.deleted event for the same task we're updating
     const sphereId = 'sph1' as SphereId
-    const withSphere = { ...createEmptyState(), ...buildStateFromConfig([{ id: sphereId, name: 'W', agendas: [], contexts: [] }]) }
-    const taskEvents = createTask(withSphere, { title: 'T', sphereId })
+    const taskEvents = createTask({ title: 'T', sphereId })
     const tid = (taskEvents[0] as any).taskId
 
     const storedEvents: PalimpsestEvent[] = [

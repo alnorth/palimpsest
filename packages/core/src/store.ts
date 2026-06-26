@@ -2,6 +2,7 @@ import { readFileSync, appendFileSync, existsSync } from 'node:fs'
 import type { PalimpsestEvent } from './events.js'
 import type { ProjectionState } from './projection.js'
 import { project } from './projection.js'
+import { validateBatch } from './validation.js'
 
 export abstract class PalimpsestStore {
   readonly initialState: ProjectionState | undefined
@@ -30,6 +31,7 @@ export abstract class PalimpsestStore {
 
   async appendEvents(events: PalimpsestEvent[]): Promise<void> {
     if (events.length === 0) return
+    validateBatch(await this.getState(), events)
     await this.doAppend(events)
     this.notify()
   }

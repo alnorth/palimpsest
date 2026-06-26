@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { createEmptyState, project } from './projection.js'
 import { buildStateFromConfig } from './config.js'
 import { createTask } from './commands.js'
+import { validateBatch } from './validation.js'
 import { getContext, listContexts, listTasksByContext } from './query.js'
 import type { SphereId, ContextId } from './ids.js'
 
@@ -40,16 +41,15 @@ describe('getContext', () => {
 
 describe('task contextId', () => {
   it('creates a task linked to a context', () => {
-    const taskEvts = createTask(baseState, { title: 'Buy groceries', sphereId, contextId })
+    const taskEvts = createTask({ title: 'Buy groceries', sphereId, contextId })
     const state = project(taskEvts, baseState)
     const tasks = listTasksByContext(state, contextId)
     expect(tasks).toHaveLength(1)
     expect(tasks[0]?.title).toBe('Buy groceries')
   })
 
-  it('throws if context does not exist when creating a task', () => {
-    expect(() =>
-      createTask(baseState, { title: 'T', sphereId, contextId: 'nope' as ContextId })
-    ).toThrow('Context not found')
+  it('validateBatch throws if context does not exist when creating a task', () => {
+    const evts = createTask({ title: 'T', sphereId, contextId: 'nope' as ContextId })
+    expect(() => validateBatch(baseState, evts)).toThrow('Context not found')
   })
 })

@@ -33,7 +33,7 @@ describe('FilePalimpsestStore', () => {
   it('round-trips task events through JSONL', async () => {
     const store = makeTempStore()
     await store.init()
-    const taskEvts = createTask(baseState, { title: 'Buy groceries', sphereId })
+    const taskEvts = createTask({ title: 'Buy groceries', sphereId })
     await store.appendEvents(taskEvts)
     const read = await store.readAllEvents()
     expect(read).toHaveLength(1)
@@ -43,7 +43,7 @@ describe('FilePalimpsestStore', () => {
   it('getState() reflects all appended events', async () => {
     const store = makeTempStore()
     await store.init()
-    const taskEvts = createTask(baseState, { title: 'Buy groceries', sphereId })
+    const taskEvts = createTask({ title: 'Buy groceries', sphereId })
     await store.appendEvents(taskEvts)
     const state = await store.getState()
     expect(listOpenTasks(state)).toHaveLength(1)
@@ -60,8 +60,8 @@ describe('FilePalimpsestStore', () => {
   it('appends multiple batches correctly', async () => {
     const store = makeTempStore()
     await store.init()
-    await store.appendEvents(createTask(baseState, { title: 'Task 1', sphereId }))
-    await store.appendEvents(createTask(baseState, { title: 'Task 2', sphereId }))
+    await store.appendEvents(createTask({ title: 'Task 1', sphereId }))
+    await store.appendEvents(createTask({ title: 'Task 2', sphereId }))
     expect(await store.readAllEvents()).toHaveLength(2)
     expect(listOpenTasks(await store.getState())).toHaveLength(2)
   })
@@ -72,7 +72,7 @@ describe('FilePalimpsestStore', () => {
       await store.init()
       const listener = vi.fn()
       store.subscribe(listener)
-      await store.appendEvents(createTask(baseState, { title: 'Task', sphereId }))
+      await store.appendEvents(createTask({ title: 'Task', sphereId }))
       expect(listener).toHaveBeenCalledOnce()
     })
 
@@ -82,7 +82,7 @@ describe('FilePalimpsestStore', () => {
       const listener = vi.fn()
       const unsub = store.subscribe(listener)
       unsub()
-      await store.appendEvents(createTask(baseState, { title: 'Task', sphereId }))
+      await store.appendEvents(createTask({ title: 'Task', sphereId }))
       expect(listener).not.toHaveBeenCalled()
     })
 
@@ -102,7 +102,7 @@ describe('FilePalimpsestStore', () => {
       const b = vi.fn()
       store.subscribe(a)
       store.subscribe(b)
-      await store.appendEvents(createTask(baseState, { title: 'Task', sphereId }))
+      await store.appendEvents(createTask({ title: 'Task', sphereId }))
       expect(a).toHaveBeenCalledOnce()
       expect(b).toHaveBeenCalledOnce()
     })
