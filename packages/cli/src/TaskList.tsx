@@ -2,7 +2,7 @@ import React from 'react'
 import { Text } from 'ink'
 import { getProject, getAgenda, getContext } from 'palimpsest'
 import type { Task, ProjectionState } from 'palimpsest'
-import { AGENDA_PREFIX, PROJECT_PREFIX, CONTEXT_PREFIX } from 'palimpsest-ui-core'
+import { AGENDA_PREFIX, PROJECT_PREFIX, CONTEXT_PREFIX, RECURRENCE_PREFIX } from 'palimpsest-ui-core'
 import { Row } from './Row.js'
 import { formatDateTime, dueDateColor } from './format.js'
 
@@ -32,7 +32,7 @@ export function TaskList({ tasks, selected, state, showProject = false, emptyMes
         if (agenda !== undefined) metaItems.push(<Text dimColor>{AGENDA_PREFIX}{agenda.title}</Text>)
         if (context !== undefined) metaItems.push(<Text dimColor>{CONTEXT_PREFIX}{context.name}</Text>)
         if (task.dueDate !== undefined) metaItems.push(<Text {...(ddColor !== undefined ? { color: ddColor } : { dimColor: true })}>{task.dueDate}</Text>)
-        if (task.dueDateExpression !== undefined) metaItems.push(<Text dimColor>↻ {task.dueDateExpression}</Text>)
+        if (task.dueDateExpression !== undefined) metaItems.push(<Text dimColor>{RECURRENCE_PREFIX} {task.dueDateExpression}</Text>)
         if (task.completedAt !== undefined) metaItems.push(<Text dimColor>{formatDateTime(task.completedAt)}</Text>)
         return (
           <Row

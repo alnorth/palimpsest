@@ -5,7 +5,7 @@ import { Row, Meta } from './Row.js'
 import TextInput from 'ink-text-input'
 import { FilePalimpsestStore, CLEAR, getProject, getAgenda, getContext, listProjects, isValidExpression, nextDueDate, buildStateFromConfig, PALIMPSEST_CONFIG, createEmptyState } from 'palimpsest'
 import type { PalimpsestStore } from 'palimpsest'
-import { useAppState, INITIAL_NAV, ClientPalimpsestStore, addDays, nextWeekday, parseDueDate, AGENDA_PREFIX, PROJECT_PREFIX, CONTEXT_PREFIX } from 'palimpsest-ui-core'
+import { useAppState, INITIAL_NAV, ClientPalimpsestStore, addDays, nextWeekday, parseDueDate, AGENDA_PREFIX, PROJECT_PREFIX, CONTEXT_PREFIX, RECURRENCE_PREFIX } from 'palimpsest-ui-core'
 import { FilePendingEventStore } from './FilePendingEventStore.js'
 import type { View } from 'palimpsest-ui-core'
 import { formatDate, formatDateWithDay, formatDateTime } from './format.js'
@@ -465,11 +465,11 @@ function App() {
             : <Text dimColor>No description.</Text>
           }
           <Box flexDirection="column" marginTop={1}>
-            {detailProject !== undefined ? <Text dimColor>project    {detailProject.name}</Text> : null}
+            {detailProject !== undefined ? <Text dimColor>project    {PROJECT_PREFIX}{detailProject.name}</Text> : null}
             {detailAgenda !== undefined ? <Text dimColor>agenda     {AGENDA_PREFIX}{detailAgenda.title}</Text> : null}
             {detailContext !== undefined ? <Text dimColor>context    {CONTEXT_PREFIX}{detailContext.name}</Text> : null}
             {activeTask?.dueDate !== undefined ? <Text dimColor>due        {activeTask.dueDate}</Text> : null}
-            {activeTask?.dueDateExpression !== undefined ? <Text dimColor>recurring  {activeTask.dueDateExpression}</Text> : null}
+            {activeTask?.dueDateExpression !== undefined ? <Text dimColor>recurring  {RECURRENCE_PREFIX} {activeTask.dueDateExpression}</Text> : null}
             {activeTask?.completedAt !== undefined ? <Text dimColor>completed  {formatDateTime(activeTask.completedAt)}</Text> : null}
             {activeTask?.isNext === true ? <Text dimColor>next action</Text> : null}
             {activeTask?.isStarred === true ? <Text dimColor>starred</Text> : null}
