@@ -1,5 +1,7 @@
 import { CLEAR } from 'palimpsest'
 import type { Command } from './types.js'
+import type { TopLevelView } from './types.js'
+import { VIEW_CONFIG } from './viewModel.js'
 import type { ViewModel } from './viewModel.js'
 
 export function getCommands(vm: ViewModel): Command[] {
@@ -9,7 +11,6 @@ export function getCommands(vm: ViewModel): Command[] {
   if (mode !== 'list') return commands
 
   const isTopLevel = view === 'dashboard' || view === 'tasks' || view === 'projects'
-  const isTaskContext = view === 'dashboard' || view === 'tasks' || view === 'project' || view === 'task'
 
   // ── Add task ─────────────────────────────────────────────────────────────────
   if ((view === 'tasks' || view === 'project') && !showCompleted) {
@@ -127,7 +128,10 @@ export function getCommands(vm: ViewModel): Command[] {
       label: 'due date',
       group: 'state',
       key: 'u',
-      action: { type: 'set-mode', mode: 'picking-due-date' },
+      action: {
+        type: 'navigate',
+        navState: { view: 'picking-due-date', selected: 0, activeTaskId: currentTask.id },
+      },
     })
   }
 
@@ -149,7 +153,10 @@ export function getCommands(vm: ViewModel): Command[] {
       label: 'project',
       group: 'state',
       key: 'p',
-      action: { type: 'set-mode', mode: 'picking-project-for-task' },
+      action: {
+        type: 'navigate',
+        navState: { view: 'picking-project-for-task', selected: 0, activeTaskId: currentTask.id, searchQuery: '' },
+      },
     })
   }
 
@@ -160,7 +167,10 @@ export function getCommands(vm: ViewModel): Command[] {
       label: 'agenda',
       group: 'state',
       key: 'a',
-      action: { type: 'set-mode', mode: 'picking-agenda-for-task' },
+      action: {
+        type: 'navigate',
+        navState: { view: 'picking-agenda-for-task', selected: 0, activeTaskId: currentTask.id },
+      },
     })
   }
 
@@ -171,7 +181,10 @@ export function getCommands(vm: ViewModel): Command[] {
       label: 'context',
       group: 'state',
       key: 'k',
-      action: { type: 'set-mode', mode: 'picking-context-for-task' },
+      action: {
+        type: 'navigate',
+        navState: { view: 'picking-context-for-task', selected: 0, activeTaskId: currentTask.id },
+      },
     })
   }
 
@@ -198,36 +211,28 @@ export function getCommands(vm: ViewModel): Command[] {
       key: 'P',
       action: {
         type: 'navigate',
-        navState: {
-          view: 'project',
-          selected: 0,
-          activeProjectId: currentTask.projectId,
-          activeTaskId: undefined,
-          showCompleted: false,
-          showArchived: false,
-        },
+        navState: { view: 'project', selected: 0, activeProjectId: currentTask.projectId, showCompleted: false, showArchived: false },
       },
     })
   }
 
   // ── Toggle completed ─────────────────────────────────────────────────────────
-  if (view === 'tasks' || view === 'project') {
+  if (view === 'tasks') {
     commands.push({
       id: 'toggle-completed',
       label: showCompleted ? 'open' : 'completed',
       group: 'view',
       key: 'C',
-      action: {
-        type: 'navigate',
-        navState: {
-          view,
-          selected: 0,
-          activeProjectId: vm.activeProject?.id,
-          activeTaskId: undefined,
-          showCompleted: !showCompleted,
-          showArchived,
-        },
-      },
+      action: { type: 'navigate', navState: { view: 'tasks', selected: 0, showCompleted: !showCompleted, showArchived } },
+    })
+  }
+  if (view === 'project' && vm.activeProject !== undefined) {
+    commands.push({
+      id: 'toggle-completed',
+      label: showCompleted ? 'open' : 'completed',
+      group: 'view',
+      key: 'C',
+      action: { type: 'navigate', navState: { view: 'project', selected: 0, activeProjectId: vm.activeProject.id, showCompleted: !showCompleted, showArchived: false } },
     })
   }
 
@@ -238,17 +243,7 @@ export function getCommands(vm: ViewModel): Command[] {
       label: showArchived ? 'active' : 'archived',
       group: 'view',
       key: 'X',
-      action: {
-        type: 'navigate',
-        navState: {
-          view: 'projects',
-          selected: 0,
-          activeProjectId: undefined,
-          activeTaskId: undefined,
-          showCompleted: false,
-          showArchived: !showArchived,
-        },
-      },
+      action: { type: 'navigate', navState: { view: 'projects', selected: 0, showCompleted: false, showArchived: !showArchived } },
     })
   }
 
@@ -258,7 +253,10 @@ export function getCommands(vm: ViewModel): Command[] {
     label: 'view',
     group: 'view',
     key: 'v',
-    action: { type: 'set-mode', mode: 'picking-view' },
+    action: {
+      type: 'navigate',
+      navState: { view: 'picking-view', selected: Math.max(0, VIEW_CONFIG.findIndex(item => item.id === view)) },
+    },
   })
 
   // ── Cycle sphere ─────────────────────────────────────────────────────────────

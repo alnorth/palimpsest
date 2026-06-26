@@ -33,7 +33,7 @@ describe('go-back', () => {
     const withTwo = uiReducer(INITIAL_UI_STATE, { type: 'navigate', navState: PROJECT_NAV })
     const result = uiReducer(withTwo, { type: 'go-back' })
     expect(result.navStack).toHaveLength(1)
-    expect(result.navStack[0]?.view).toBe('tasks')
+    expect(result.navStack[0]?.view).toBe('dashboard')
   })
 
   it('does nothing if already at the root', () => {
@@ -45,15 +45,18 @@ describe('go-back', () => {
 describe('update-nav', () => {
   it('patches the current nav state in place', () => {
     const result = uiReducer(INITIAL_UI_STATE, { type: 'update-nav', patch: { selected: 5 } })
-    expect(result.navStack[0]?.selected).toBe(5)
+    const nav = result.navStack[0]
+    expect(nav !== undefined && 'selected' in nav ? nav.selected : undefined).toBe(5)
     expect(result.navStack).toHaveLength(1)
   })
 
   it('patches the top nav state when multiple are on the stack', () => {
     const withTwo = uiReducer(INITIAL_UI_STATE, { type: 'navigate', navState: PROJECT_NAV })
     const result = uiReducer(withTwo, { type: 'update-nav', patch: { selected: 3 } })
-    expect(result.navStack[1]?.selected).toBe(3)
-    expect(result.navStack[0]?.selected).toBe(0)
+    const top = result.navStack[1]
+    const bottom = result.navStack[0]
+    expect(top !== undefined && 'selected' in top ? top.selected : undefined).toBe(3)
+    expect(bottom !== undefined && 'selected' in bottom ? bottom.selected : undefined).toBe(0)
   })
 })
 
@@ -80,21 +83,8 @@ describe('set-sphere', () => {
     const withTwo = uiReducer(INITIAL_UI_STATE, { type: 'navigate', navState: PROJECT_NAV })
     const result = uiReducer(withTwo, { type: 'set-sphere', sphereId: 'sphere1' as SphereId })
     expect(result.navStack).toHaveLength(1)
-    expect(result.navStack[0]?.view).toBe('tasks')
+    expect(result.navStack[0]?.view).toBe('dashboard')
   })
 })
 
-describe('set-view-picker-selected', () => {
-  it('updates viewPickerSelected', () => {
-    const result = uiReducer(INITIAL_UI_STATE, { type: 'set-view-picker-selected', index: 1 })
-    expect(result.viewPickerSelected).toBe(1)
-  })
-})
-
-describe('set-agenda-picker-selected', () => {
-  it('updates agendaPickerSelected', () => {
-    const result = uiReducer(INITIAL_UI_STATE, { type: 'set-agenda-picker-selected', index: 2 })
-    expect(result.agendaPickerSelected).toBe(2)
-  })
-})
 

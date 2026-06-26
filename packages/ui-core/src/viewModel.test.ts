@@ -156,7 +156,7 @@ describe('deriveViewModel — navigation helpers', () => {
 
   it('listLength equals tasks.length in tasks view', () => {
     const { projState, sphere } = buildTestState()
-    const uiState = makeUIState({ currentSphereId: sphere.id })
+    const uiState = makeUIState({ currentSphereId: sphere.id, navStack: [{ ...INITIAL_NAV, view: 'tasks' }] })
     const vm = deriveViewModel(projState, uiState)
     expect(vm.listLength).toBe(vm.tasks.length)
   })

@@ -4,9 +4,9 @@ import { TaskList } from './TaskList.js'
 import { Row, Meta } from './Row.js'
 import { Title } from './Title.js'
 import TextInput from 'ink-text-input'
-import { FilePalimpsestStore, CLEAR, getProject, getAgenda, getContext, listProjects, isValidExpression, nextDueDate, buildStateFromConfig, PALIMPSEST_CONFIG, createEmptyState } from 'palimpsest'
+import { FilePalimpsestStore, CLEAR, getProject, getAgenda, getContext, isValidExpression, nextDueDate, buildStateFromConfig, PALIMPSEST_CONFIG, createEmptyState } from 'palimpsest'
 import type { PalimpsestStore } from 'palimpsest'
-import { useAppState, INITIAL_NAV, ClientPalimpsestStore, addDays, nextWeekday, parseDueDate, AGENDA_PREFIX, PROJECT_PREFIX, CONTEXT_PREFIX, RECURRENCE_PREFIX } from 'palimpsest-ui-core'
+import { useAppState, INITIAL_NAV, ClientPalimpsestStore, parseDueDate, AGENDA_PREFIX, PROJECT_PREFIX, CONTEXT_PREFIX, RECURRENCE_PREFIX } from 'palimpsest-ui-core'
 import { FilePendingEventStore } from './FilePendingEventStore.js'
 import type { View } from 'palimpsest-ui-core'
 import { formatDate, formatDateWithDay, formatDateTime } from './format.js'
@@ -43,25 +43,15 @@ if (apiUrl !== undefined && authToken !== undefined) {
   store = new FilePalimpsestStore(filePath, initialState)
 }
 
-const VIEW_CONFIG = {
-  dashboard: { label: 'Dashboard', key: 'd' },
-  tasks:     { label: 'Tasks',     key: 't' },
-  projects:  { label: 'Projects',  key: 'p' },
-  project:   { label: 'Project'             },
-  task:      { label: 'Task'                },
-} satisfies Record<View, { label: string; key?: string }>
-
-const TOP_LEVEL_VIEWS = (['dashboard', 'tasks', 'projects'] as const).filter(v => VIEW_CONFIG[v].key !== undefined)
 
 function App() {
   const {
     view, mode, selected, tasks, dashboardTasks, projects, projectTasks, activeTask, activeProject,
-    activeSphere, agendas, contexts, projectStats, listLength, currentTask, spheres, subtitle,
-    projState, uiState, commands, dispatch, canGoBack, showCompleted, showArchived,
+    activeSphere, agendas, contexts, projectStats, listItems, listLength, currentTask, spheres, subtitle,
+    searchQuery, projState, uiState, commands, dispatch, canGoBack, showCompleted, showArchived,
     isLoading, syncHealth, unsyncedCount, pendingConflicts, lastSyncError,
   } = useAppState(store)
 
-  const { viewPickerSelected, agendaPickerSelected, contextPickerSelected, dueDatePickerSelected, projectPickerSelected } = uiState
   const [formValue, setFormValue] = useState('')
   const { rows: termRows } = useWindowSize()
 
@@ -70,110 +60,67 @@ function App() {
     return () => { process.stdout.write('\x1b]0;\x07') }
   }, [subtitle])
 
-  const pickerProjects = activeSphere !== undefined
-    ? listProjects(projState, { sphereId: activeSphere.id, isArchived: false })
-    : []
-
   useInput((input, key) => {
-    if (mode === 'adding' || mode === 'editing-task' || mode === 'editing-description' || mode === 'editing-due-date' || mode === 'editing-recurrence' || mode === 'adding-project' || mode === 'editing-project' || mode === 'picking-project-for-task') {
-      if (key.escape) {
+    if (key.escape) {
+      if (mode !== 'list') {
         setFormValue('')
-        if (mode === 'editing-due-date') {
-          dispatch({ type: 'set-mode', mode: 'picking-due-date' })
-        } else {
-          dispatch({ type: 'set-mode', mode: 'list' })
-        }
-      }
-      if (mode === 'picking-project-for-task') {
-        const query = formValue.toLowerCase().trim()
-        const filtered = pickerProjects.filter(p => query === '' || p.name.toLowerCase().includes(query))
-        if (query === '') {
-          const effectiveSelected = Math.min(projectPickerSelected, filtered.length)
-          if (key.upArrow) dispatch({ type: 'set-project-picker-selected', index: Math.max(0, effectiveSelected - 1) })
-          if (key.downArrow) dispatch({ type: 'set-project-picker-selected', index: Math.min(filtered.length, effectiveSelected + 1) })
-          if (key.return && currentTask !== undefined) {
-            if (effectiveSelected === 0) {
-              setFormValue('')
-              dispatch({ type: 'set-task-project', taskId: currentTask.id, projectId: CLEAR })
-            } else {
-              const proj = filtered[effectiveSelected - 1]
-              if (proj !== undefined) {
-                setFormValue('')
-                dispatch({ type: 'set-task-project', taskId: currentTask.id, projectId: proj.id })
-              }
-            }
-          }
-        } else if (filtered.length > 0) {
-          const effectiveSelected = Math.min(projectPickerSelected, filtered.length - 1)
-          if (key.upArrow) dispatch({ type: 'set-project-picker-selected', index: Math.max(0, effectiveSelected - 1) })
-          if (key.downArrow) dispatch({ type: 'set-project-picker-selected', index: Math.min(filtered.length - 1, effectiveSelected + 1) })
-          if (key.return && currentTask !== undefined) {
-            const proj = filtered[effectiveSelected]
-            if (proj !== undefined) {
-              setFormValue('')
-              dispatch({ type: 'set-task-project', taskId: currentTask.id, projectId: proj.id })
-            }
-          }
-        } else {
-          if (key.return && currentTask !== undefined && activeSphere !== undefined) {
-            const name = formValue.trim()
-            setFormValue('')
-            dispatch({ type: 'create-and-assign-project', name, sphereId: activeSphere.id, taskId: currentTask.id })
-          }
-        }
-      }
-      return
-    }
-    if (mode === 'picking-view') {
-      if (key.escape) { dispatch({ type: 'set-mode', mode: 'list' }); return }
-      if (key.upArrow) dispatch({ type: 'set-view-picker-selected', index: Math.max(0, viewPickerSelected - 1) })
-      if (key.downArrow) dispatch({ type: 'set-view-picker-selected', index: Math.min(TOP_LEVEL_VIEWS.length - 1, viewPickerSelected + 1) })
-      const shortcutView = TOP_LEVEL_VIEWS.find(v => VIEW_CONFIG[v].key === input)
-      if (shortcutView !== undefined || key.return) {
-        const newView = shortcutView ?? TOP_LEVEL_VIEWS[viewPickerSelected]!
-        dispatch({ type: 'set-nav', navState: { ...INITIAL_NAV, view: newView } })
         dispatch({ type: 'set-mode', mode: 'list' })
+      } else {
+        dispatch({ type: 'go-back' })
       }
       return
     }
-    if (mode === 'picking-agenda-for-task') {
-      if (key.escape) { dispatch({ type: 'set-mode', mode: 'list' }); return }
-      if (key.upArrow) dispatch({ type: 'set-agenda-picker-selected', index: Math.max(0, agendaPickerSelected - 1) })
-      if (key.downArrow) dispatch({ type: 'set-agenda-picker-selected', index: Math.min(agendas.length, agendaPickerSelected + 1) })
-      const shortcutAgenda = agendas.find(a => a.key === input)
-      if (shortcutAgenda !== undefined && currentTask !== undefined) {
-        dispatch({ type: 'set-task-agenda', taskId: currentTask.id, agendaId: shortcutAgenda.id })
-        return
-      }
-      if (key.return && currentTask !== undefined) {
-        const agendaId = agendaPickerSelected === 0 ? CLEAR : agendas[agendaPickerSelected - 1]!.id
-        dispatch({ type: 'set-task-agenda', taskId: currentTask.id, agendaId })
-      }
-      return
-    }
-    if (mode === 'picking-context-for-task') {
-      if (key.escape) { dispatch({ type: 'set-mode', mode: 'list' }); return }
-      if (key.upArrow) dispatch({ type: 'set-context-picker-selected', index: Math.max(0, contextPickerSelected - 1) })
-      if (key.downArrow) dispatch({ type: 'set-context-picker-selected', index: Math.min(contexts.length, contextPickerSelected + 1) })
-      const shortcutContext = contexts.find(c => c.key === input)
-      if (shortcutContext !== undefined && currentTask !== undefined) {
-        dispatch({ type: 'set-task-context', taskId: currentTask.id, contextId: shortcutContext.id })
-        return
-      }
-      if (key.return && currentTask !== undefined) {
-        const contextId = contextPickerSelected === 0 ? CLEAR : contexts[contextPickerSelected - 1]!.id
-        dispatch({ type: 'set-task-context', taskId: currentTask.id, contextId })
+    // Text-input modes: TextInput component handles the rest
+    if (mode !== 'list') return
+    // Up/down navigation works the same in all views (listLength covers pickers too)
+    if (key.upArrow) dispatch({ type: 'update-nav', patch: { selected: Math.max(0, selected - 1) } })
+    if (key.downArrow) dispatch({ type: 'update-nav', patch: { selected: Math.min(Math.max(0, listLength - 1), selected + 1) } })
+    // Picker views: handle enter/shortcut
+    if (listItems.view === 'picking-view') {
+      const items = listItems.items
+      const shortcut = items.find(item => item.key === input)
+      const chosen = shortcut ?? (key.return ? items[selected] : undefined)
+      if (chosen !== undefined) {
+        dispatch({ type: 'set-nav', navState: { view: chosen.id, selected: 0, showCompleted: false, showArchived: false } })
       }
       return
     }
-    if (mode === 'picking-due-date') {
-      if (key.escape) { dispatch({ type: 'set-mode', mode: 'list' }); return }
-      if (key.upArrow) dispatch({ type: 'set-due-date-picker-selected', index: Math.max(0, dueDatePickerSelected - 1) })
-      if (key.downArrow) dispatch({ type: 'set-due-date-picker-selected', index: Math.min(dueDateOptions.length - 1, dueDatePickerSelected + 1) })
-      const shortcutIdx = dueDateOptions.findIndex(o => o.key === input)
-      const activeIdx = shortcutIdx !== -1 ? shortcutIdx : (key.return ? dueDatePickerSelected : -1)
+    if (listItems.view === 'picking-agenda-for-task') {
+      const items = listItems.items
+      if (currentTask !== undefined) {
+        const shortcutItem = items.find(a => a.key === input)
+        if (shortcutItem !== undefined) {
+          dispatch({ type: 'set-task-agenda', taskId: currentTask.id, agendaId: shortcutItem.id ?? CLEAR })
+          return
+        }
+        if (key.return) {
+          const item = items[selected]
+          if (item !== undefined) dispatch({ type: 'set-task-agenda', taskId: currentTask.id, agendaId: item.id ?? CLEAR })
+        }
+      }
+      return
+    }
+    if (listItems.view === 'picking-context-for-task') {
+      const items = listItems.items
+      if (currentTask !== undefined) {
+        const shortcutItem = items.find(c => c.key === input)
+        if (shortcutItem !== undefined) {
+          dispatch({ type: 'set-task-context', taskId: currentTask.id, contextId: shortcutItem.id ?? CLEAR })
+          return
+        }
+        if (key.return) {
+          const item = items[selected]
+          if (item !== undefined) dispatch({ type: 'set-task-context', taskId: currentTask.id, contextId: item.id ?? CLEAR })
+        }
+      }
+      return
+    }
+    if (listItems.view === 'picking-due-date') {
+      const items = listItems.items
+      const shortcutIdx = items.findIndex(o => o.key === input)
+      const activeIdx = shortcutIdx !== -1 ? shortcutIdx : (key.return ? selected : -1)
       if (activeIdx !== -1 && currentTask !== undefined) {
-        const opt = dueDateOptions[activeIdx]!
+        const opt = items[activeIdx]!
         if (opt.date !== null) {
           dispatch({ type: 'set-task-due-date', taskId: currentTask.id, dueDate: opt.date })
         } else if (opt.key === 'c') {
@@ -185,22 +132,30 @@ function App() {
       }
       return
     }
-    // list mode
-    if (key.escape) dispatch({ type: 'go-back' })
+    if (listItems.view === 'picking-project-for-task') {
+      if (key.return && currentTask !== undefined) {
+        const item = listItems.items[selected]
+        if (item !== undefined) {
+          dispatch({ type: 'set-task-project', taskId: currentTask.id, projectId: item.id ?? CLEAR })
+        } else if (listItems.items.length === 0 && searchQuery.trim() !== '' && activeSphere !== undefined) {
+          dispatch({ type: 'create-and-assign-project', name: searchQuery.trim(), sphereId: activeSphere.id, taskId: currentTask.id })
+        }
+      }
+      return
+    }
+    // List mode
     if (key.return && view === 'projects') {
       const project = projects[selected]
       if (project !== undefined) {
-        dispatch({ type: 'navigate', navState: { ...INITIAL_NAV, view: 'project', selected: 0, activeProjectId: project.id, activeTaskId: undefined, showCompleted, showArchived } })
+        dispatch({ type: 'navigate', navState: { view: 'project', selected: 0, activeProjectId: project.id, showCompleted: false, showArchived: false } })
       }
     }
     if (key.return && (view === 'tasks' || view === 'project' || view === 'dashboard')) {
       const task = (view === 'project' ? projectTasks : view === 'dashboard' ? dashboardTasks : tasks)[selected]
       if (task !== undefined) {
-        dispatch({ type: 'navigate', navState: { ...INITIAL_NAV, view: 'task', selected: 0, activeProjectId: undefined, activeTaskId: task.id, showCompleted, showArchived } })
+        dispatch({ type: 'navigate', navState: { view: 'task', activeTaskId: task.id } })
       }
     }
-    if (key.upArrow) dispatch({ type: 'update-nav', patch: { selected: Math.max(0, selected - 1) } })
-    if (key.downArrow) dispatch({ type: 'update-nav', patch: { selected: Math.min(listLength - 1, selected + 1) } })
 
     const cmd = commands.find(c => c.key === input)
     if (cmd) {
@@ -208,23 +163,17 @@ function App() {
       if (cmd.id === 'edit-description') setFormValue(currentTask?.description ?? '')
       if (cmd.id === 'set-recurrence') setFormValue(currentTask?.dueDateExpression ?? '')
       if (cmd.id === 'edit-project') setFormValue(projects[selected]?.name ?? '')
-      if (cmd.id === 'pick-project' && currentTask !== undefined) {
-        setFormValue('')
-        const idx = currentTask.projectId !== undefined ? pickerProjects.findIndex(p => p.id === currentTask.projectId) + 1 : 0
-        dispatch({ type: 'set-project-picker-selected', index: Math.max(0, idx) })
-      }
       if (cmd.id === 'pick-agenda' && currentTask !== undefined) {
         const idx = currentTask.agendaId !== undefined ? agendas.findIndex(a => a.id === currentTask.agendaId) + 1 : 0
-        dispatch({ type: 'set-agenda-picker-selected', index: Math.max(0, idx) })
-      }
-      if (cmd.id === 'pick-context' && currentTask !== undefined) {
+        dispatch({ type: 'navigate', navState: { view: 'picking-agenda-for-task', selected: Math.max(0, idx), activeTaskId: currentTask.id } })
+      } else if (cmd.id === 'pick-context' && currentTask !== undefined) {
         const idx = currentTask.contextId !== undefined ? contexts.findIndex(c => c.id === currentTask.contextId) + 1 : 0
-        dispatch({ type: 'set-context-picker-selected', index: Math.max(0, idx) })
+        dispatch({ type: 'navigate', navState: { view: 'picking-context-for-task', selected: Math.max(0, idx), activeTaskId: currentTask.id } })
+      } else if (cmd.id === 'pick-project' && currentTask !== undefined) {
+        dispatch({ type: 'navigate', navState: { view: 'picking-project-for-task', selected: 0, activeTaskId: currentTask.id, searchQuery: '' } })
+      } else {
+        dispatch(cmd.action)
       }
-      if (cmd.id === 'pick-view') {
-        dispatch({ type: 'set-view-picker-selected', index: Math.max(0, TOP_LEVEL_VIEWS.indexOf(view as 'dashboard' | 'tasks' | 'projects')) })
-      }
-      dispatch(cmd.action)
     }
   })
 
@@ -268,6 +217,7 @@ function App() {
     if (parsed !== null && currentTask !== undefined) {
       dispatch({ type: 'set-task-due-date', taskId: currentTask.id, dueDate: parsed })
       setFormValue('')
+      dispatch({ type: 'set-mode', mode: 'list' })
     }
   }
 
@@ -306,13 +256,6 @@ function App() {
 
   const _d = new Date()
   const today = `${_d.getFullYear()}-${String(_d.getMonth() + 1).padStart(2, '0')}-${String(_d.getDate()).padStart(2, '0')}`
-  const dueDateOptions = [
-    { label: 'Tomorrow',     date: addDays(today, 1),       key: 't' },
-    { label: 'Next Saturday', date: nextWeekday(today, 6),  key: 's' },
-    { label: 'Next Monday',  date: nextWeekday(today, 1),   key: 'm' },
-    { label: 'Custom…',      date: null,                    key: 'c' },
-    { label: 'No due date',  date: null,                    key: 'x' },
-  ]
 
   const dueDatePreviewHint: React.ReactNode = (() => {
     const parsed = formValue.trim().length > 0 ? parseDueDate(formValue, today) : null
@@ -344,80 +287,82 @@ function App() {
   const stateCommands = commands.filter(c => c.group === 'state')
   const viewCommands = commands.filter(c => c.group === 'view')
 
-  if (mode === 'picking-due-date') {
+  if (listItems.view === 'picking-due-date') {
+    const dueDateItems = listItems.items
     title = <Text bold color="cyan">Due date{currentTask !== undefined ? ` — ${currentTask.title}` : ''}</Text>
-    content = dueDateOptions.map((opt, i) => {
-      const isSelected = i === dueDatePickerSelected
-      const label = opt.date !== null ? `${opt.label} — ${formatDate(opt.date)}` : opt.label
-      return (
-        <Text key={opt.key} {...(isSelected ? { color: 'blue' as const } : {})}>
-          {isSelected ? '> ' : '  '}{label}<Text dimColor>  {opt.key}</Text>
-        </Text>
+    if (mode === 'editing-due-date') {
+      content = (
+        <Box flexDirection="column">
+          <Box>
+            <Text>Due date: </Text>
+            <TextInput value={formValue} onChange={setFormValue} onSubmit={handleDueDateSubmit} />
+          </Box>
+          {dueDatePreviewHint}
+        </Box>
       )
-    })
-    footer = <Text dimColor>↑↓ navigate  enter/key select  esc back</Text>
-  } else if (mode === 'picking-agenda-for-task') {
-    const agendaOptions = [{ title: 'No agenda', key: undefined }, ...agendas.map(a => ({ title: a.title, key: a.key }))]
+      footer = <Text dimColor>enter to set  esc cancel</Text>
+    } else {
+      content = dueDateItems.map((opt, i) => {
+        const isSelected = i === selected
+        const label = opt.date !== null ? `${opt.label} — ${formatDate(opt.date)}` : opt.label
+        return (
+          <Text key={opt.key} {...(isSelected ? { color: 'blue' as const } : {})}>
+            {isSelected ? '> ' : '  '}{label}<Text dimColor>  {opt.key}</Text>
+          </Text>
+        )
+      })
+      footer = <Text dimColor>↑↓ navigate  enter/key select  esc back</Text>
+    }
+  } else if (listItems.view === 'picking-agenda-for-task') {
+    const agendaItems = listItems.items
     title = <Text bold color="cyan">Agenda{currentTask !== undefined ? ` — ${currentTask.title}` : ''}</Text>
-    content = agendaOptions.map((opt, i) => (
-      <Text key={opt.title} {...(i === agendaPickerSelected ? { color: 'blue' as const } : {})}>
-        {i === agendaPickerSelected ? '> ' : '  '}{i > 0 ? AGENDA_PREFIX : ''}{opt.title}
+    content = agendaItems.map((opt, i) => (
+      <Text key={opt.title} {...(i === selected ? { color: 'blue' as const } : {})}>
+        {i === selected ? '> ' : '  '}{opt.id !== null ? AGENDA_PREFIX : ''}{opt.title}
         {opt.key !== undefined ? <Text dimColor>  {opt.key}</Text> : null}
       </Text>
     ))
     footer = <Text dimColor>↑↓ navigate  enter/key select  esc back</Text>
-  } else if (mode === 'picking-context-for-task') {
-    const contextOptions = [{ name: 'No context', key: undefined }, ...contexts.map(c => ({ name: c.name, key: c.key }))]
+  } else if (listItems.view === 'picking-context-for-task') {
+    const contextItems = listItems.items
     title = <Text bold color="cyan">Context{currentTask !== undefined ? ` — ${currentTask.title}` : ''}</Text>
-    content = contextOptions.map((opt, i) => (
-      <Text key={opt.name} {...(i === contextPickerSelected ? { color: 'blue' as const } : {})}>
-        {i === contextPickerSelected ? '> ' : '  '}{i > 0 ? CONTEXT_PREFIX : ''}{opt.name}
+    content = contextItems.map((opt, i) => (
+      <Text key={opt.name} {...(i === selected ? { color: 'blue' as const } : {})}>
+        {i === selected ? '> ' : '  '}{opt.id !== null ? CONTEXT_PREFIX : ''}{opt.name}
         {opt.key !== undefined ? <Text dimColor>  {opt.key}</Text> : null}
       </Text>
     ))
     footer = <Text dimColor>↑↓ navigate  enter/key select  esc back</Text>
-  } else if (mode === 'picking-project-for-task') {
-    const query = formValue.toLowerCase().trim()
-    const filtered = pickerProjects.filter(p => query === '' || p.name.toLowerCase().includes(query))
-    const effectiveSelected = query === ''
-      ? Math.min(projectPickerSelected, filtered.length)
-      : Math.min(projectPickerSelected, Math.max(0, filtered.length - 1))
+  } else if (listItems.view === 'picking-project-for-task') {
+    const projectItems = listItems.items
     title = <Text bold color="cyan">Project{currentTask !== undefined ? ` — ${currentTask.title}` : ''}</Text>
     content = (
       <Box flexDirection="column">
         <Box>
           <Text dimColor>Search: </Text>
           <TextInput
-            value={formValue}
-            onChange={(v) => { setFormValue(v); dispatch({ type: 'set-project-picker-selected', index: 0 }) }}
+            value={searchQuery}
+            onChange={(v) => dispatch({ type: 'update-nav', patch: { searchQuery: v, selected: 0 } })}
             onSubmit={() => {}}
           />
         </Box>
         <Box flexDirection="column" marginTop={1}>
-          {query === '' && (
-            <Text {...(effectiveSelected === 0 ? { color: 'blue' as const } : {})}>
-              {effectiveSelected === 0 ? '> ' : '  '}No project
+          {projectItems.length === 0 && searchQuery.trim() !== '' ? (
+            <Text color="blue">{'> '}Create project "{searchQuery.trim()}"</Text>
+          ) : projectItems.map((p, i) => (
+            <Text key={p.id ?? 'null'} {...(i === selected ? { color: 'blue' as const } : {})}>
+              {i === selected ? '> ' : '  '}{p.name}
             </Text>
-          )}
-          {query !== '' && filtered.length === 0 ? (
-            <Text color="blue">{'> '}Create project "{formValue.trim()}"</Text>
-          ) : filtered.map((p, i) => {
-            const isSelected = query === '' ? i + 1 === effectiveSelected : i === effectiveSelected
-            return (
-              <Text key={p.id} {...(isSelected ? { color: 'blue' as const } : {})}>
-                {isSelected ? '> ' : '  '}{p.name}
-              </Text>
-            )
-          })}
+          ))}
         </Box>
       </Box>
     )
     footer = <Text dimColor>type to search  ↑↓ navigate  enter select  esc back</Text>
-  } else if (mode === 'picking-view') {
+  } else if (listItems.view === 'picking-view') {
     title = <Text bold color="cyan">View</Text>
-    content = TOP_LEVEL_VIEWS.map((v, i) => (
-      <Text key={v} {...(i === viewPickerSelected ? { color: 'blue' as const } : {})}>
-        {i === viewPickerSelected ? '> ' : '  '}{VIEW_CONFIG[v].label}<Text dimColor>  {VIEW_CONFIG[v].key}</Text>
+    content = listItems.items.map((item, i) => (
+      <Text key={item.id} {...(i === selected ? { color: 'blue' as const } : {})}>
+        {i === selected ? '> ' : '  '}{item.label}<Text dimColor>  {item.key}</Text>
       </Text>
     ))
     footer = <Text dimColor>↑↓ navigate  enter select  esc back</Text>
@@ -511,14 +456,6 @@ function App() {
       <Box>
         <Text>Description: </Text>
         <TextInput value={formValue} onChange={setFormValue} onSubmit={handleEditDescriptionSubmit} />
-      </Box>
-    ) : mode === 'editing-due-date' ? (
-      <Box flexDirection="column">
-        <Box>
-          <Text>Due date: </Text>
-          <TextInput value={formValue} onChange={setFormValue} onSubmit={handleDueDateSubmit} />
-        </Box>
-        {dueDatePreviewHint}
       </Box>
     ) : mode === 'editing-recurrence' ? (
       <Box flexDirection="column">

@@ -1,75 +1,64 @@
 import type { TaskId, ProjectId, SphereId, AgendaId, ContextId } from 'palimpsest'
 import type { CLEAR } from 'palimpsest'
 
-export type View = 'dashboard' | 'tasks' | 'projects' | 'project' | 'task'
+export type TopLevelView = 'dashboard' | 'tasks' | 'projects'
 
-export type Mode =
-  | 'list'
+export type View =
+  | 'dashboard' | 'tasks' | 'projects' | 'project' | 'task'
   | 'picking-view'
-  | 'adding'
-  | 'editing-task'
-  | 'editing-description'
   | 'picking-agenda-for-task'
   | 'picking-context-for-task'
   | 'picking-due-date'
-  | 'editing-due-date'
   | 'picking-project-for-task'
+
+export type Mode =
+  | 'list'
+  | 'adding'
+  | 'editing-task'
+  | 'editing-description'
+  | 'editing-due-date'
   | 'adding-project'
   | 'editing-project'
   | 'editing-recurrence'
 
-export interface NavState {
-  view: View
-  selected: number
-  activeProjectId: ProjectId | undefined
-  activeTaskId: TaskId | undefined
-  showCompleted: boolean
-  showArchived: boolean
-}
+export type NavState =
+  | { view: 'dashboard'; selected: number; showCompleted: boolean; showArchived: boolean }
+  | { view: 'tasks'; selected: number; showCompleted: boolean; showArchived: boolean }
+  | { view: 'projects'; selected: number; showCompleted: boolean; showArchived: boolean }
+  | { view: 'project'; selected: number; activeProjectId: ProjectId; showCompleted: boolean; showArchived: boolean }
+  | { view: 'task'; activeTaskId: TaskId }
+  | { view: 'picking-view'; selected: number }
+  | { view: 'picking-agenda-for-task'; selected: number; activeTaskId: TaskId }
+  | { view: 'picking-context-for-task'; selected: number; activeTaskId: TaskId }
+  | { view: 'picking-due-date'; selected: number; activeTaskId: TaskId }
+  | { view: 'picking-project-for-task'; selected: number; activeTaskId: TaskId; searchQuery: string }
 
-export const INITIAL_NAV: NavState = {
-  view: 'dashboard',
+export const INITIAL_NAV = {
+  view: 'dashboard' as const,
   selected: 0,
-  activeProjectId: undefined,
-  activeTaskId: undefined,
   showCompleted: false,
   showArchived: false,
-}
+} satisfies NavState
 
 export interface UIState {
   currentSphereId: SphereId | undefined
   navStack: NavState[]
   mode: Mode
-  viewPickerSelected: number
-  agendaPickerSelected: number
-  contextPickerSelected: number
-  dueDatePickerSelected: number
-  projectPickerSelected: number
 }
 
 export const INITIAL_UI_STATE: UIState = {
   currentSphereId: undefined,
   navStack: [INITIAL_NAV],
   mode: 'list',
-  viewPickerSelected: 0,
-  agendaPickerSelected: 0,
-  contextPickerSelected: 0,
-  dueDatePickerSelected: 0,
-  projectPickerSelected: 0,
 }
 
 export type UIAction =
   | { type: 'navigate'; navState: NavState }
   | { type: 'set-nav'; navState: NavState }
   | { type: 'go-back' }
-  | { type: 'update-nav'; patch: Partial<NavState> }
+  | { type: 'update-nav'; patch: { selected?: number; searchQuery?: string } }
   | { type: 'set-mode'; mode: Mode }
   | { type: 'set-sphere'; sphereId: SphereId }
-  | { type: 'set-view-picker-selected'; index: number }
-  | { type: 'set-agenda-picker-selected'; index: number }
-  | { type: 'set-context-picker-selected'; index: number }
-  | { type: 'set-due-date-picker-selected'; index: number }
-  | { type: 'set-project-picker-selected'; index: number }
 
 export type DataAction =
   | { type: 'create-task'; title: string; projectId?: ProjectId; sphereId?: SphereId }

@@ -39,14 +39,14 @@ function commandIds(projState: ReturnType<typeof project>, uiState: UIState) {
 describe('commands — tasks view, list mode', () => {
   it('includes add-task', () => {
     const { projState, sphere } = buildTestState()
-    const uiState = makeUIState({ currentSphereId: sphere.id })
+    const uiState = makeUIState({ currentSphereId: sphere.id, navStack: [{ ...INITIAL_NAV, view: 'tasks' }] })
     const ids = commandIds(projState, uiState)
     expect(ids).toContain('add-task')
   })
 
   it('includes view-switcher and sphere-cycle', () => {
     const { projState, sphere } = buildTestState()
-    const uiState = makeUIState({ currentSphereId: sphere.id })
+    const uiState = makeUIState({ currentSphereId: sphere.id, navStack: [{ ...INITIAL_NAV, view: 'tasks' }] })
     const ids = commandIds(projState, uiState)
     expect(ids).toContain('pick-view')
     expect(ids).toContain('cycle-sphere')
@@ -257,7 +257,7 @@ describe('commands — toggle-completed', () => {
   it('is available in tasks and project views', () => {
     const { projState, sphere, proj } = buildTestState()
 
-    const tasksUiState = makeUIState({ currentSphereId: sphere.id })
+    const tasksUiState = makeUIState({ currentSphereId: sphere.id, navStack: [{ ...INITIAL_NAV, view: 'tasks' }] })
     expect(commandIds(projState, tasksUiState)).toContain('toggle-completed')
 
     const projectUiState = makeUIState({

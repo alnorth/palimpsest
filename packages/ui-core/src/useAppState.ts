@@ -16,6 +16,11 @@ import type { ViewModel } from './viewModel.js'
 import type { Command } from './types.js'
 import type { SyncHealth, PendingConflict } from './ClientPalimpsestStore.js'
 import { indexAfterAppend, indexAfterRemove } from './navHelpers.js'
+import type { NavState } from './types.js'
+
+function navSelected(nav: NavState | undefined): number {
+  return nav !== undefined && 'selected' in nav ? nav.selected : 0
+}
 
 export interface AppStateResult extends ViewModel {
   projState: ProjectionState
@@ -187,7 +192,7 @@ export function useAppState(store: PalimpsestStore): AppStateResult {
             await store.appendEvents(completeTask(task))
             setUIState(prev => uiReducer(prev, {
               type: 'update-nav',
-              patch: { selected: indexAfterRemove(tasks, prev.navStack[prev.navStack.length - 1]?.selected ?? 0) },
+              patch: { selected: indexAfterRemove(tasks, navSelected(prev.navStack[prev.navStack.length - 1])) },
             }))
           } else {
             await store.appendEvents(completeTask(task))
@@ -209,7 +214,7 @@ export function useAppState(store: PalimpsestStore): AppStateResult {
             await store.appendEvents(uncompleteTask(task))
             setUIState(prev => uiReducer(prev, {
               type: 'update-nav',
-              patch: { selected: indexAfterRemove(tasks, prev.navStack[prev.navStack.length - 1]?.selected ?? 0) },
+              patch: { selected: indexAfterRemove(tasks, navSelected(prev.navStack[prev.navStack.length - 1])) },
             }))
           } else {
             await store.appendEvents(uncompleteTask(task))
@@ -309,7 +314,7 @@ export function useAppState(store: PalimpsestStore): AppStateResult {
           await store.appendEvents(archiveProject(project))
           setUIState(prev => uiReducer(prev, {
             type: 'update-nav',
-            patch: { selected: indexAfterRemove(projects, prev.navStack[prev.navStack.length - 1]?.selected ?? 0) },
+            patch: { selected: indexAfterRemove(projects, navSelected(prev.navStack[prev.navStack.length - 1])) },
           }))
           break
         }
@@ -324,7 +329,7 @@ export function useAppState(store: PalimpsestStore): AppStateResult {
           await store.appendEvents(unarchiveProject(project))
           setUIState(prev => uiReducer(prev, {
             type: 'update-nav',
-            patch: { selected: indexAfterRemove(projects, prev.navStack[prev.navStack.length - 1]?.selected ?? 0) },
+            patch: { selected: indexAfterRemove(projects, navSelected(prev.navStack[prev.navStack.length - 1])) },
           }))
           break
         }

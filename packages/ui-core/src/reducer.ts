@@ -16,10 +16,14 @@ export function uiReducer(state: UIState, action: UIAction): UIState {
 
     case 'update-nav': {
       const last = state.navStack[state.navStack.length - 1] ?? INITIAL_NAV
-      return {
-        ...state,
-        navStack: [...state.navStack.slice(0, -1), { ...last, ...action.patch }],
+      if (last.view === 'task') return state
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const next = { ...last } as any
+      if (action.patch.selected !== undefined) next.selected = action.patch.selected
+      if (action.patch.searchQuery !== undefined && last.view === 'picking-project-for-task') {
+        next.searchQuery = action.patch.searchQuery
       }
+      return { ...state, navStack: [...state.navStack.slice(0, -1), next as typeof last] }
     }
 
     case 'set-mode':
@@ -32,21 +36,6 @@ export function uiReducer(state: UIState, action: UIAction): UIState {
         navStack: [INITIAL_NAV],
         mode: 'list',
       }
-
-    case 'set-view-picker-selected':
-      return { ...state, viewPickerSelected: action.index }
-
-    case 'set-agenda-picker-selected':
-      return { ...state, agendaPickerSelected: action.index }
-
-    case 'set-context-picker-selected':
-      return { ...state, contextPickerSelected: action.index }
-
-    case 'set-due-date-picker-selected':
-      return { ...state, dueDatePickerSelected: action.index }
-
-    case 'set-project-picker-selected':
-      return { ...state, projectPickerSelected: action.index }
 
   }
 }
