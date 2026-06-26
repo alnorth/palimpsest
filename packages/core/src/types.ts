@@ -25,6 +25,7 @@ export interface Agenda {
   id: AgendaId
   sphereId: SphereId
   title: string
+  key?: string
 }
 
 export interface Project {

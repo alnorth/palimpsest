@@ -123,6 +123,11 @@ function App() {
       if (key.escape) { dispatch({ type: 'set-mode', mode: 'list' }); return }
       if (key.upArrow) dispatch({ type: 'set-agenda-picker-selected', index: Math.max(0, agendaPickerSelected - 1) })
       if (key.downArrow) dispatch({ type: 'set-agenda-picker-selected', index: Math.min(agendas.length, agendaPickerSelected + 1) })
+      const shortcutAgenda = agendas.find(a => a.key === input)
+      if (shortcutAgenda !== undefined && currentTask !== undefined) {
+        dispatch({ type: 'set-task-agenda', taskId: currentTask.id, agendaId: shortcutAgenda.id })
+        return
+      }
       if (key.return && currentTask !== undefined) {
         const agendaId = agendaPickerSelected === 0 ? CLEAR : agendas[agendaPickerSelected - 1]!.id
         dispatch({ type: 'set-task-agenda', taskId: currentTask.id, agendaId })
@@ -316,14 +321,15 @@ function App() {
     })
     footer = <Text dimColor>↑↓ navigate  enter/key select  esc back</Text>
   } else if (mode === 'picking-agenda-for-task') {
-    const options = ['No agenda', ...agendas.map(a => a.title)]
+    const agendaOptions = [{ title: 'No agenda', key: undefined }, ...agendas.map(a => ({ title: a.title, key: a.key }))]
     title = <Text bold color="cyan">Agenda{currentTask !== undefined ? ` — ${currentTask.title}` : ''}</Text>
-    content = options.map((label, i) => (
-      <Text key={label} {...(i === agendaPickerSelected ? { color: 'blue' as const } : {})}>
-        {i === agendaPickerSelected ? '> ' : '  '}{i > 0 ? '@' : ''}{label}
+    content = agendaOptions.map((opt, i) => (
+      <Text key={opt.title} {...(i === agendaPickerSelected ? { color: 'blue' as const } : {})}>
+        {i === agendaPickerSelected ? '> ' : '  '}{i > 0 ? '@' : ''}{opt.title}
+        {opt.key !== undefined ? <Text dimColor>  {opt.key}</Text> : null}
       </Text>
     ))
-    footer = <Text dimColor>↑↓ navigate  enter select  esc back</Text>
+    footer = <Text dimColor>↑↓ navigate  enter/key select  esc back</Text>
   } else if (mode === 'picking-project-for-task') {
     const query = formValue.toLowerCase().trim()
     const filtered = pickerProjects.filter(p => query === '' || p.name.toLowerCase().includes(query))

@@ -4,6 +4,7 @@ import type { Sphere, Agenda, Context } from './types.js'
 export interface AgendaConfig {
   id: AgendaId
   title: string
+  key?: string
 }
 
 export interface ContextConfig {
@@ -36,7 +37,7 @@ export function buildStateFromConfig(sphereConfigs: SphereConfig[]): {
       ...(sc.description !== undefined && { description: sc.description }),
     })
     for (const ac of sc.agendas) {
-      agendas.set(ac.id, { id: ac.id, sphereId: sc.id, title: ac.title })
+      agendas.set(ac.id, { id: ac.id, sphereId: sc.id, title: ac.title, ...(ac.key !== undefined && { key: ac.key }) })
     }
     for (const cc of sc.contexts) {
       contexts.set(cc.id, {
@@ -56,12 +57,12 @@ export const PALIMPSEST_CONFIG: SphereConfig[] = [
     id: 'vialibri' as SphereId,
     name: 'viaLibri',
     agendas: [
-      { id: 'agenda-jim'      as AgendaId, title: 'Jim' },
-      { id: 'agenda-marcia'   as AgendaId, title: 'Marcia' },
-      { id: 'agenda-nicolas'  as AgendaId, title: 'Nicolas' },
-      { id: 'agenda-anton'    as AgendaId, title: 'Anton' },
-      { id: 'agenda-dev'      as AgendaId, title: 'Dev' },
-      { id: 'agenda-showcase' as AgendaId, title: 'Showcase' },
+      { id: 'agenda-jim'      as AgendaId, title: 'Jim',      key: 'j' },
+      { id: 'agenda-marcia'   as AgendaId, title: 'Marcia',   key: 'm' },
+      { id: 'agenda-nicolas'  as AgendaId, title: 'Nicolas',  key: 'n' },
+      { id: 'agenda-anton'    as AgendaId, title: 'Anton',    key: 'a' },
+      { id: 'agenda-dev'      as AgendaId, title: 'Dev',      key: 'd' },
+      { id: 'agenda-showcase' as AgendaId, title: 'Showcase', key: 's' },
     ],
     contexts: [
       { id: 'ctx-marketing'  as ContextId, name: 'Marketing' },
@@ -76,8 +77,8 @@ export const PALIMPSEST_CONFIG: SphereConfig[] = [
     id: 'personal' as SphereId,
     name: 'Personal',
     agendas: [
-      { id: 'agenda-han' as AgendaId, title: 'Han' },
-      { id: 'agenda-dad' as AgendaId, title: 'Dad' },
+      { id: 'agenda-han' as AgendaId, title: 'Han', key: 'h' },
+      { id: 'agenda-dad' as AgendaId, title: 'Dad', key: 'd' },
     ],
     contexts: [
       { id: 'ctx-phone'    as ContextId, name: 'Phone' },
