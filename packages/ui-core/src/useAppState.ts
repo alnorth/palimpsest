@@ -3,7 +3,7 @@ import {
   listTasks, listProjects,
   createTask, updateTask, completeTask, uncompleteTask,
   createProject, updateProject, archiveProject, unarchiveProject,
-  createEmptyState,
+  createEmptyState, project,
   CLEAR,
 } from 'palimpsest'
 import type { PalimpsestStore, ProjectionState, ProjectCreatedEvent } from 'palimpsest'
@@ -246,7 +246,8 @@ export function useAppState(store: PalimpsestStore): AppStateResult {
         case 'create-and-assign-project': {
           const createEvts = createProject(resolvedState, { name: action.name, sphereId: action.sphereId })
           const projectId = (createEvts[0] as ProjectCreatedEvent).projectId
-          const assignEvts = updateTask(resolvedState, { taskId: action.taskId, patch: { projectId, sphereId: CLEAR } })
+          const stateWithProject = project(createEvts, resolvedState)
+          const assignEvts = updateTask(stateWithProject, { taskId: action.taskId, patch: { projectId, sphereId: CLEAR } })
           await store.appendEvents([...createEvts, ...assignEvts])
           setUIState(prev => uiReducer(prev, { type: 'set-mode', mode: 'list' }))
           break

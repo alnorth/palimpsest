@@ -230,3 +230,35 @@ describe('finishRecurringTask', () => {
     expect(() => finishRecurringTask(s1, tid)).toThrow('no recurrence expression')
   })
 })
+
+describe('create project and assign task in same batch', () => {
+  it('produces correct final state when all events are replayed together', () => {
+    const taskEvts = createTask(baseState, { title: 'My task', sphereId })
+    const s1 = buildState(taskEvts)
+    const taskId = (taskEvts[0] as any).taskId as TaskId
+
+    const projectEvts = createProject(s1, { name: 'New project', sphereId })
+    const s2 = project(projectEvts, s1)
+    const projectId = (projectEvts[0] as any).projectId as ProjectId
+
+    const assignEvts = updateTask(s2, { taskId, patch: { projectId, sphereId: null } })
+
+    const finalState = buildState([...taskEvts, ...projectEvts, ...assignEvts])
+    expect(finalState.tasks.get(taskId)?.projectId).toBe(projectId)
+    expect(finalState.tasks.get(taskId)?.sphereId).toBeUndefined()
+    expect(finalState.projects.get(projectId)?.name).toBe('New project')
+  })
+
+  it('throws if updateTask is called against state that does not yet include the new project', () => {
+    const taskEvts = createTask(baseState, { title: 'My task', sphereId })
+    const s1 = buildState(taskEvts)
+    const taskId = (taskEvts[0] as any).taskId as TaskId
+
+    const projectEvts = createProject(s1, { name: 'New project', sphereId })
+    const projectId = (projectEvts[0] as any).projectId as ProjectId
+
+    expect(() =>
+      updateTask(s1, { taskId, patch: { projectId, sphereId: null } })
+    ).toThrow('Project not found')
+  })
+})
