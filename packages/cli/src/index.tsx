@@ -3,7 +3,7 @@ import { render, Box, Text, useInput, useWindowSize } from 'ink'
 import { TaskList } from './TaskList.js'
 import { Row, Meta } from './Row.js'
 import TextInput from 'ink-text-input'
-import { FilePalimpsestStore, CLEAR, getProject, getAgenda } from 'palimpsest'
+import { FilePalimpsestStore, CLEAR, getProject, getAgenda, listProjects } from 'palimpsest'
 import type { PalimpsestStore } from 'palimpsest'
 import { useAppState, INITIAL_NAV, ClientPalimpsestStore, addDays, nextWeekday, parseDueDate } from 'palimpsest-ui-core'
 import { FilePendingEventStore } from './FilePendingEventStore.js'
@@ -58,7 +58,7 @@ function App() {
     isLoading, syncHealth, unsyncedCount, pendingConflicts, lastSyncError,
   } = useAppState(store)
 
-  const { viewPickerSelected, agendaPickerSelected, dueDatePickerSelected, settingsSelected, pickerSelected, agendaSphereId } = uiState
+  const { viewPickerSelected, agendaPickerSelected, dueDatePickerSelected, projectPickerSelected, settingsSelected, pickerSelected, agendaSphereId } = uiState
   const [formValue, setFormValue] = useState('')
   const { rows: termRows } = useWindowSize()
 
@@ -82,8 +82,12 @@ function App() {
     }
   }
 
+  const pickerProjects = activeSphere !== undefined
+    ? listProjects(projState, { sphereId: activeSphere.id, isArchived: false })
+    : []
+
   useInput((input, key) => {
-    if (mode === 'adding' || mode === 'editing-task' || mode === 'editing-description' || mode === 'editing-due-date' || mode === 'adding-project' || mode === 'editing-project' || mode === 'creating-sphere' || mode === 'creating-agenda') {
+    if (mode === 'adding' || mode === 'editing-task' || mode === 'editing-description' || mode === 'editing-due-date' || mode === 'adding-project' || mode === 'editing-project' || mode === 'creating-sphere' || mode === 'creating-agenda' || mode === 'picking-project-for-task') {
       if (key.escape) {
         setFormValue('')
         if (mode === 'creating-sphere' || mode === 'creating-agenda') {
@@ -92,6 +96,26 @@ function App() {
           dispatch({ type: 'set-mode', mode: 'picking-due-date' })
         } else {
           dispatch({ type: 'set-mode', mode: 'list' })
+        }
+      }
+      if (mode === 'picking-project-for-task') {
+        const query = formValue.toLowerCase().trim()
+        const filtered = pickerProjects.filter(p => query === '' || p.name.toLowerCase().includes(query))
+        const maxIdx = filtered.length
+        const effectiveSelected = Math.min(projectPickerSelected, maxIdx)
+        if (key.upArrow) dispatch({ type: 'set-project-picker-selected', index: Math.max(0, effectiveSelected - 1) })
+        if (key.downArrow) dispatch({ type: 'set-project-picker-selected', index: Math.min(maxIdx, effectiveSelected + 1) })
+        if (key.return && currentTask !== undefined) {
+          if (effectiveSelected === 0) {
+            setFormValue('')
+            dispatch({ type: 'set-task-project', taskId: currentTask.id, projectId: CLEAR })
+          } else {
+            const proj = filtered[effectiveSelected - 1]
+            if (proj !== undefined) {
+              setFormValue('')
+              dispatch({ type: 'set-task-project', taskId: currentTask.id, projectId: proj.id })
+            }
+          }
         }
       }
       return
@@ -179,6 +203,11 @@ function App() {
       if (cmd.id === 'edit-task' && currentTask !== undefined) setFormValue(currentTask.title)
       if (cmd.id === 'edit-description') setFormValue(currentTask?.description ?? '')
       if (cmd.id === 'edit-project') setFormValue(projects[selected]?.name ?? '')
+      if (cmd.id === 'pick-project' && currentTask !== undefined) {
+        setFormValue('')
+        const idx = currentTask.projectId !== undefined ? pickerProjects.findIndex(p => p.id === currentTask.projectId) + 1 : 0
+        dispatch({ type: 'set-project-picker-selected', index: Math.max(0, idx) })
+      }
       if (cmd.id === 'pick-agenda' && currentTask !== undefined) {
         const idx = currentTask.agendaId !== undefined ? agendas.findIndex(a => a.id === currentTask.agendaId) + 1 : 0
         dispatch({ type: 'set-agenda-picker-selected', index: Math.max(0, idx) })
@@ -319,6 +348,33 @@ function App() {
       </Text>
     ))
     footer = <Text dimColor>↑↓ navigate  enter select  esc back</Text>
+  } else if (mode === 'picking-project-for-task') {
+    const query = formValue.toLowerCase().trim()
+    const filtered = pickerProjects.filter(p => query === '' || p.name.toLowerCase().includes(query))
+    const effectiveSelected = Math.min(projectPickerSelected, filtered.length)
+    title = <Text bold color="cyan">Project{currentTask !== undefined ? ` — ${currentTask.title}` : ''}</Text>
+    content = (
+      <Box flexDirection="column">
+        <Box>
+          <Text dimColor>Search: </Text>
+          <TextInput value={formValue} onChange={setFormValue} onSubmit={() => {}} />
+        </Box>
+        <Box flexDirection="column" marginTop={1}>
+          <Text {...(effectiveSelected === 0 ? { color: 'blue' as const } : {})}>
+            {effectiveSelected === 0 ? '> ' : '  '}No project
+          </Text>
+          {filtered.map((p, i) => {
+            const isSelected = i + 1 === effectiveSelected
+            return (
+              <Text key={p.id} {...(isSelected ? { color: 'blue' as const } : {})}>
+                {isSelected ? '> ' : '  '}{p.name}
+              </Text>
+            )
+          })}
+        </Box>
+      </Box>
+    )
+    footer = <Text dimColor>type to search  ↑↓ navigate  enter select  esc back</Text>
   } else if (mode === 'picking-view') {
     title = <Text bold color="cyan">View</Text>
     content = TOP_LEVEL_VIEWS.map((v, i) => (

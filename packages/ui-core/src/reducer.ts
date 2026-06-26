@@ -42,6 +42,9 @@ export function uiReducer(state: UIState, action: UIAction): UIState {
     case 'set-due-date-picker-selected':
       return { ...state, dueDatePickerSelected: action.index }
 
+    case 'set-project-picker-selected':
+      return { ...state, projectPickerSelected: action.index }
+
     case 'set-settings-selected':
       return { ...state, settingsSelected: action.index }
 
