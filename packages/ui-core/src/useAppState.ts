@@ -15,7 +15,7 @@ import type { ViewModel } from './viewModel.js'
 import type { Command } from './types.js'
 import type { SyncState } from './ClientPalimpsestStore.js'
 import { useStore } from './useStore.js'
-import { indexAfterAppend, indexAfterRemove } from './navHelpers.js'
+import { indexAfterAppend, indexAfterRemove, navStateForTopLevelView } from './navHelpers.js'
 import type { NavState } from './types.js'
 
 function navSelected(nav: NavState | undefined): number {
@@ -288,11 +288,7 @@ export function useAppState(store: PalimpsestStore, initialState: ProjectionStat
     if (vm.listItems.view === 'picking-view') {
       const item = vm.listItems.items[i]
       if (item !== undefined) {
-        const navState =
-          item.id === 'tasks'    ? { view: 'tasks' as const, selected: 0, showCompleted: false } :
-          item.id === 'projects' ? { view: 'projects' as const, selected: 0, showArchived: false } :
-                                   { view: 'dashboard' as const, selected: 0 }
-        dispatch({ type: 'set-nav', navState })
+        dispatch({ type: 'set-nav', navState: navStateForTopLevelView(item.id) })
       }
     } else if (vm.listItems.view === 'picking-agenda-for-task' && vm.currentTask !== undefined) {
       const item = vm.listItems.items[i]

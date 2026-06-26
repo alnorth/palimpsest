@@ -1,8 +1,8 @@
 import React from 'react'
 import { Drawer, Stack, Text } from '@mantine/core'
 import type { Sphere } from 'palimpsest'
-import type { Action, NavState, TopLevelView, View } from 'palimpsest-ui-core'
-import { VIEW_CONFIG } from 'palimpsest-ui-core'
+import type { Action, TopLevelView, View } from 'palimpsest-ui-core'
+import { VIEW_CONFIG, navStateForTopLevelView } from 'palimpsest-ui-core'
 
 interface Props {
   opened: boolean
@@ -13,12 +13,6 @@ interface Props {
   dispatch: (action: Action) => void
 }
 
-function navStateForView(view: TopLevelView): NavState {
-  if (view === 'tasks') return { view: 'tasks', selected: 0, showCompleted: false }
-  if (view === 'projects') return { view: 'projects', selected: 0, showArchived: false }
-  return { view: 'dashboard', selected: 0 }
-}
-
 export function NavDrawer({ opened, onClose, spheres, activeSphere, currentView, dispatch }: Props) {
   function handleSphere(sphereId: Sphere['id']) {
     dispatch({ type: 'set-sphere', sphereId })
@@ -26,7 +20,7 @@ export function NavDrawer({ opened, onClose, spheres, activeSphere, currentView,
   }
 
   function handleView(view: TopLevelView) {
-    dispatch({ type: 'set-nav', navState: navStateForView(view) })
+    dispatch({ type: 'set-nav', navState: navStateForTopLevelView(view) })
     onClose()
   }
 
