@@ -25,6 +25,7 @@ export function TaskList({ tasks, selected, state, showProject = false, emptyMes
         const ddColor = task.dueDate !== undefined ? dueDateColor(task.dueDate) : undefined
         const metaItems: React.ReactNode[] = []
         if (task.description) metaItems.push(<Text dimColor>¶</Text>)
+        if (task.isWaiting === true) metaItems.push(<Text dimColor>Waiting</Text>)
         if (project !== undefined) metaItems.push(<Text dimColor>#{project.name}</Text>)
         if (agenda !== undefined) metaItems.push(<Text dimColor>@{agenda.title}</Text>)
         if (task.dueDate !== undefined) metaItems.push(<Text {...(ddColor !== undefined ? { color: ddColor } : { dimColor: true })}>{task.dueDate}</Text>)

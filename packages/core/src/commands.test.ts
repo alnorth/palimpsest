@@ -239,6 +239,33 @@ describe('finishRecurringTask', () => {
   })
 })
 
+describe('toggleWaiting via updateTask', () => {
+  function setup() {
+    const taskEvts = createTask({ title: 'T', sphereId })
+    const s1 = buildState([...taskEvts])
+    const tid = (taskEvts[0] as any).taskId as TaskId
+    const task = s1.tasks.get(tid)!
+    return { taskEvts, tid, task }
+  }
+
+  it('sets isWaiting to true', () => {
+    const { taskEvts, tid, task } = setup()
+    const events = updateTask(task, { isWaiting: true })
+    const s2 = buildState([...taskEvts, ...events])
+    expect(s2.tasks.get(tid)?.isWaiting).toBe(true)
+  })
+
+  it('clears isWaiting when set to false', () => {
+    const { taskEvts, tid, task } = setup()
+    const setEvts = updateTask(task, { isWaiting: true })
+    const s2 = buildState([...taskEvts, ...setEvts])
+    const waitingTask = s2.tasks.get(tid)!
+    const clearEvts = updateTask(waitingTask, { isWaiting: false })
+    const s3 = buildState([...taskEvts, ...setEvts, ...clearEvts])
+    expect(s3.tasks.get(tid)?.isWaiting).toBeUndefined()
+  })
+})
+
 describe('create project and assign task in same batch', () => {
   it('produces correct final state when all events are replayed together', () => {
     const taskEvts = createTask({ title: 'My task', sphereId })

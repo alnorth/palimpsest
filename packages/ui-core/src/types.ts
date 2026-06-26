@@ -78,6 +78,7 @@ export type DataAction =
   | { type: 'uncomplete-task'; taskId: TaskId }
   | { type: 'toggle-next'; taskId: TaskId }
   | { type: 'toggle-starred'; taskId: TaskId }
+  | { type: 'toggle-waiting'; taskId: TaskId }
   | { type: 'set-task-agenda'; taskId: TaskId; agendaId: AgendaId | typeof CLEAR }
   | { type: 'create-project'; name: string; sphereId: SphereId }
   | { type: 'create-and-assign-project'; name: string; sphereId: SphereId; taskId: TaskId }

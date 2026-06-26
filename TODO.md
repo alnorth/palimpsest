@@ -7,6 +7,7 @@
 - [x] Project picker for tasks.
 - [x] Set due date expression on a task.
 - [x] Completing a recurring task sets the due date to the next value from the expression.
+- [x] Put task metadata onto a second line
 - [ ] Toggle isWaiting on a task.
 - [ ] Assign a context to a task.
 - [ ] Dashboard view showing tasks due today or overdue, plus starred tasks.

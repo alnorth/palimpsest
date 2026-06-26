@@ -109,6 +109,17 @@ export function getCommands(vm: ViewModel): Command[] {
     })
   }
 
+  // ── Toggle waiting ────────────────────────────────────────────────────────────
+  if (currentTask?.status === 'open') {
+    commands.push({
+      id: 'toggle-waiting',
+      label: 'waiting',
+      group: 'state',
+      key: 'w',
+      action: { type: 'toggle-waiting', taskId: currentTask.id },
+    })
+  }
+
   // ── Pick due date ────────────────────────────────────────────────────────────
   if (currentTask?.status === 'open') {
     commands.push({
