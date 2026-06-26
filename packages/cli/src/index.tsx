@@ -453,13 +453,26 @@ function App() {
   } else {
     const completedTag = showCompleted && view !== 'projects' ? <Text color="yellow"> completed</Text> : null
     const archivedTag = showArchived && view === 'projects' ? <Text color="yellow"> archived</Text> : null
-    const stateRow = stateCommands.map(c => `${c.key} ${c.label}`)
-    const viewRow = ['↑↓ navigate', ...viewCommands.map(c => `${c.key} ${c.label}`)]
-    if (canGoBack) viewRow.push('esc back')
+    const viewItems = ['↑↓ navigate', ...viewCommands.map(c => `${c.key} ${c.label}`)]
+    if (canGoBack) viewItems.push('esc back')
     const listHint = (
       <Box flexDirection="column">
-        {stateRow.length > 0 && <Text dimColor>{stateRow.join('  ')}</Text>}
-        <Text dimColor>{viewRow.join('  ')}</Text>
+        {stateCommands.length > 0 && (
+          <Box flexWrap="wrap">
+            {stateCommands.map(c => (
+              <Box key={c.key} marginRight={2} flexShrink={0}>
+                <Text dimColor>{c.key} {c.label}</Text>
+              </Box>
+            ))}
+          </Box>
+        )}
+        <Box flexWrap="wrap">
+          {viewItems.map(item => (
+            <Box key={item} marginRight={2} flexShrink={0}>
+              <Text dimColor>{item}</Text>
+            </Box>
+          ))}
+        </Box>
       </Box>
     )
     title = view === 'task'
