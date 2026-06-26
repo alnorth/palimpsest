@@ -17,6 +17,7 @@ export interface Task {
   contextId?: ContextId
   isNext?: boolean
   isStarred?: boolean
+  isWaiting?: boolean
   completedAt?: string
   lastRecurredAt?: string
 }

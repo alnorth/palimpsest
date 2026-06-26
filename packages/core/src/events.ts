@@ -70,6 +70,7 @@ export type TaskPatch = {
   contextId?: ContextId | typeof CLEAR
   isNext?: boolean
   isStarred?: boolean
+  isWaiting?: boolean
   dueDate?: string | typeof CLEAR
   dueDateExpression?: string | typeof CLEAR
 }

@@ -119,6 +119,10 @@ export function applyEvent(state: ProjectionState, event: PalimpsestEvent): Proj
         if (patch.isStarred === false) delete task.isStarred
         else task.isStarred = true
       }
+      if (patch.isWaiting !== undefined) {
+        if (patch.isWaiting === false) delete task.isWaiting
+        else task.isWaiting = true
+      }
       if (patch.dueDate !== undefined) {
         if (patch.dueDate === CLEAR) delete task.dueDate
         else task.dueDate = patch.dueDate
