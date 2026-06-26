@@ -48,19 +48,15 @@ function isDataAction(action: Action): action is DataAction {
   )
 }
 
-// Duck-typed interface for stores that support push-based sync (e.g. ClientPalimpsestStore)
-interface SubscribableStore {
-  subscribe(listener: () => void): () => void
-  start(): void
-  stop(): void
-  readonly syncHealth?: SyncHealth
-  readonly unsyncedCount?: number
-  readonly pendingConflicts?: PendingConflict[]
-  readonly lastSyncError?: string
+interface HasSyncHealth {
+  readonly syncHealth: SyncHealth
+  readonly unsyncedCount: number
+  readonly pendingConflicts: PendingConflict[]
+  readonly lastSyncError: string | undefined
 }
 
-function isSubscribable(store: PalimpsestStore): store is PalimpsestStore & SubscribableStore {
-  return typeof (store as any).subscribe === 'function'
+function hasSyncHealth(store: PalimpsestStore): store is PalimpsestStore & HasSyncHealth {
+  return 'syncHealth' in store
 }
 
 export function useAppState(store: PalimpsestStore): AppStateResult {
@@ -88,30 +84,24 @@ export function useAppState(store: PalimpsestStore): AppStateResult {
       applyState(await store.getState())
       if (cancelled) return
 
-      if (isSubscribable(store)) {
-        unsubFn = store.subscribe(() => {
-          void store.getState().then(applyState)
-          setSyncHealth(store.syncHealth ?? 'idle')
-          setUnsyncedCount(store.unsyncedCount ?? 0)
-          setPendingConflicts(store.pendingConflicts ?? [])
+      unsubFn = store.subscribe(() => {
+        void store.getState().then(applyState)
+        if (hasSyncHealth(store)) {
+          setSyncHealth(store.syncHealth)
+          setUnsyncedCount(store.unsyncedCount)
+          setPendingConflicts(store.pendingConflicts)
           setLastSyncError(store.lastSyncError)
-        })
-        store.start()
-      }
+        }
+      })
+      store.start()
     })
 
     return () => {
       cancelled = true
       unsubFn?.()
-      if (isSubscribable(store)) store.stop()
+      store.stop()
     }
   }, [store, applyState])
-
-  async function refreshProj(): Promise<ProjectionState> {
-    const next = await store.getState()
-    setProjState(next)
-    return next
-  }
 
   const resolvedState = projState ?? createEmptyState()
   const vm = useMemo(() => deriveViewModel(resolvedState, uiState), [resolvedState, uiState])
@@ -130,15 +120,13 @@ export function useAppState(store: PalimpsestStore): AppStateResult {
           const sphereId = action.sphereId ?? vm.activeSphere?.id
           const projectId = action.projectId
           if (projectId !== undefined) {
+            const newIndex = listTasks(resolvedState, { projectId, status: 'open' }).length
             await store.appendEvents(createTask(resolvedState, { title: action.title, projectId }))
-            const next = await refreshProj()
-            const newTasks = listTasks(next, { projectId, status: 'open' })
-            setUIState(prev => uiReducer(prev, { type: 'update-nav', patch: { selected: newTasks.length - 1 } }))
+            setUIState(prev => uiReducer(prev, { type: 'update-nav', patch: { selected: newIndex } }))
           } else if (sphereId !== undefined) {
+            const newIndex = listTasks(resolvedState, { sphereId, status: 'open' }).length
             await store.appendEvents(createTask(resolvedState, { title: action.title, sphereId }))
-            const next = await refreshProj()
-            const newTasks = listTasks(next, { sphereId, status: 'open' })
-            setUIState(prev => uiReducer(prev, { type: 'update-nav', patch: { selected: newTasks.length - 1 } }))
+            setUIState(prev => uiReducer(prev, { type: 'update-nav', patch: { selected: newIndex } }))
           }
           setUIState(prev => uiReducer(prev, { type: 'set-mode', mode: 'list' }))
           break
@@ -146,66 +134,64 @@ export function useAppState(store: PalimpsestStore): AppStateResult {
 
         case 'edit-task': {
           await store.appendEvents(updateTask(resolvedState, { taskId: action.taskId, patch: { title: action.title } }))
-          await refreshProj()
           setUIState(prev => uiReducer(prev, { type: 'set-mode', mode: 'list' }))
           break
         }
 
         case 'edit-task-description': {
           await store.appendEvents(updateTask(resolvedState, { taskId: action.taskId, patch: { description: action.description } }))
-          await refreshProj()
           setUIState(prev => uiReducer(prev, { type: 'set-mode', mode: 'list' }))
           break
         }
 
         case 'set-task-due-date': {
           await store.appendEvents(updateTask(resolvedState, { taskId: action.taskId, patch: { dueDate: action.dueDate } }))
-          await refreshProj()
           setUIState(prev => uiReducer(prev, { type: 'set-mode', mode: 'list' }))
           break
         }
 
         case 'set-task-due-date-expression': {
           await store.appendEvents(updateTask(resolvedState, { taskId: action.taskId, patch: { dueDateExpression: action.dueDateExpression } }))
-          await refreshProj()
           setUIState(prev => uiReducer(prev, { type: 'set-mode', mode: 'list' }))
           break
         }
 
         case 'complete-task': {
-          await store.appendEvents(completeTask(resolvedState, action.taskId))
-          const next = await refreshProj()
           if (vm.view !== 'task') {
             const activeProjectId = vm.activeProject?.id
             const activeSphereId = vm.activeSphere?.id
-            const remainingTasks = activeProjectId !== undefined
-              ? listTasks(next, { projectId: activeProjectId, status: 'open' })
+            const currentCount = activeProjectId !== undefined
+              ? listTasks(resolvedState, { projectId: activeProjectId, status: 'open' }).length
               : activeSphereId !== undefined
-                ? listTasks(next, { sphereId: activeSphereId, status: 'open' })
-                : []
+                ? listTasks(resolvedState, { sphereId: activeSphereId, status: 'open' }).length
+                : 0
+            await store.appendEvents(completeTask(resolvedState, action.taskId))
             setUIState(prev => uiReducer(prev, {
               type: 'update-nav',
-              patch: { selected: Math.max(0, Math.min(prev.navStack[prev.navStack.length - 1]?.selected ?? 0, remainingTasks.length - 1)) },
+              patch: { selected: Math.max(0, Math.min(prev.navStack[prev.navStack.length - 1]?.selected ?? 0, currentCount - 2)) },
             }))
+          } else {
+            await store.appendEvents(completeTask(resolvedState, action.taskId))
           }
           break
         }
 
         case 'uncomplete-task': {
-          await store.appendEvents(uncompleteTask(resolvedState, action.taskId))
-          const next = await refreshProj()
           if (vm.view !== 'task') {
             const activeProjectId = vm.activeProject?.id
             const activeSphereId = vm.activeSphere?.id
-            const remainingTasks = activeProjectId !== undefined
-              ? listTasks(next, { projectId: activeProjectId, status: 'completed' })
+            const currentCount = activeProjectId !== undefined
+              ? listTasks(resolvedState, { projectId: activeProjectId, status: 'completed' }).length
               : activeSphereId !== undefined
-                ? listTasks(next, { sphereId: activeSphereId, status: 'completed' })
-                : []
+                ? listTasks(resolvedState, { sphereId: activeSphereId, status: 'completed' }).length
+                : 0
+            await store.appendEvents(uncompleteTask(resolvedState, action.taskId))
             setUIState(prev => uiReducer(prev, {
               type: 'update-nav',
-              patch: { selected: Math.max(0, Math.min(prev.navStack[prev.navStack.length - 1]?.selected ?? 0, remainingTasks.length - 1)) },
+              patch: { selected: Math.max(0, Math.min(prev.navStack[prev.navStack.length - 1]?.selected ?? 0, currentCount - 2)) },
             }))
+          } else {
+            await store.appendEvents(uncompleteTask(resolvedState, action.taskId))
           }
           break
         }
@@ -214,7 +200,6 @@ export function useAppState(store: PalimpsestStore): AppStateResult {
           const task = resolvedState.tasks.get(action.taskId)
           if (task !== undefined) {
             await store.appendEvents(updateTask(resolvedState, { taskId: action.taskId, patch: { isNext: task.isNext !== true } }))
-            await refreshProj()
           }
           break
         }
@@ -223,7 +208,6 @@ export function useAppState(store: PalimpsestStore): AppStateResult {
           const task = resolvedState.tasks.get(action.taskId)
           if (task !== undefined) {
             await store.appendEvents(updateTask(resolvedState, { taskId: action.taskId, patch: { isStarred: task.isStarred !== true } }))
-            await refreshProj()
           }
           break
         }
@@ -241,56 +225,50 @@ export function useAppState(store: PalimpsestStore): AppStateResult {
           } else {
             await store.appendEvents(updateTask(resolvedState, { taskId: action.taskId, patch: { projectId: action.projectId, sphereId: CLEAR } }))
           }
-          await refreshProj()
           setUIState(prev => uiReducer(prev, { type: 'set-mode', mode: 'list' }))
           break
         }
 
         case 'set-task-agenda': {
           await store.appendEvents(updateTask(resolvedState, { taskId: action.taskId, patch: { agendaId: action.agendaId } }))
-          await refreshProj()
           setUIState(prev => uiReducer(prev, { type: 'set-mode', mode: 'list' }))
           break
         }
 
         case 'create-project': {
           await store.appendEvents(createProject(resolvedState, { name: action.name, sphereId: action.sphereId }))
-          await refreshProj()
           setUIState(prev => uiReducer(prev, { type: 'set-mode', mode: 'list' }))
           break
         }
 
         case 'edit-project': {
           await store.appendEvents(updateProject(resolvedState, action.projectId, { name: action.name }))
-          await refreshProj()
           setUIState(prev => uiReducer(prev, { type: 'set-mode', mode: 'list' }))
           break
         }
 
         case 'archive-project': {
-          await store.appendEvents(archiveProject(resolvedState, action.projectId))
-          const next = await refreshProj()
           const activeSphereId = vm.activeSphere?.id
-          const remaining = activeSphereId !== undefined
-            ? listProjects(next, { sphereId: activeSphereId, isArchived: false })
-            : []
+          const currentCount = activeSphereId !== undefined
+            ? listProjects(resolvedState, { sphereId: activeSphereId, isArchived: false }).length
+            : 0
+          await store.appendEvents(archiveProject(resolvedState, action.projectId))
           setUIState(prev => uiReducer(prev, {
             type: 'update-nav',
-            patch: { selected: Math.max(0, Math.min(prev.navStack[prev.navStack.length - 1]?.selected ?? 0, remaining.length - 1)) },
+            patch: { selected: Math.max(0, Math.min(prev.navStack[prev.navStack.length - 1]?.selected ?? 0, currentCount - 2)) },
           }))
           break
         }
 
         case 'unarchive-project': {
-          await store.appendEvents(unarchiveProject(resolvedState, action.projectId))
-          const next = await refreshProj()
           const activeSphereId = vm.activeSphere?.id
-          const remaining = activeSphereId !== undefined
-            ? listProjects(next, { sphereId: activeSphereId, isArchived: true })
-            : []
+          const currentCount = activeSphereId !== undefined
+            ? listProjects(resolvedState, { sphereId: activeSphereId, isArchived: true }).length
+            : 0
+          await store.appendEvents(unarchiveProject(resolvedState, action.projectId))
           setUIState(prev => uiReducer(prev, {
             type: 'update-nav',
-            patch: { selected: Math.max(0, Math.min(prev.navStack[prev.navStack.length - 1]?.selected ?? 0, remaining.length - 1)) },
+            patch: { selected: Math.max(0, Math.min(prev.navStack[prev.navStack.length - 1]?.selected ?? 0, currentCount - 2)) },
           }))
           break
         }

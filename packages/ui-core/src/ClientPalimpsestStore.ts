@@ -30,7 +30,6 @@ export class ClientPalimpsestStore extends PalimpsestStore {
   private baseEvents: PalimpsestEvent[] = []
   private baseSeq = 0
   private unsyncedEvents: PalimpsestEvent[] = []
-  private listeners = new Set<() => void>()
   private syncTimer: ReturnType<typeof setInterval> | undefined
   private debounceTimer: ReturnType<typeof setTimeout> | undefined
   private readonly syncIntervalMs: number
@@ -57,15 +56,6 @@ export class ClientPalimpsestStore extends PalimpsestStore {
     return this.unsyncedEvents.length
   }
 
-  subscribe(listener: () => void): () => void {
-    this.listeners.add(listener)
-    return () => this.listeners.delete(listener)
-  }
-
-  private notify(): void {
-    for (const listener of this.listeners) listener()
-  }
-
   override async init(): Promise<void> {
     this.unsyncedEvents = await this.pendingStore.load()
     await this.sync()
@@ -75,11 +65,9 @@ export class ClientPalimpsestStore extends PalimpsestStore {
     return [...this.baseEvents, ...this.unsyncedEvents]
   }
 
-  override async appendEvents(events: PalimpsestEvent[]): Promise<void> {
-    if (events.length === 0) return
+  protected override async doAppend(events: PalimpsestEvent[]): Promise<void> {
     this.unsyncedEvents = [...this.unsyncedEvents, ...events]
     void this.pendingStore.save(this.unsyncedEvents)
-    this.notify()
     this.scheduleSync()
   }
 
@@ -131,12 +119,12 @@ export class ClientPalimpsestStore extends PalimpsestStore {
     return response
   }
 
-  start(): void {
+  override start(): void {
     this.syncTimer = setInterval(() => { void this.sync() }, this.syncIntervalMs)
     getDoc()?.addEventListener('visibilitychange', this.onVisibilityChange)
   }
 
-  stop(): void {
+  override stop(): void {
     if (this.syncTimer !== undefined) clearInterval(this.syncTimer)
     if (this.debounceTimer !== undefined) clearTimeout(this.debounceTimer)
     getDoc()?.removeEventListener('visibilitychange', this.onVisibilityChange)

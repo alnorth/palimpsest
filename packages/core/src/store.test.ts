@@ -1,4 +1,4 @@
-import { describe, it, expect, afterEach } from 'vitest'
+import { describe, it, expect, afterEach, vi } from 'vitest'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
@@ -64,5 +64,47 @@ describe('FilePalimpsestStore', () => {
     await store.appendEvents(createTask(baseState, { title: 'Task 2', sphereId }))
     expect(await store.readAllEvents()).toHaveLength(2)
     expect(listOpenTasks(await store.getState())).toHaveLength(2)
+  })
+
+  describe('subscribe()', () => {
+    it('fires listener when appendEvents is called', async () => {
+      const store = makeTempStore()
+      await store.init()
+      const listener = vi.fn()
+      store.subscribe(listener)
+      await store.appendEvents(createTask(baseState, { title: 'Task', sphereId }))
+      expect(listener).toHaveBeenCalledOnce()
+    })
+
+    it('does not fire after unsubscribe', async () => {
+      const store = makeTempStore()
+      await store.init()
+      const listener = vi.fn()
+      const unsub = store.subscribe(listener)
+      unsub()
+      await store.appendEvents(createTask(baseState, { title: 'Task', sphereId }))
+      expect(listener).not.toHaveBeenCalled()
+    })
+
+    it('does not fire when appendEvents receives empty array', async () => {
+      const store = makeTempStore()
+      await store.init()
+      const listener = vi.fn()
+      store.subscribe(listener)
+      await store.appendEvents([])
+      expect(listener).not.toHaveBeenCalled()
+    })
+
+    it('supports multiple subscribers', async () => {
+      const store = makeTempStore()
+      await store.init()
+      const a = vi.fn()
+      const b = vi.fn()
+      store.subscribe(a)
+      store.subscribe(b)
+      await store.appendEvents(createTask(baseState, { title: 'Task', sphereId }))
+      expect(a).toHaveBeenCalledOnce()
+      expect(b).toHaveBeenCalledOnce()
+    })
   })
 })

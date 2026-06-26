@@ -63,9 +63,7 @@ export class DynamoPalimpsestStore extends PalimpsestStore {
     return (result.Item as { nextSeq?: number } | undefined)?.nextSeq ?? 0
   }
 
-  async appendEvents(events: PalimpsestEvent[]): Promise<void> {
-    if (events.length === 0) return
-
+  protected override async doAppend(events: PalimpsestEvent[]): Promise<void> {
     const MAX_RETRIES = 3
     for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
       const currentSeq = await this.getCurrentSeq()
