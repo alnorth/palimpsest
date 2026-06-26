@@ -40,16 +40,18 @@ describe('ClientPalimpsestStore', () => {
   beforeEach(() => { eventCounter = 0 })
 
   describe('getState()', () => {
-    it('returns empty state before sync', async () => {
+    it('returns empty state when server has no events', async () => {
       const syncFn = makeServerWithEvents([])
       const store = new ClientPalimpsestStore(syncFn)
+      await store.sync()
       const state = await store.getState()
       expect(state.tasks.size).toBe(0)
     })
 
-    it('reflects unsynced events optimistically', async () => {
+    it('includes unsynced events once initial sync has completed', async () => {
       const syncFn = makeServerWithEvents([])
       const store = new ClientPalimpsestStore(syncFn)
+      await store.sync()
       const ev = makeTaskEvent()
       await store.appendEvents([ev])
       const state = await store.getState()
@@ -188,6 +190,7 @@ describe('ClientPalimpsestStore', () => {
       const store = new ClientPalimpsestStore(makeServerWithEvents([]), { pendingStore: pending })
       await store.init()
       expect(store.unsyncedCount).toBe(1)
+      await store.sync()
       const state = await store.getState()
       expect(state.tasks.size).toBe(1)
     })

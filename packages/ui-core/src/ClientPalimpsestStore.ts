@@ -40,6 +40,11 @@ export class ClientPalimpsestStore extends PalimpsestStore {
   private conflicts: PendingConflict[] = []
   private syncError: string | undefined
 
+  // Resolves after the first sync attempt (success or failure) so that
+  // readAllEvents() never returns a partial list.
+  private syncReady: Promise<void>
+  private resolveSyncReady!: () => void
+
   get syncHealth(): SyncHealth { return this.health }
   get pendingConflicts(): PendingConflict[] { return this.conflicts }
   get lastSyncError(): string | undefined { return this.syncError }
@@ -51,6 +56,7 @@ export class ClientPalimpsestStore extends PalimpsestStore {
     super(opts.initialState)
     this.syncIntervalMs = opts.syncIntervalMs ?? 30_000
     this.pendingStore = opts.pendingStore ?? new MemoryPendingEventStore()
+    this.syncReady = new Promise(resolve => { this.resolveSyncReady = resolve })
   }
 
   get unsyncedCount(): number {
@@ -71,6 +77,7 @@ export class ClientPalimpsestStore extends PalimpsestStore {
   }
 
   override async readAllEvents(): Promise<PalimpsestEvent[]> {
+    await this.syncReady
     return [...this.baseEvents, ...this.unsyncedEvents]
   }
 
@@ -90,6 +97,7 @@ export class ClientPalimpsestStore extends PalimpsestStore {
       const prevHealth = this.health
       this.health = 'error'
       this.syncError = err instanceof Error ? err.message : String(err)
+      this.resolveSyncReady()
       if (this.health !== prevHealth) this.notify()
       else this.notify()
       return undefined
@@ -121,6 +129,8 @@ export class ClientPalimpsestStore extends PalimpsestStore {
         conflictingEvents: response.conflictingEvents ?? [],
       }]
     }
+
+    this.resolveSyncReady()
 
     const healthChanged = this.health !== prevHealth
     if (hadMissed || (hadUnsynced && response.status === 'ok') || healthChanged) {
