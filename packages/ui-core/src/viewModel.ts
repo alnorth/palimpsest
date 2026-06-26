@@ -14,6 +14,7 @@ export interface ViewModel {
   spheres: Sphere[]
   activeSphere: Sphere | undefined
   tasks: Task[]
+  dashboardTasks: Task[]
   projects: Project[]
   agendas: Agenda[]
   contexts: Context[]
@@ -22,6 +23,7 @@ export interface ViewModel {
   projectTasks: Task[]
   activeTask: Task | undefined
   currentTask: Task | undefined
+  subtitle: string
   listLength: number
   canGoBack: boolean
   view: View
@@ -77,6 +79,29 @@ export function deriveViewModel(projState: ProjectionState, uiState: UIState): V
     return { hasNext, taskCount }
   })()
 
+  const today = (() => {
+    const d = new Date()
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  })()
+
+  const dashboardTasks: Task[] = (() => {
+    const allOpen = activeSphere !== undefined
+      ? listTasks(projState, { status: 'open', sphereId: activeSphere.id })
+      : []
+    const result = allOpen.filter(t =>
+      (t.dueDate !== undefined && t.dueDate <= today) || t.isStarred === true
+    )
+    result.sort((a, b) => {
+      const aDue = a.dueDate !== undefined && a.dueDate <= today
+      const bDue = b.dueDate !== undefined && b.dueDate <= today
+      if (aDue && bDue) return a.dueDate!.localeCompare(b.dueDate!)
+      if (aDue) return -1
+      if (bDue) return 1
+      return 0
+    })
+    return result
+  })()
+
   const activeProject = activeProjectId !== undefined
     ? getProject(projState, activeProjectId)
     : undefined
@@ -97,18 +122,28 @@ export function deriveViewModel(projState: ProjectionState, uiState: UIState): V
     view === 'task' ? activeTask
     : view === 'project' ? projectTasks[selected]
     : view === 'tasks' ? tasks[selected]
+    : view === 'dashboard' ? dashboardTasks[selected]
     : undefined
+
+  const subtitle =
+    view === 'task' ? `Task: ${activeTask?.title ?? ''}`
+    : view === 'project' ? `Project: ${activeProject?.name ?? ''}`
+    : view === 'dashboard' ? 'Dashboard'
+    : view === 'tasks' ? 'Tasks'
+    : 'Projects'
 
   const listLength =
     view === 'tasks' ? tasks.length
     : view === 'projects' ? projects.length
     : view === 'project' ? projectTasks.length
+    : view === 'dashboard' ? dashboardTasks.length
     : 0
 
   return {
     spheres,
     activeSphere,
     tasks,
+    dashboardTasks,
     projects,
     agendas,
     contexts,
@@ -117,6 +152,7 @@ export function deriveViewModel(projState: ProjectionState, uiState: UIState): V
     projectTasks,
     activeTask,
     currentTask,
+    subtitle,
     listLength,
     canGoBack: uiState.navStack.length > 1,
     view,

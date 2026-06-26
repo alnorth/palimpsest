@@ -10,7 +10,7 @@
 - [x] Put task metadata onto a second line
 - [x] Toggle isWaiting on a task.
 - [x] Assign a context to a task.
-- [ ] Dashboard view showing tasks due today or overdue, plus starred tasks.
+- [x] Dashboard view showing tasks due today or overdue, plus starred tasks.
 - [ ] Pick list screen for choosing work to do, separated by contexts.
 - [ ] Agenda view listing tasks for a particular agenda, separated by isWaiting.
 - [ ] Search across tasks and projects.

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { render, Box, Text, useInput, useWindowSize } from 'ink'
 import { TaskList } from './TaskList.js'
 import { Row, Meta } from './Row.js'
+import { Title } from './Title.js'
 import TextInput from 'ink-text-input'
 import { FilePalimpsestStore, CLEAR, getProject, getAgenda, getContext, listProjects, isValidExpression, nextDueDate, buildStateFromConfig, PALIMPSEST_CONFIG, createEmptyState } from 'palimpsest'
 import type { PalimpsestStore } from 'palimpsest'
@@ -43,18 +44,19 @@ if (apiUrl !== undefined && authToken !== undefined) {
 }
 
 const VIEW_CONFIG = {
-  tasks:    { label: 'Tasks',    key: 't' },
-  projects: { label: 'Projects', key: 'p' },
-  project:  { label: 'Project'            },
-  task:     { label: 'Task'               },
+  dashboard: { label: 'Dashboard', key: 'd' },
+  tasks:     { label: 'Tasks',     key: 't' },
+  projects:  { label: 'Projects',  key: 'p' },
+  project:   { label: 'Project'             },
+  task:      { label: 'Task'                },
 } satisfies Record<View, { label: string; key?: string }>
 
-const TOP_LEVEL_VIEWS = (['tasks', 'projects'] as const).filter(v => VIEW_CONFIG[v].key !== undefined)
+const TOP_LEVEL_VIEWS = (['dashboard', 'tasks', 'projects'] as const).filter(v => VIEW_CONFIG[v].key !== undefined)
 
 function App() {
   const {
-    view, mode, selected, tasks, projects, projectTasks, activeTask, activeProject,
-    activeSphere, agendas, contexts, projectStats, listLength, currentTask, spheres,
+    view, mode, selected, tasks, dashboardTasks, projects, projectTasks, activeTask, activeProject,
+    activeSphere, agendas, contexts, projectStats, listLength, currentTask, spheres, subtitle,
     projState, uiState, commands, dispatch, canGoBack, showCompleted, showArchived,
     isLoading, syncHealth, unsyncedCount, pendingConflicts, lastSyncError,
   } = useAppState(store)
@@ -64,12 +66,9 @@ function App() {
   const { rows: termRows } = useWindowSize()
 
   useEffect(() => {
-    const suffix = view === 'task' ? `Task: ${activeTask?.title ?? ''}`
-      : view === 'project' ? `Project: ${activeProject?.name ?? ''}`
-      : VIEW_CONFIG[view].label
-    process.stdout.write(`\x1b]0;Palimpsest — ${suffix}\x07`)
+    process.stdout.write(`\x1b]0;Palimpsest — ${subtitle}\x07`)
     return () => { process.stdout.write('\x1b]0;\x07') }
-  }, [view, activeTask, activeProject])
+  }, [subtitle])
 
   const pickerProjects = activeSphere !== undefined
     ? listProjects(projState, { sphereId: activeSphere.id, isArchived: false })
@@ -194,8 +193,8 @@ function App() {
         dispatch({ type: 'navigate', navState: { ...INITIAL_NAV, view: 'project', selected: 0, activeProjectId: project.id, activeTaskId: undefined, showCompleted, showArchived } })
       }
     }
-    if (key.return && (view === 'tasks' || view === 'project')) {
-      const task = (view === 'project' ? projectTasks : tasks)[selected]
+    if (key.return && (view === 'tasks' || view === 'project' || view === 'dashboard')) {
+      const task = (view === 'project' ? projectTasks : view === 'dashboard' ? dashboardTasks : tasks)[selected]
       if (task !== undefined) {
         dispatch({ type: 'navigate', navState: { ...INITIAL_NAV, view: 'task', selected: 0, activeProjectId: undefined, activeTaskId: task.id, showCompleted, showArchived } })
       }
@@ -223,7 +222,7 @@ function App() {
         dispatch({ type: 'set-context-picker-selected', index: Math.max(0, idx) })
       }
       if (cmd.id === 'pick-view') {
-        dispatch({ type: 'set-view-picker-selected', index: Math.max(0, TOP_LEVEL_VIEWS.indexOf(view as 'tasks' | 'projects')) })
+        dispatch({ type: 'set-view-picker-selected', index: Math.max(0, TOP_LEVEL_VIEWS.indexOf(view as 'dashboard' | 'tasks' | 'projects')) })
       }
       dispatch(cmd.action)
     }
@@ -447,11 +446,7 @@ function App() {
         </Box>
       </Box>
     )
-    title = view === 'task'
-      ? <><Text bold color="cyan">{activeSphere?.name ?? 'Palimpsest'}</Text><Text dimColor> — Task: {activeTask?.title ?? ''}</Text>{completedTag}</>
-      : view === 'project'
-      ? <><Text bold color="cyan">{activeSphere?.name ?? 'Palimpsest'}</Text><Text dimColor> — Project: {activeProject?.name ?? ''}</Text>{completedTag}</>
-      : <><Text bold color="cyan">{activeSphere?.name ?? 'Palimpsest'}</Text><Text dimColor> — {VIEW_CONFIG[view].label}</Text>{archivedTag}{completedTag}</>
+    title = <Title name={activeSphere?.name ?? 'Palimpsest'} subtitle={subtitle}>{archivedTag}{completedTag}</Title>
     content = activeSphere === undefined ? (
       <Text dimColor>No spheres configured — edit PALIMPSEST_CONFIG in packages/core/src/config.ts.</Text>
     ) : view === 'task' ? (() => {
@@ -476,7 +471,9 @@ function App() {
           </Box>
         </Box>
       )
-    })() : view === 'tasks' ? (
+    })() : view === 'dashboard' ? (
+      <TaskList tasks={dashboardTasks} selected={selected} state={projState} showProject emptyMessage="No tasks due today and no starred tasks." />
+    ) : view === 'tasks' ? (
       <TaskList tasks={tasks} selected={selected} state={projState} showProject emptyMessage={showCompleted ? 'No completed tasks in this sphere.' : 'No open tasks in this sphere.'} />
     ) : view === 'projects' ? (
       projects.length === 0 ? (

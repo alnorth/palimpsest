@@ -1,7 +1,7 @@
 import type { TaskId, ProjectId, SphereId, AgendaId, ContextId } from 'palimpsest'
 import type { CLEAR } from 'palimpsest'
 
-export type View = 'tasks' | 'projects' | 'project' | 'task'
+export type View = 'dashboard' | 'tasks' | 'projects' | 'project' | 'task'
 
 export type Mode =
   | 'list'
@@ -28,7 +28,7 @@ export interface NavState {
 }
 
 export const INITIAL_NAV: NavState = {
-  view: 'tasks',
+  view: 'dashboard',
   selected: 0,
   activeProjectId: undefined,
   activeTaskId: undefined,

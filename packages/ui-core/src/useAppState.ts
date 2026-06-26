@@ -172,13 +172,18 @@ export function useAppState(store: PalimpsestStore): AppStateResult {
           const task = resolvedState.tasks.get(action.taskId)
           if (!task) break
           if (vm.view !== 'task') {
-            const activeProjectId = vm.activeProject?.id
-            const activeSphereId = vm.activeSphere?.id
-            const tasks = activeProjectId !== undefined
-              ? listTasks(resolvedState, { projectId: activeProjectId, status: 'open' })
-              : activeSphereId !== undefined
-                ? listTasks(resolvedState, { sphereId: activeSphereId, status: 'open' })
-                : []
+            let tasks: typeof vm.dashboardTasks
+            if (vm.view === 'dashboard') {
+              tasks = vm.dashboardTasks
+            } else {
+              const activeProjectId = vm.activeProject?.id
+              const activeSphereId = vm.activeSphere?.id
+              tasks = activeProjectId !== undefined
+                ? listTasks(resolvedState, { projectId: activeProjectId, status: 'open' })
+                : activeSphereId !== undefined
+                  ? listTasks(resolvedState, { sphereId: activeSphereId, status: 'open' })
+                  : []
+            }
             await store.appendEvents(completeTask(task))
             setUIState(prev => uiReducer(prev, {
               type: 'update-nav',

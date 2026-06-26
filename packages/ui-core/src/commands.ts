@@ -8,8 +8,8 @@ export function getCommands(vm: ViewModel): Command[] {
 
   if (mode !== 'list') return commands
 
-  const isTopLevel = view === 'tasks' || view === 'projects'
-  const isTaskContext = view === 'tasks' || view === 'project' || view === 'task'
+  const isTopLevel = view === 'dashboard' || view === 'tasks' || view === 'projects'
+  const isTaskContext = view === 'dashboard' || view === 'tasks' || view === 'project' || view === 'task'
 
   // ── Add task ─────────────────────────────────────────────────────────────────
   if ((view === 'tasks' || view === 'project') && !showCompleted) {
@@ -253,15 +253,13 @@ export function getCommands(vm: ViewModel): Command[] {
   }
 
   // ── Pick view ─────────────────────────────────────────────────────────────────
-  if (isTopLevel) {
-    commands.push({
-      id: 'pick-view',
-      label: 'view',
-      group: 'view',
-      key: 'v',
-      action: { type: 'set-mode', mode: 'picking-view' },
-    })
-  }
+  commands.push({
+    id: 'pick-view',
+    label: 'view',
+    group: 'view',
+    key: 'v',
+    action: { type: 'set-mode', mode: 'picking-view' },
+  })
 
   // ── Cycle sphere ─────────────────────────────────────────────────────────────
   if (isTopLevel && spheres.length > 0) {
