@@ -486,6 +486,7 @@ describe('nextDueDate — ordinal monthly', () => {
 
   it('bare number without suffix is equivalent', () => {
     expect(nextN('every 15', '2026-06-10')).toEqual(nextN('every 15th', '2026-06-10'))
+    expect(nextN('ev 5', '2026-06-10')).toEqual(nextN('every 5th', '2026-06-10'))
   })
 
   it('wraps year boundary', () => {
