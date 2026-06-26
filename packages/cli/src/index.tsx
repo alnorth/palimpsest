@@ -16,6 +16,8 @@ import { mkdirSync } from 'node:fs'
 const apiUrl = process.env['PALIMPSEST_API_URL']
 const authToken = process.env['PALIMPSEST_AUTH_TOKEN']
 
+const initialState = { ...createEmptyState(), ...buildStateFromConfig(PALIMPSEST_CONFIG) }
+
 let store: PalimpsestStore
 if (apiUrl !== undefined && authToken !== undefined) {
   const pendingPath = join(homedir(), '.palimpsest', 'pending.json')
@@ -32,12 +34,11 @@ if (apiUrl !== undefined && authToken !== undefined) {
       if (!res.ok) throw new Error(`Sync failed: ${res.status} ${await res.text()}`)
       return res.json() as Promise<any>
     },
-    { pendingStore: new FilePendingEventStore(pendingPath) },
+    { pendingStore: new FilePendingEventStore(pendingPath), initialState },
   )
 } else {
   const filePath = process.env['PALIMPSEST_FILE'] ?? join(homedir(), '.palimpsest', 'events.jsonl')
   mkdirSync(dirname(filePath), { recursive: true })
-  const initialState = { ...createEmptyState(), ...buildStateFromConfig(PALIMPSEST_CONFIG) }
   store = new FilePalimpsestStore(filePath, initialState)
 }
 
