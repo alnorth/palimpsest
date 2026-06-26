@@ -80,8 +80,32 @@ export type DataAction =
 
 export type Action = UIAction | DataAction
 
+export type CommandId =
+  | 'add-task'
+  | 'add-project'
+  | 'edit-task'
+  | 'edit-description'
+  | 'edit-project'
+  | 'complete-task'
+  | 'uncomplete-task'
+  | 'toggle-next'
+  | 'star'
+  | 'toggle-waiting'
+  | 'pick-due-date'
+  | 'set-recurrence'
+  | 'pick-project'
+  | 'pick-agenda'
+  | 'pick-context'
+  | 'archive-project'
+  | 'unarchive-project'
+  | 'view-project'
+  | 'toggle-completed'
+  | 'toggle-archived'
+  | 'pick-view'
+  | 'cycle-sphere'
+
 export interface Command {
-  id: string
+  id: CommandId
   label: string
   group: 'state' | 'view'
   key: string
