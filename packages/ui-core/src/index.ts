@@ -1,5 +1,5 @@
 export type { View, Mode, NavState, UIState, Action, UIAction, DataAction, Command } from './types.js'
-export { addDays, nextWeekday, parseDueDate, isValidExpression, nextDueDate } from 'palimpsest'
+export { addDays, nextWeekday, parseDueDate } from 'palimpsest'
 export { INITIAL_NAV, INITIAL_UI_STATE } from './types.js'
 export { uiReducer } from './reducer.js'
 export type { ViewModel, ProjectStats } from './viewModel.js'
