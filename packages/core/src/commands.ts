@@ -72,13 +72,11 @@ export function createTask(input: CreateTaskInput): PalimpsestEvent[] {
   if (input.dueDateExpression !== undefined && !isValidExpression(input.dueDateExpression)) {
     throw new Error(`Invalid dueDateExpression: "${input.dueDateExpression}"`)
   }
-  const occurredAt = now()
-  const today = occurredAt.slice(0, 10)
+  const today = now().slice(0, 10)
   const dueDate: string | undefined = input.dueDate
     ?? (input.dueDateExpression !== undefined ? (nextDueDate(input.dueDateExpression, today) ?? undefined) : undefined)
   return [evt('task.created', {
     taskId: newTaskId(),
-    occurredAt,
     title: input.title,
     description: input.description ?? '',
     ...(input.projectId         !== undefined && { projectId:         input.projectId }),
@@ -122,22 +120,19 @@ export function updateTask(task: Task, patch: TaskPatch): PalimpsestEvent[] {
 export function completeTask(task: Task): PalimpsestEvent[] {
   if (task.status !== 'open') throw new Error(`Task is already ${task.status}`)
 
-  const occurredAt = now()
-
   if (task.dueDateExpression !== undefined) {
-    const newDueDate = nextDueDate(task.dueDateExpression, occurredAt.slice(0, 10))
+    const newDueDate = nextDueDate(task.dueDateExpression, now().slice(0, 10))
     if (newDueDate === null) {
       throw new Error(`No future occurrence for expression: "${task.dueDateExpression}"`)
     }
     return [evt('task.recurred', {
       taskId: task.id,
-      occurredAt,
       newDueDate,
       ...(task.dueDate !== undefined && { previousDueDate: task.dueDate }),
     })]
   }
 
-  return [evt('task.completed', { taskId: task.id, occurredAt })]
+  return [evt('task.completed', { taskId: task.id })]
 }
 
 export function uncompleteTask(task: Task): PalimpsestEvent[] {
@@ -162,9 +157,8 @@ export function postponeTask(task: Task): PalimpsestEvent[] {
 export function finishRecurringTask(task: Task): PalimpsestEvent[] {
   if (task.status !== 'open') throw new Error(`Task is already ${task.status}`)
   if (task.dueDateExpression === undefined) throw new Error('Task has no recurrence expression; use completeTask instead')
-  const occurredAt = now()
   return [
-    evt('task.updated', { taskId: task.id, occurredAt, patch: { dueDateExpression: null } }),
-    evt('task.completed', { taskId: task.id, occurredAt }),
+    evt('task.updated', { taskId: task.id, patch: { dueDateExpression: null } }),
+    evt('task.completed', { taskId: task.id }),
   ]
 }
