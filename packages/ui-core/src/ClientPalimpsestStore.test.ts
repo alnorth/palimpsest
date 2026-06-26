@@ -189,8 +189,6 @@ describe('ClientPalimpsestStore', () => {
       const pending = new SpyPendingStore([ev])
       const store = new ClientPalimpsestStore(makeServerWithEvents([]), { pendingStore: pending })
       await store.init()
-      expect(store.unsyncedCount).toBe(1)
-      await store.sync()
       const state = await store.getState()
       expect(state.tasks.size).toBe(1)
     })

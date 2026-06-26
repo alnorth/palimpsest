@@ -40,11 +40,6 @@ export class ClientPalimpsestStore extends PalimpsestStore {
   private conflicts: PendingConflict[] = []
   private syncError: string | undefined
 
-  // Resolves after the first sync attempt (success or failure) so that
-  // readAllEvents() never returns a partial list.
-  private syncReady: Promise<void>
-  private resolveSyncReady!: () => void
-
   get syncHealth(): SyncHealth { return this.health }
   get pendingConflicts(): PendingConflict[] { return this.conflicts }
   get lastSyncError(): string | undefined { return this.syncError }
@@ -56,7 +51,6 @@ export class ClientPalimpsestStore extends PalimpsestStore {
     super(opts.initialState)
     this.syncIntervalMs = opts.syncIntervalMs ?? 30_000
     this.pendingStore = opts.pendingStore ?? new MemoryPendingEventStore()
-    this.syncReady = new Promise(resolve => { this.resolveSyncReady = resolve })
   }
 
   get unsyncedCount(): number {
@@ -72,12 +66,12 @@ export class ClientPalimpsestStore extends PalimpsestStore {
     for (const listener of this.listeners) listener()
   }
 
-  async init(): Promise<void> {
+  override async init(): Promise<void> {
     this.unsyncedEvents = await this.pendingStore.load()
+    await this.sync()
   }
 
   override async readAllEvents(): Promise<PalimpsestEvent[]> {
-    await this.syncReady
     return [...this.baseEvents, ...this.unsyncedEvents]
   }
 
@@ -97,7 +91,6 @@ export class ClientPalimpsestStore extends PalimpsestStore {
       const prevHealth = this.health
       this.health = 'error'
       this.syncError = err instanceof Error ? err.message : String(err)
-      this.resolveSyncReady()
       if (this.health !== prevHealth) this.notify()
       else this.notify()
       return undefined
@@ -130,8 +123,6 @@ export class ClientPalimpsestStore extends PalimpsestStore {
       }]
     }
 
-    this.resolveSyncReady()
-
     const healthChanged = this.health !== prevHealth
     if (hadMissed || (hadUnsynced && response.status === 'ok') || healthChanged) {
       this.notify()
@@ -141,7 +132,6 @@ export class ClientPalimpsestStore extends PalimpsestStore {
   }
 
   start(): void {
-    void this.init().then(() => this.sync())
     this.syncTimer = setInterval(() => { void this.sync() }, this.syncIntervalMs)
     getDoc()?.addEventListener('visibilitychange', this.onVisibilityChange)
   }

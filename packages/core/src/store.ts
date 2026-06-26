@@ -10,6 +10,8 @@ export abstract class PalimpsestStore {
     this.initialState = initialState
   }
 
+  async init(): Promise<void> {}
+
   abstract readAllEvents(): Promise<PalimpsestEvent[]>
   abstract appendEvents(events: PalimpsestEvent[]): Promise<void>
 
@@ -20,24 +22,27 @@ export abstract class PalimpsestStore {
 
 export class FilePalimpsestStore extends PalimpsestStore {
   readonly filePath: string
+  private cachedEvents: PalimpsestEvent[] | undefined
 
   constructor(filePath: string, initialState?: ProjectionState) {
     super(initialState)
     this.filePath = filePath
   }
 
-  readAllEvents(): Promise<PalimpsestEvent[]> {
-    if (!existsSync(this.filePath)) return Promise.resolve([])
+  override async init(): Promise<void> {
+    if (!existsSync(this.filePath)) { this.cachedEvents = []; return }
     const raw = readFileSync(this.filePath, 'utf-8').trim()
-    if (!raw) return Promise.resolve([])
-    return Promise.resolve(
-      raw.split('\n').map((line: string) => JSON.parse(line) as PalimpsestEvent)
-    )
+    this.cachedEvents = raw ? raw.split('\n').map(line => JSON.parse(line) as PalimpsestEvent) : []
+  }
+
+  readAllEvents(): Promise<PalimpsestEvent[]> {
+    return Promise.resolve(this.cachedEvents ?? [])
   }
 
   appendEvents(events: PalimpsestEvent[]): Promise<void> {
     if (events.length === 0) return Promise.resolve()
     appendFileSync(this.filePath, events.map(e => JSON.stringify(e)).join('\n') + '\n', 'utf-8')
+    if (this.cachedEvents !== undefined) this.cachedEvents = [...this.cachedEvents, ...events]
     return Promise.resolve()
   }
 }

@@ -80,18 +80,30 @@ export function useAppState(store: PalimpsestStore): AppStateResult {
   }, [])
 
   useEffect(() => {
-    if (isSubscribable(store)) {
-      store.start()
-      const unsub = store.subscribe(() => {
-        void store.getState().then(applyState)
-        setSyncHealth(store.syncHealth ?? 'idle')
-        setUnsyncedCount(store.unsyncedCount ?? 0)
-        setPendingConflicts(store.pendingConflicts ?? [])
-        setLastSyncError(store.lastSyncError)
-      })
-      return () => { unsub(); store.stop() }
-    } else {
-      void store.getState().then(applyState)
+    let cancelled = false
+    let unsubFn: (() => void) | undefined
+
+    void store.init().then(async () => {
+      if (cancelled) return
+      applyState(await store.getState())
+      if (cancelled) return
+
+      if (isSubscribable(store)) {
+        unsubFn = store.subscribe(() => {
+          void store.getState().then(applyState)
+          setSyncHealth(store.syncHealth ?? 'idle')
+          setUnsyncedCount(store.unsyncedCount ?? 0)
+          setPendingConflicts(store.pendingConflicts ?? [])
+          setLastSyncError(store.lastSyncError)
+        })
+        store.start()
+      }
+    })
+
+    return () => {
+      cancelled = true
+      unsubFn?.()
+      if (isSubscribable(store)) store.stop()
     }
   }, [store, applyState])
 

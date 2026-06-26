@@ -26,11 +26,13 @@ function makeTempStore(initialState = baseState) {
 describe('FilePalimpsestStore', () => {
   it('returns empty array when file does not exist', async () => {
     const store = makeTempStore()
+    await store.init()
     expect(await store.readAllEvents()).toEqual([])
   })
 
   it('round-trips task events through JSONL', async () => {
     const store = makeTempStore()
+    await store.init()
     const taskEvts = createTask(baseState, { title: 'Buy groceries', sphereId })
     await store.appendEvents(taskEvts)
     const read = await store.readAllEvents()
@@ -40,6 +42,7 @@ describe('FilePalimpsestStore', () => {
 
   it('getState() reflects all appended events', async () => {
     const store = makeTempStore()
+    await store.init()
     const taskEvts = createTask(baseState, { title: 'Buy groceries', sphereId })
     await store.appendEvents(taskEvts)
     const state = await store.getState()
@@ -49,12 +52,14 @@ describe('FilePalimpsestStore', () => {
 
   it('getState() seeds spheres from initialState', async () => {
     const store = makeTempStore()
+    await store.init()
     const state = await store.getState()
     expect(state.spheres.get(sphereId)?.name).toBe('Work')
   })
 
   it('appends multiple batches correctly', async () => {
     const store = makeTempStore()
+    await store.init()
     await store.appendEvents(createTask(baseState, { title: 'Task 1', sphereId }))
     await store.appendEvents(createTask(baseState, { title: 'Task 2', sphereId }))
     expect(await store.readAllEvents()).toHaveLength(2)
