@@ -140,7 +140,7 @@ export function useAppState(store: PalimpsestStore, initialState: ProjectionStat
           const task = projState.tasks.get(action.taskId)
           if (!task) break
           await store.appendEvents(updateTask(task, { dueDate: action.dueDate }))
-          dispatchUI({ type: 'set-mode', mode: 'list' })
+          dispatchUI({ type: 'go-back' })
           break
         }
 
@@ -238,7 +238,7 @@ export function useAppState(store: PalimpsestStore, initialState: ProjectionStat
           } else {
             await store.appendEvents(updateTask(task, { projectId: action.projectId, sphereId: CLEAR }))
           }
-          dispatchUI({ type: 'set-mode', mode: 'list' })
+          dispatchUI({ type: 'go-back' })
           break
         }
 
@@ -246,7 +246,7 @@ export function useAppState(store: PalimpsestStore, initialState: ProjectionStat
           const task = projState.tasks.get(action.taskId)
           if (!task) break
           await store.appendEvents(updateTask(task, { agendaId: action.agendaId }))
-          dispatchUI({ type: 'set-mode', mode: 'list' })
+          dispatchUI({ type: 'go-back' })
           break
         }
 
@@ -254,7 +254,7 @@ export function useAppState(store: PalimpsestStore, initialState: ProjectionStat
           const task = projState.tasks.get(action.taskId)
           if (!task) break
           await store.appendEvents(updateTask(task, { contextId: action.contextId }))
-          dispatchUI({ type: 'set-mode', mode: 'list' })
+          dispatchUI({ type: 'go-back' })
           break
         }
 
@@ -271,7 +271,7 @@ export function useAppState(store: PalimpsestStore, initialState: ProjectionStat
           if (!task) break
           const assignEvts = updateTask(task, { projectId, sphereId: CLEAR })
           await store.appendEvents([...createEvts, ...assignEvts])
-          dispatchUI({ type: 'set-mode', mode: 'list' })
+          dispatchUI({ type: 'go-back' })
           break
         }
 

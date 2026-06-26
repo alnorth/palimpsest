@@ -244,7 +244,6 @@ function LoadedApp({ initialState }: { initialState: ProjectionState }) {
     if (parsed !== null && currentTask !== undefined) {
       dispatch({ type: 'set-task-due-date', taskId: currentTask.id, dueDate: parsed })
       setFormValue('')
-      dispatch({ type: 'set-mode', mode: 'list' })
     }
   }
 
