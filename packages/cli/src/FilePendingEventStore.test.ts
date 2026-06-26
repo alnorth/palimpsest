@@ -1,13 +1,20 @@
 import { describe, it, expect } from 'vitest'
 import { FilePendingEventStore } from './FilePendingEventStore.js'
-import { createEmptyState, createSphere } from 'palimpsest'
-import type { PalimpsestEvent } from 'palimpsest'
+import type { PalimpsestEvent, TaskId, SphereId, EventId } from 'palimpsest'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 
 function makeSphereEvent(): PalimpsestEvent {
-  return createSphere(createEmptyState(), { name: 'Work' })[0]!
+  return {
+    id: 'evt1' as EventId,
+    type: 'task.created',
+    taskId: 'tsk1' as TaskId,
+    occurredAt: new Date().toISOString(),
+    title: 'Test task',
+    description: '',
+    sphereId: 'sph1' as SphereId,
+  }
 }
 
 function withTempDir(fn: (dir: string) => Promise<void>): () => Promise<void> {

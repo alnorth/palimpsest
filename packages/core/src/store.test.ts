@@ -3,7 +3,8 @@ import { mkdtempSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { FilePalimpsestStore } from './store.js'
-import { createSphere, createTask } from './commands.js'
+import { buildStateFromConfig } from './config.js'
+import { createTask } from './commands.js'
 import { createEmptyState } from './projection.js'
 import { listOpenTasks } from './query.js'
 import type { SphereId } from './ids.js'
@@ -14,9 +15,12 @@ afterEach(() => {
   if (tempDir) rmSync(tempDir, { recursive: true, force: true })
 })
 
-function makeTempStore() {
+const sphereId = 'sph1' as SphereId
+const baseState = { ...createEmptyState(), ...buildStateFromConfig([{ id: sphereId, name: 'Work', agendas: [], contexts: [] }]) }
+
+function makeTempStore(initialState = baseState) {
   tempDir = mkdtempSync(join(tmpdir(), 'palimpsest-test-'))
-  return new FilePalimpsestStore(join(tempDir, 'events.jsonl'))
+  return new FilePalimpsestStore(join(tempDir, 'events.jsonl'), initialState)
 }
 
 describe('FilePalimpsestStore', () => {
@@ -25,41 +29,35 @@ describe('FilePalimpsestStore', () => {
     expect(await store.readAllEvents()).toEqual([])
   })
 
-  it('round-trips events through JSONL', async () => {
+  it('round-trips task events through JSONL', async () => {
     const store = makeTempStore()
-    const sphereEvts = createSphere(createEmptyState(), { name: 'Work' })
-    await store.appendEvents(sphereEvts)
+    const taskEvts = createTask(baseState, { title: 'Buy groceries', sphereId })
+    await store.appendEvents(taskEvts)
     const read = await store.readAllEvents()
     expect(read).toHaveLength(1)
-    expect(read[0]?.type).toBe('sphere.created')
+    expect(read[0]?.type).toBe('task.created')
   })
 
   it('getState() reflects all appended events', async () => {
     const store = makeTempStore()
-    const sphereEvts = createSphere(createEmptyState(), { name: 'Work' })
-    await store.appendEvents(sphereEvts)
-
-    const s1 = await store.getState()
-    const sphereId = (sphereEvts[0] as any).sphereId as SphereId
-    const taskEvts = createTask(s1, { title: 'Buy groceries', sphereId })
+    const taskEvts = createTask(baseState, { title: 'Buy groceries', sphereId })
     await store.appendEvents(taskEvts)
-
     const state = await store.getState()
     expect(listOpenTasks(state)).toHaveLength(1)
     expect(listOpenTasks(state)[0]?.title).toBe('Buy groceries')
   })
 
+  it('getState() seeds spheres from initialState', async () => {
+    const store = makeTempStore()
+    const state = await store.getState()
+    expect(state.spheres.get(sphereId)?.name).toBe('Work')
+  })
+
   it('appends multiple batches correctly', async () => {
     const store = makeTempStore()
-    const sphereEvts = createSphere(createEmptyState(), { name: 'Work' })
-    await store.appendEvents(sphereEvts)
-    const s1 = await store.getState()
-    const sid = (sphereEvts[0] as any).sphereId as SphereId
-
-    await store.appendEvents(createTask(s1, { title: 'Task 1', sphereId: sid }))
-    await store.appendEvents(createTask(s1, { title: 'Task 2', sphereId: sid }))
-
-    expect(await store.readAllEvents()).toHaveLength(3)
+    await store.appendEvents(createTask(baseState, { title: 'Task 1', sphereId }))
+    await store.appendEvents(createTask(baseState, { title: 'Task 2', sphereId }))
+    expect(await store.readAllEvents()).toHaveLength(2)
     expect(listOpenTasks(await store.getState())).toHaveLength(2)
   })
 })

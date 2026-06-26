@@ -1,32 +1,31 @@
 import { describe, it, expect } from 'vitest'
 import {
-  project, createEmptyState,
-  createSphere, createProject, createTask, completeTask,
+  project, createEmptyState, buildStateFromConfig,
+  createProject, createTask, completeTask,
 } from 'palimpsest'
-import type { SphereId, ProjectId, TaskId } from 'palimpsest'
+import type { SphereId } from 'palimpsest'
 import { deriveViewModel } from './viewModel.js'
 import { INITIAL_UI_STATE, INITIAL_NAV } from './types.js'
 import type { UIState } from './types.js'
 
+const SPHERE_ID = 'sph1' as SphereId
+
 function buildTestState() {
-  const empty = createEmptyState()
+  const baseState = { ...createEmptyState(), ...buildStateFromConfig([{ id: SPHERE_ID, name: 'Work', agendas: [], contexts: [] }]) }
+  const sphere = baseState.spheres.get(SPHERE_ID)!
 
-  const sphereEvents = createSphere(empty, { name: 'Work' })
-  const withSphere = project(sphereEvents)
-  const sphere = [...withSphere.spheres.values()][0]!
-
-  const projectEvents = createProject(withSphere, { name: 'Alpha', sphereId: sphere.id })
-  const withProject = project([...sphereEvents, ...projectEvents])
+  const projectEvents = createProject(baseState, { name: 'Alpha', sphereId: sphere.id })
+  const withProject = project(projectEvents, baseState)
   const proj = [...withProject.projects.values()][0]!
 
   const task1Events = createTask(withProject, { title: 'Task One', sphereId: sphere.id })
   const task2Events = createTask(
-    project([...sphereEvents, ...projectEvents, ...task1Events]),
+    project([...projectEvents, ...task1Events], baseState),
     { title: 'Task Two', projectId: proj.id },
   )
 
-  const allEvents = [...sphereEvents, ...projectEvents, ...task1Events, ...task2Events]
-  const finalState = project(allEvents)
+  const allEvents = [...projectEvents, ...task1Events, ...task2Events]
+  const finalState = project(allEvents, baseState)
 
   const task1 = [...finalState.tasks.values()].find(t => t.title === 'Task One')!
   const task2 = [...finalState.tasks.values()].find(t => t.title === 'Task Two')!
@@ -76,21 +75,7 @@ describe('deriveViewModel — tasks view', () => {
   })
 
   it('returns completed tasks sorted by completedAt when showCompleted is true', () => {
-    const { projState, sphere, task1, task2 } = buildTestState()
-
-    const withTask2Proj = project([
-      ...createSphere(createEmptyState(), { name: 'Work' }),
-    ])
-    // complete task1
-    const task1CompleteEvents = completeTask(projState, task1.id)
-    const afterTask1Complete = project([
-      ...[...projState.tasks.values()].flatMap(() => []),
-      ...task1CompleteEvents,
-    ])
-    // just test the sorting logic indirectly: showCompleted tasks are sorted desc by completedAt
-    const completedState = project([
-      ...createSphere(createEmptyState(), { name: 'W' }),
-    ])
+    const { projState, sphere } = buildTestState()
     // simple check: completed tasks in showCompleted mode are sorted descending
     const uiState = makeUIState({
       currentSphereId: sphere.id,

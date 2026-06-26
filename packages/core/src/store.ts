@@ -4,19 +4,25 @@ import type { ProjectionState } from './projection.js'
 import { project } from './projection.js'
 
 export abstract class PalimpsestStore {
+  readonly initialState: ProjectionState | undefined
+
+  constructor(initialState?: ProjectionState) {
+    this.initialState = initialState
+  }
+
   abstract readAllEvents(): Promise<PalimpsestEvent[]>
   abstract appendEvents(events: PalimpsestEvent[]): Promise<void>
 
   async getState(): Promise<ProjectionState> {
-    return project(await this.readAllEvents())
+    return project(await this.readAllEvents(), this.initialState)
   }
 }
 
 export class FilePalimpsestStore extends PalimpsestStore {
   readonly filePath: string
 
-  constructor(filePath: string) {
-    super()
+  constructor(filePath: string, initialState?: ProjectionState) {
+    super(initialState)
     this.filePath = filePath
   }
 

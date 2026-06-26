@@ -1,26 +1,27 @@
 import { describe, it, expect } from 'vitest'
-import { project, createEmptyState, createSphere, createProject, createTask, updateTask } from 'palimpsest'
+import { project, createEmptyState, buildStateFromConfig, createProject, createTask } from 'palimpsest'
+import type { SphereId } from 'palimpsest'
 import { deriveViewModel } from './viewModel.js'
 import { getCommands } from './commands.js'
 import { INITIAL_UI_STATE, INITIAL_NAV } from './types.js'
 import type { UIState } from './types.js'
 
-function buildTestState() {
-  const empty = createEmptyState()
-  const sphereEvents = createSphere(empty, { name: 'Work' })
-  const withSphere = project(sphereEvents)
-  const sphere = [...withSphere.spheres.values()][0]!
+const SPHERE_ID = 'sph1' as SphereId
 
-  const projectEvents = createProject(withSphere, { name: 'Alpha', sphereId: sphere.id })
-  const withProject = project([...sphereEvents, ...projectEvents])
+function buildTestState() {
+  const baseState = { ...createEmptyState(), ...buildStateFromConfig([{ id: SPHERE_ID, name: 'Work', agendas: [], contexts: [] }]) }
+  const sphere = baseState.spheres.get(SPHERE_ID)!
+
+  const projectEvents = createProject(baseState, { name: 'Alpha', sphereId: sphere.id })
+  const withProject = project(projectEvents, baseState)
   const proj = [...withProject.projects.values()][0]!
 
   const task1Events = createTask(withProject, { title: 'Task One', sphereId: sphere.id })
-  const withTask1 = project([...sphereEvents, ...projectEvents, ...task1Events])
+  const withTask1 = project([...projectEvents, ...task1Events], baseState)
 
   const task2Events = createTask(withTask1, { title: 'Task Two', projectId: proj.id })
-  const allEvents = [...sphereEvents, ...projectEvents, ...task1Events, ...task2Events]
-  const finalState = project(allEvents)
+  const allEvents = [...projectEvents, ...task1Events, ...task2Events]
+  const finalState = project(allEvents, baseState)
 
   const task1 = [...finalState.tasks.values()].find(t => t.title === 'Task One')!
   const task2 = [...finalState.tasks.values()].find(t => t.title === 'Task Two')!
@@ -53,12 +54,6 @@ describe('commands — tasks view, list mode', () => {
     expect(ids).toContain('cycle-sphere')
   })
 
-  it('includes settings', () => {
-    const { projState, sphere } = buildTestState()
-    const uiState = makeUIState({ currentSphereId: sphere.id })
-    const ids = commandIds(projState, uiState)
-    expect(ids).toContain('settings')
-  })
 })
 
 describe('commands — tasks view with selected open task', () => {

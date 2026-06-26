@@ -98,30 +98,3 @@ describe('set-agenda-picker-selected', () => {
   })
 })
 
-describe('set-settings-selected', () => {
-  it('updates settingsSelected', () => {
-    const result = uiReducer(INITIAL_UI_STATE, { type: 'set-settings-selected', index: 1 })
-    expect(result.settingsSelected).toBe(1)
-  })
-})
-
-describe('set-picker-selected', () => {
-  it('updates pickerSelected', () => {
-    const result = uiReducer(INITIAL_UI_STATE, { type: 'set-picker-selected', index: 3 })
-    expect(result.pickerSelected).toBe(3)
-  })
-})
-
-describe('set-agenda-sphere', () => {
-  it('sets the agenda sphere id', () => {
-    const sphereId = 'sphere2' as SphereId
-    const result = uiReducer(INITIAL_UI_STATE, { type: 'set-agenda-sphere', sphereId })
-    expect(result.agendaSphereId).toBe(sphereId)
-  })
-
-  it('can clear the agenda sphere id', () => {
-    const withSphere = uiReducer(INITIAL_UI_STATE, { type: 'set-agenda-sphere', sphereId: 'sphere2' as SphereId })
-    const result = uiReducer(withSphere, { type: 'set-agenda-sphere', sphereId: undefined })
-    expect(result.agendaSphereId).toBeUndefined()
-  })
-})

@@ -18,36 +18,6 @@ export function createEmptyState(): ProjectionState {
 export function applyEvent(state: ProjectionState, event: PalimpsestEvent): ProjectionState {
   switch (event.type) {
 
-    case 'sphere.created': {
-      const sphere: Sphere = {
-        id: event.sphereId,
-        name: event.name,
-        createdAt: event.occurredAt,
-        updatedAt: event.occurredAt,
-        ...(event.description !== undefined && { description: event.description }),
-      }
-      state.spheres.set(sphere.id, sphere)
-      return state
-    }
-
-    case 'sphere.updated': {
-      const sphere = state.spheres.get(event.sphereId)
-      if (!sphere) return state
-      const { patch } = event
-      if (patch.name !== undefined) sphere.name = patch.name
-      if (patch.description !== undefined) {
-        if (patch.description === CLEAR) delete sphere.description
-        else sphere.description = patch.description
-      }
-      sphere.updatedAt = event.occurredAt
-      return state
-    }
-
-    case 'sphere.deleted': {
-      state.spheres.delete(event.sphereId)
-      return state
-    }
-
     case 'project.created': {
       const project: Project = {
         id: event.projectId,
@@ -95,62 +65,6 @@ export function applyEvent(state: ProjectionState, event: PalimpsestEvent): Proj
       delete project.isArchived
       delete project.archivedAt
       project.updatedAt = event.occurredAt
-      return state
-    }
-
-    case 'context.created': {
-      const context: Context = {
-        id: event.contextId,
-        sphereId: event.sphereId,
-        name: event.name,
-        createdAt: event.occurredAt,
-        updatedAt: event.occurredAt,
-        ...(event.description !== undefined && { description: event.description }),
-      }
-      state.contexts.set(context.id, context)
-      return state
-    }
-
-    case 'context.updated': {
-      const context = state.contexts.get(event.contextId)
-      if (!context) return state
-      const { patch } = event
-      if (patch.name !== undefined) context.name = patch.name
-      if (patch.description !== undefined) {
-        if (patch.description === CLEAR) delete context.description
-        else context.description = patch.description
-      }
-      context.updatedAt = event.occurredAt
-      return state
-    }
-
-    case 'context.deleted': {
-      state.contexts.delete(event.contextId)
-      return state
-    }
-
-    case 'agenda.created': {
-      const agenda: Agenda = {
-        id: event.agendaId,
-        sphereId: event.sphereId,
-        title: event.title,
-        createdAt: event.occurredAt,
-        updatedAt: event.occurredAt,
-      }
-      state.agendas.set(agenda.id, agenda)
-      return state
-    }
-
-    case 'agenda.updated': {
-      const agenda = state.agendas.get(event.agendaId)
-      if (!agenda) return state
-      if (event.patch.title !== undefined) agenda.title = event.patch.title
-      agenda.updatedAt = event.occurredAt
-      return state
-    }
-
-    case 'agenda.deleted': {
-      state.agendas.delete(event.agendaId)
       return state
     }
 
@@ -253,12 +167,26 @@ export function applyEvent(state: ProjectionState, event: PalimpsestEvent): Proj
       task.updatedAt = event.occurredAt
       return state
     }
+
+    default:
+      // Silently skip removed or unrecognised event types (e.g. sphere/agenda/context events
+      // from files written before config-based management was introduced)
+      return state
   }
 }
 
-export function project(events: readonly PalimpsestEvent[]): ProjectionState {
+export function project(events: readonly PalimpsestEvent[], initialState?: ProjectionState): ProjectionState {
+  const startState = initialState !== undefined
+    ? {
+        spheres:  new Map(initialState.spheres),
+        agendas:  new Map(initialState.agendas),
+        contexts: new Map(initialState.contexts),
+        projects: new Map(initialState.projects),
+        tasks:    new Map(initialState.tasks),
+      }
+    : createEmptyState()
   return events.reduce(
     (state, event) => applyEvent(state, event),
-    createEmptyState(),
+    startState,
   )
 }

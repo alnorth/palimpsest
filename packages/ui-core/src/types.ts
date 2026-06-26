@@ -15,10 +15,6 @@ export type Mode =
   | 'picking-project-for-task'
   | 'adding-project'
   | 'editing-project'
-  | 'settings'
-  | 'creating-sphere'
-  | 'picking-sphere-for-agenda'
-  | 'creating-agenda'
   | 'editing-recurrence'
 
 export interface NavState {
@@ -47,9 +43,6 @@ export interface UIState {
   agendaPickerSelected: number
   dueDatePickerSelected: number
   projectPickerSelected: number
-  settingsSelected: number
-  pickerSelected: number
-  agendaSphereId: SphereId | undefined
 }
 
 export const INITIAL_UI_STATE: UIState = {
@@ -60,9 +53,6 @@ export const INITIAL_UI_STATE: UIState = {
   agendaPickerSelected: 0,
   dueDatePickerSelected: 0,
   projectPickerSelected: 0,
-  settingsSelected: 0,
-  pickerSelected: 0,
-  agendaSphereId: undefined,
 }
 
 export type UIAction =
@@ -76,9 +66,6 @@ export type UIAction =
   | { type: 'set-agenda-picker-selected'; index: number }
   | { type: 'set-due-date-picker-selected'; index: number }
   | { type: 'set-project-picker-selected'; index: number }
-  | { type: 'set-settings-selected'; index: number }
-  | { type: 'set-picker-selected'; index: number }
-  | { type: 'set-agenda-sphere'; sphereId: SphereId | undefined }
 
 export type DataAction =
   | { type: 'create-task'; title: string; projectId?: ProjectId; sphereId?: SphereId }
@@ -96,8 +83,6 @@ export type DataAction =
   | { type: 'edit-project'; projectId: ProjectId; name: string }
   | { type: 'archive-project'; projectId: ProjectId }
   | { type: 'unarchive-project'; projectId: ProjectId }
-  | { type: 'create-sphere'; name: string }
-  | { type: 'create-agenda'; title: string; sphereId: SphereId }
 
 export type Action = UIAction | DataAction
 

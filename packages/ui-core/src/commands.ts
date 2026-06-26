@@ -254,16 +254,5 @@ export function getCommands(vm: ViewModel): Command[] {
     })
   }
 
-  // ── Settings ─────────────────────────────────────────────────────────────────
-  if (isTopLevel) {
-    commands.push({
-      id: 'settings',
-      label: 'settings',
-      group: 'view',
-      key: 'k',
-      action: { type: 'set-mode', mode: 'settings' },
-    })
-  }
-
   return commands
 }

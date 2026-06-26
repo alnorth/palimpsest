@@ -31,9 +31,10 @@ export function TaskList({ tasks, selected, state, showProject = false, emptyMes
             title={<><Text color="yellow">{task.isNext === true ? '→' : ' '} </Text><Text color="yellow">{task.isStarred === true ? '★ ' : ''}</Text>{task.title}</>}
           >
             {task.description ? <Meta>¶</Meta> : null}
-            {project !== undefined ? <Meta>{project.name}</Meta> : null}
+            {project !== undefined ? <Meta>#{project.name}</Meta> : null}
             {agenda !== undefined ? <Meta>@{agenda.title}</Meta> : null}
             {task.dueDate !== undefined ? <><Text dimColor> · </Text><Text {...(ddColor !== undefined ? { color: ddColor } : { dimColor: true })}>{task.dueDate}</Text></> : null}
+            {task.dueDateExpression !== undefined ? <Text dimColor> ↻ {task.dueDateExpression}</Text> : null}
             {task.completedAt !== undefined ? <Meta>{formatDateTime(task.completedAt)}</Meta> : null}
           </Row>
         )

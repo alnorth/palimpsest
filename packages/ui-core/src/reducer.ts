@@ -45,13 +45,5 @@ export function uiReducer(state: UIState, action: UIAction): UIState {
     case 'set-project-picker-selected':
       return { ...state, projectPickerSelected: action.index }
 
-    case 'set-settings-selected':
-      return { ...state, settingsSelected: action.index }
-
-    case 'set-picker-selected':
-      return { ...state, pickerSelected: action.index }
-
-    case 'set-agenda-sphere':
-      return { ...state, agendaSphereId: action.sphereId }
   }
 }

@@ -1,60 +1,11 @@
 import type { ProjectionState } from './projection.js'
-import type { PalimpsestEvent, TaskPatch, ProjectPatch, SpherePatch, AgendaPatch, ContextPatch } from './events.js'
+import type { PalimpsestEvent, TaskPatch, ProjectPatch } from './events.js'
 import type { TaskId, ProjectId, SphereId, AgendaId, ContextId } from './ids.js'
-import { newTaskId, newProjectId, newSphereId, newAgendaId, newContextId, newEventId } from './ids.js'
+import { newTaskId, newProjectId, newEventId } from './ids.js'
 import { nextDueDate, isValidExpression } from './dateParser.js'
 
 function now(): string {
   return new Date().toISOString()
-}
-
-// ── Sphere commands ───────────────────────────────────────────────────────────
-
-export interface CreateSphereInput {
-  name: string
-  description?: string
-}
-
-export function createSphere(
-  _state: ProjectionState,
-  input: CreateSphereInput,
-): PalimpsestEvent[] {
-  return [{
-    id: newEventId(),
-    type: 'sphere.created',
-    sphereId: newSphereId(),
-    occurredAt: now(),
-    name: input.name,
-    ...(input.description !== undefined && { description: input.description }),
-  }]
-}
-
-export function updateSphere(
-  state: ProjectionState,
-  sphereId: SphereId,
-  patch: SpherePatch,
-): PalimpsestEvent[] {
-  if (!state.spheres.has(sphereId)) throw new Error(`Sphere not found: ${sphereId}`)
-  return [{
-    id: newEventId(),
-    type: 'sphere.updated',
-    sphereId,
-    occurredAt: now(),
-    patch,
-  }]
-}
-
-export function deleteSphere(
-  state: ProjectionState,
-  sphereId: SphereId,
-): PalimpsestEvent[] {
-  if (!state.spheres.has(sphereId)) throw new Error(`Sphere not found: ${sphereId}`)
-  return [{
-    id: newEventId(),
-    type: 'sphere.deleted',
-    sphereId,
-    occurredAt: now(),
-  }]
 }
 
 // ── Project commands ──────────────────────────────────────────────────────────
@@ -138,108 +89,6 @@ export function unarchiveProject(
     id: newEventId(),
     type: 'project.unarchived',
     projectId,
-    occurredAt: now(),
-  }]
-}
-
-// ── Context commands ──────────────────────────────────────────────────────────
-
-export interface CreateContextInput {
-  sphereId: SphereId
-  name: string
-  description?: string
-}
-
-export function createContext(
-  state: ProjectionState,
-  input: CreateContextInput,
-): PalimpsestEvent[] {
-  if (!state.spheres.has(input.sphereId)) throw new Error(`Sphere not found: ${input.sphereId}`)
-  return [{
-    id: newEventId(),
-    type: 'context.created',
-    contextId: newContextId(),
-    occurredAt: now(),
-    sphereId: input.sphereId,
-    name: input.name,
-    ...(input.description !== undefined && { description: input.description }),
-  }]
-}
-
-export function updateContext(
-  state: ProjectionState,
-  contextId: ContextId,
-  patch: ContextPatch,
-): PalimpsestEvent[] {
-  if (!state.contexts.has(contextId)) throw new Error(`Context not found: ${contextId}`)
-  return [{
-    id: newEventId(),
-    type: 'context.updated',
-    contextId,
-    occurredAt: now(),
-    patch,
-  }]
-}
-
-export function deleteContext(
-  state: ProjectionState,
-  contextId: ContextId,
-): PalimpsestEvent[] {
-  if (!state.contexts.has(contextId)) throw new Error(`Context not found: ${contextId}`)
-  return [{
-    id: newEventId(),
-    type: 'context.deleted',
-    contextId,
-    occurredAt: now(),
-  }]
-}
-
-// ── Agenda commands ───────────────────────────────────────────────────────────
-
-export interface CreateAgendaInput {
-  sphereId: SphereId
-  title: string
-}
-
-export function createAgenda(
-  state: ProjectionState,
-  input: CreateAgendaInput,
-): PalimpsestEvent[] {
-  if (!state.spheres.has(input.sphereId)) throw new Error(`Sphere not found: ${input.sphereId}`)
-  return [{
-    id: newEventId(),
-    type: 'agenda.created',
-    agendaId: newAgendaId(),
-    occurredAt: now(),
-    sphereId: input.sphereId,
-    title: input.title,
-  }]
-}
-
-export function updateAgenda(
-  state: ProjectionState,
-  agendaId: AgendaId,
-  patch: AgendaPatch,
-): PalimpsestEvent[] {
-  if (!state.agendas.has(agendaId)) throw new Error(`Agenda not found: ${agendaId}`)
-  return [{
-    id: newEventId(),
-    type: 'agenda.updated',
-    agendaId,
-    occurredAt: now(),
-    patch,
-  }]
-}
-
-export function deleteAgenda(
-  state: ProjectionState,
-  agendaId: AgendaId,
-): PalimpsestEvent[] {
-  if (!state.agendas.has(agendaId)) throw new Error(`Agenda not found: ${agendaId}`)
-  return [{
-    id: newEventId(),
-    type: 'agenda.deleted',
-    agendaId,
     occurredAt: now(),
   }]
 }

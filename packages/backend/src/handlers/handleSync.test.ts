@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { handleSync } from './handleSync.js'
 import type { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb'
-import { createEmptyState, createSphere, createTask } from 'palimpsest'
-import type { PalimpsestEvent } from 'palimpsest'
+import { createEmptyState, buildStateFromConfig, createTask } from 'palimpsest'
+import type { PalimpsestEvent, SphereId } from 'palimpsest'
 
 // Minimal DynamoDB mock factory — returns an empty store by default
 function makeClient(overrides: {
@@ -51,9 +51,9 @@ function makeClient(overrides: {
 }
 
 function makeTestEvents(): PalimpsestEvent[] {
-  const state = createEmptyState()
-  const sphereEvents = createSphere(state, { name: 'Work' })
-  return sphereEvents
+  const sphereId = 'sph1' as SphereId
+  const state = { ...createEmptyState(), ...buildStateFromConfig([{ id: sphereId, name: 'Work', agendas: [], contexts: [] }]) }
+  return createTask(state, { title: 'Test', sphereId })
 }
 
 describe('handleSync — authentication', () => {
@@ -133,15 +133,12 @@ describe('handleSync — event submission', () => {
 
   it('returns conflict when submitted events conflict with server state', async () => {
     // Simulate: server has a task.deleted event for the same task we're updating
-    const state = createEmptyState()
-    const sphereEvents = createSphere(state, { name: 'W' })
-    const sphereId = (sphereEvents[0] as unknown as Record<string, unknown>)['sphereId'] as any
-    const withSphere = { ...state, spheres: new Map([[sphereId, { id: sphereId, name: 'W', createdAt: '', updatedAt: '' } as any]]) }
+    const sphereId = 'sph1' as SphereId
+    const withSphere = { ...createEmptyState(), ...buildStateFromConfig([{ id: sphereId, name: 'W', agendas: [], contexts: [] }]) }
     const taskEvents = createTask(withSphere, { title: 'T', sphereId })
     const tid = (taskEvents[0] as any).taskId
 
     const storedEvents: PalimpsestEvent[] = [
-      ...sphereEvents,
       ...taskEvents,
       { id: 'del1' as any, type: 'task.deleted', taskId: tid, occurredAt: '2024-01-01T00:00:01Z' } as unknown as PalimpsestEvent,
     ]
@@ -154,7 +151,7 @@ describe('handleSync — event submission', () => {
 
     const result = await handleSync({
       client, tableName: 'table', validToken: 'secret',
-      clientSeq: sphereEvents.length + taskEvents.length, // client knew about task creation, not deletion
+      clientSeq: taskEvents.length, // client knew about task creation, not deletion
       events: submittedEvents,
       authHeader: 'Bearer secret',
     })

@@ -1,10 +1,17 @@
 import { describe, it, expect } from 'vitest'
 import { MemoryPendingEventStore } from './PendingEventStore.js'
-import { createEmptyState, createSphere } from 'palimpsest'
-import type { PalimpsestEvent } from 'palimpsest'
+import type { PalimpsestEvent, TaskId, SphereId, EventId } from 'palimpsest'
 
-function makeSphereEvent(): PalimpsestEvent {
-  return createSphere(createEmptyState(), { name: 'Work' })[0]!
+function makeTaskEvent(): PalimpsestEvent {
+  return {
+    id: 'evt1' as EventId,
+    type: 'task.created',
+    taskId: 'tsk1' as TaskId,
+    occurredAt: new Date().toISOString(),
+    title: 'Test task',
+    description: '',
+    sphereId: 'sph1' as SphereId,
+  }
 }
 
 describe('MemoryPendingEventStore', () => {
@@ -15,7 +22,7 @@ describe('MemoryPendingEventStore', () => {
 
   it('save is a no-op', async () => {
     const store = new MemoryPendingEventStore()
-    await store.save([makeSphereEvent()])
+    await store.save([makeTaskEvent()])
     expect(await store.load()).toEqual([])
   })
 })

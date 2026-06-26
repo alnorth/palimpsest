@@ -2,28 +2,23 @@ export type { Task, Project, Sphere, Agenda, Context, TaskStatus } from './types
 export type { TaskId, ProjectId, SphereId, AgendaId, ContextId, EventId } from './ids.js'
 export type {
   PalimpsestEvent,
-  SphereCreatedEvent, SphereUpdatedEvent, SphereDeletedEvent,
   ProjectCreatedEvent, ProjectUpdatedEvent, ProjectDeletedEvent, ProjectArchivedEvent, ProjectUnarchivedEvent,
-  ContextCreatedEvent, ContextUpdatedEvent, ContextDeletedEvent,
-  AgendaCreatedEvent, AgendaUpdatedEvent, AgendaDeletedEvent,
   TaskCreatedEvent, TaskUpdatedEvent, TaskCompletedEvent, TaskUncompletedEvent, TaskRecurredEvent, TaskDeletedEvent,
-  TaskPatch, ProjectPatch, SpherePatch, AgendaPatch, ContextPatch,
+  TaskPatch, ProjectPatch,
 } from './events.js'
 export { CLEAR } from './events.js'
 export type { ProjectionState } from './projection.js'
 export type {
-  CreateSphereInput, CreateProjectInput, CreateAgendaInput, CreateContextInput,
+  CreateProjectInput,
   CreateTaskInput, UpdateTaskInput,
 } from './commands.js'
 export type { TaskFilter } from './query.js'
+export type { SphereConfig, AgendaConfig, ContextConfig } from './config.js'
 
 export { project, applyEvent, createEmptyState } from './projection.js'
 export { PalimpsestStore, FilePalimpsestStore } from './store.js'
 export {
-  createSphere, updateSphere, deleteSphere,
   createProject, updateProject, deleteProject, archiveProject, unarchiveProject,
-  createContext, updateContext, deleteContext,
-  createAgenda, updateAgenda, deleteAgenda,
   createTask, updateTask, completeTask, uncompleteTask, deleteTask, postponeTask, finishRecurringTask,
 } from './commands.js'
 export {
@@ -35,3 +30,4 @@ export {
   getTaskSphereId,
 } from './query.js'
 export { parseDueDate, addDays, nextWeekday, isValidExpression, nextDueDate } from './dateParser.js'
+export { buildStateFromConfig, PALIMPSEST_CONFIG } from './config.js'

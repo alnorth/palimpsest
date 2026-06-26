@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { project, applyEvent, createEmptyState } from './projection.js'
+import { buildStateFromConfig } from './config.js'
 import type { PalimpsestEvent } from './events.js'
 import type { SphereId, ProjectId, TaskId, EventId } from './ids.js'
 
@@ -8,41 +9,13 @@ function sphereId(): SphereId { return 'sph1' as SphereId }
 function projectId(): ProjectId { return 'prj1' as ProjectId }
 function taskId(): TaskId { return 'tsk1' as TaskId }
 
-const BASE_SPHERE: PalimpsestEvent = {
-  id: eventId(), type: 'sphere.created', sphereId: sphereId(),
-  occurredAt: '2026-01-01T00:00:00.000Z', name: 'Work',
+const BASE_TASK: PalimpsestEvent = {
+  id: eventId(), type: 'task.created', taskId: taskId(),
+  occurredAt: '2026-01-01T00:00:00.000Z',
+  title: 'Write tests', description: '', sphereId: sphereId(),
 }
 
-describe('projection: spheres', () => {
-  it('creates a sphere', () => {
-    const state = project([BASE_SPHERE])
-    expect(state.spheres.get(sphereId())?.name).toBe('Work')
-  })
-
-  it('updates a sphere name', () => {
-    const state = project([
-      BASE_SPHERE,
-      { id: eventId(), type: 'sphere.updated', sphereId: sphereId(), occurredAt: '2026-01-02T00:00:00.000Z', patch: { name: 'Personal' } },
-    ])
-    expect(state.spheres.get(sphereId())?.name).toBe('Personal')
-  })
-
-  it('deletes a sphere', () => {
-    const state = project([
-      BASE_SPHERE,
-      { id: eventId(), type: 'sphere.deleted', sphereId: sphereId(), occurredAt: '2026-01-02T00:00:00.000Z' },
-    ])
-    expect(state.spheres.has(sphereId())).toBe(false)
-  })
-})
-
 describe('projection: tasks', () => {
-  const BASE_TASK: PalimpsestEvent = {
-    id: eventId(), type: 'task.created', taskId: taskId(),
-    occurredAt: '2026-01-01T00:00:00.000Z',
-    title: 'Write tests', description: '', sphereId: sphereId(),
-  }
-
   it('creates a task with open status', () => {
     const state = project([BASE_TASK])
     const task = state.tasks.get(taskId())
@@ -64,7 +37,6 @@ describe('projection: tasks', () => {
       { id: eventId(), type: 'task.completed', taskId: taskId(), occurredAt: '2026-01-02T00:00:00.000Z' },
     ]
     const state = project(events)
-    // Should remain open
     expect(state.tasks.get(taskId())?.status).toBe('open')
   })
 
@@ -94,7 +66,6 @@ describe('projection: tasks', () => {
       },
     ]
     const state = project(events)
-    // No lastRecurredAt, no dueDate change
     expect(state.tasks.get(taskId())?.lastRecurredAt).toBeUndefined()
   })
 
@@ -105,7 +76,7 @@ describe('projection: tasks', () => {
     ])
     const task = state.tasks.get(taskId())
     expect(task?.status).toBe('deleted')
-    expect(state.tasks.has(taskId())).toBe(true) // still in map
+    expect(state.tasks.has(taskId())).toBe(true)
   })
 
   it('clears optional fields with CLEAR sentinel', () => {
@@ -122,11 +93,26 @@ describe('projection: tasks', () => {
   })
 })
 
+describe('projection: initialState', () => {
+  it('seeds spheres from initialState', () => {
+    const initialState = { ...createEmptyState(), ...buildStateFromConfig([{ id: sphereId(), name: 'Work', agendas: [], contexts: [] }]) }
+    const state = project([], initialState)
+    expect(state.spheres.get(sphereId())?.name).toBe('Work')
+  })
+})
+
 describe('projection: unknown entity references', () => {
   it('ignores events for non-existent tasks', () => {
     const state = project([
       { id: eventId(), type: 'task.completed', taskId: 'nope' as TaskId, occurredAt: '2026-01-01T00:00:00.000Z' },
     ])
+    expect(state.tasks.size).toBe(0)
+  })
+
+  it('silently skips unrecognised event types (e.g. removed sphere events)', () => {
+    const oldSphereEvent = { id: eventId(), type: 'sphere.created', sphereId: sphereId(), name: 'Work', occurredAt: '2026-01-01T00:00:00.000Z' }
+    const state = project([oldSphereEvent as unknown as PalimpsestEvent])
+    expect(state.spheres.size).toBe(0)
     expect(state.tasks.size).toBe(0)
   })
 })

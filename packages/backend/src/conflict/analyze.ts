@@ -24,7 +24,6 @@ interface InterveningIndex {
   completedTasks: Set<string>  // completed or recurred (closed state)
   uncompletedTasks: Set<string>
   deletedTasks2: Set<string>
-  deletedSpheres: Set<string>
   deletedProjects: Set<string>
 }
 
@@ -34,20 +33,17 @@ function indexIntervening(intervening: PalimpsestEvent[]): InterveningIndex {
     completedTasks: new Set(),
     uncompletedTasks: new Set(),
     deletedTasks2: new Set(),
-    deletedSpheres: new Set(),
     deletedProjects: new Set(),
   }
   for (const ev of intervening) {
     const e = ev as unknown as Record<string, unknown>
     const tid = e['taskId'] as string | undefined
-    const sid = e['sphereId'] as string | undefined
     const pid = e['projectId'] as string | undefined
     switch (ev.type) {
       case 'task.deleted':   if (tid) idx.deletedTasks.add(tid); break
       case 'task.completed': if (tid) idx.completedTasks.add(tid); break
       case 'task.recurred':  if (tid) idx.completedTasks.add(tid); break
       case 'task.uncompleted': if (tid) idx.uncompletedTasks.add(tid); break
-      case 'sphere.deleted': if (sid) idx.deletedSpheres.add(sid); break
       case 'project.deleted': if (pid) idx.deletedProjects.add(pid); break
     }
   }
@@ -103,9 +99,6 @@ function analyzeOne(
       if (pid && idx.deletedProjects.has(pid)) {
         return { status: 'conflict', reason: 'parent-deleted', conflictingEvents: intervening.filter(ev => (ev as any).projectId === pid && ev.type === 'project.deleted') }
       }
-      if (sid && !pid && idx.deletedSpheres.has(sid)) {
-        return { status: 'conflict', reason: 'parent-deleted', conflictingEvents: intervening.filter(ev => (ev as any).sphereId === sid && ev.type === 'sphere.deleted') }
-      }
       return { status: 'ok' }
     }
 
@@ -125,17 +118,7 @@ function analyzeOne(
       return { status: 'ok' }
     }
 
-    // All created-with-new-ID events are always safe
-    case 'sphere.created':
-    case 'sphere.updated':
-    case 'sphere.deleted':
     case 'project.created':
-    case 'context.created':
-    case 'context.updated':
-    case 'context.deleted':
-    case 'agenda.created':
-    case 'agenda.updated':
-    case 'agenda.deleted':
       return { status: 'ok' }
 
     default:

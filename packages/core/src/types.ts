@@ -25,8 +25,6 @@ export interface Agenda {
   id: AgendaId
   sphereId: SphereId
   title: string
-  createdAt: string
-  updatedAt: string
 }
 
 export interface Project {
@@ -44,8 +42,6 @@ export interface Sphere {
   id: SphereId
   name: string
   description?: string
-  createdAt: string
-  updatedAt: string
 }
 
 export interface Context {
@@ -53,6 +49,4 @@ export interface Context {
   sphereId: SphereId
   name: string
   description?: string
-  createdAt: string
-  updatedAt: string
 }

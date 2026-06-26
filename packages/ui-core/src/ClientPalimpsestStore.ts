@@ -1,4 +1,4 @@
-import { PalimpsestStore, applyEvent, createEmptyState } from 'palimpsest'
+import { PalimpsestStore } from 'palimpsest'
 import type { PalimpsestEvent, ProjectionState } from 'palimpsest'
 import { MemoryPendingEventStore } from './PendingEventStore.js'
 import type { PendingEventStore } from './PendingEventStore.js'
@@ -27,7 +27,6 @@ export interface PendingConflict {
 export type SyncFn = (clientSeq: number, events: PalimpsestEvent[]) => Promise<SyncResponse>
 
 export class ClientPalimpsestStore extends PalimpsestStore {
-  private baseState: ProjectionState = createEmptyState()
   private baseEvents: PalimpsestEvent[] = []
   private baseSeq = 0
   private unsyncedEvents: PalimpsestEvent[] = []
@@ -47,9 +46,9 @@ export class ClientPalimpsestStore extends PalimpsestStore {
 
   constructor(
     private readonly syncFn: SyncFn,
-    opts: { syncIntervalMs?: number; pendingStore?: PendingEventStore } = {},
+    opts: { syncIntervalMs?: number; pendingStore?: PendingEventStore; initialState?: ProjectionState } = {},
   ) {
-    super()
+    super(opts.initialState)
     this.syncIntervalMs = opts.syncIntervalMs ?? 30_000
     this.pendingStore = opts.pendingStore ?? new MemoryPendingEventStore()
   }
@@ -69,14 +68,6 @@ export class ClientPalimpsestStore extends PalimpsestStore {
 
   async init(): Promise<void> {
     this.unsyncedEvents = await this.pendingStore.load()
-  }
-
-  override async getState(): Promise<ProjectionState> {
-    let state = this.baseState
-    for (const ev of this.unsyncedEvents) {
-      state = applyEvent(state, ev)
-    }
-    return state
   }
 
   override async readAllEvents(): Promise<PalimpsestEvent[]> {
@@ -108,10 +99,7 @@ export class ClientPalimpsestStore extends PalimpsestStore {
     const hadUnsynced = this.unsyncedEvents.length > 0
 
     if (response.missedEvents.length > 0) {
-      for (const ev of response.missedEvents) {
-        this.baseState = applyEvent(this.baseState, ev)
-        this.baseEvents = [...this.baseEvents, ev]
-      }
+      this.baseEvents = [...this.baseEvents, ...response.missedEvents]
     }
 
     const prevHealth = this.health
@@ -119,10 +107,7 @@ export class ClientPalimpsestStore extends PalimpsestStore {
     if (response.status === 'ok') {
       this.baseSeq = response.serverSeq
       if (hadUnsynced) {
-        for (const ev of this.unsyncedEvents) {
-          this.baseState = applyEvent(this.baseState, ev)
-          this.baseEvents = [...this.baseEvents, ev]
-        }
+        this.baseEvents = [...this.baseEvents, ...this.unsyncedEvents]
         this.unsyncedEvents = []
         void this.pendingStore.save(this.unsyncedEvents)
       }

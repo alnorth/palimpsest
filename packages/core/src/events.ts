@@ -7,31 +7,6 @@ interface EventBase {
   occurredAt: string
 }
 
-// ── Sphere events ─────────────────────────────────────────────────────────────
-
-export interface SphereCreatedEvent extends EventBase {
-  type: 'sphere.created'
-  sphereId: SphereId
-  name: string
-  description?: string
-}
-
-export type SpherePatch = {
-  name?: string
-  description?: string | typeof CLEAR
-}
-
-export interface SphereUpdatedEvent extends EventBase {
-  type: 'sphere.updated'
-  sphereId: SphereId
-  patch: SpherePatch
-}
-
-export interface SphereDeletedEvent extends EventBase {
-  type: 'sphere.deleted'
-  sphereId: SphereId
-}
-
 // ── Project events ────────────────────────────────────────────────────────────
 
 export interface ProjectCreatedEvent extends EventBase {
@@ -67,56 +42,6 @@ export interface ProjectArchivedEvent extends EventBase {
 export interface ProjectUnarchivedEvent extends EventBase {
   type: 'project.unarchived'
   projectId: ProjectId
-}
-
-// ── Context events ────────────────────────────────────────────────────────────
-
-export interface ContextCreatedEvent extends EventBase {
-  type: 'context.created'
-  contextId: ContextId
-  sphereId: SphereId
-  name: string
-  description?: string
-}
-
-export type ContextPatch = {
-  name?: string
-  description?: string | typeof CLEAR
-}
-
-export interface ContextUpdatedEvent extends EventBase {
-  type: 'context.updated'
-  contextId: ContextId
-  patch: ContextPatch
-}
-
-export interface ContextDeletedEvent extends EventBase {
-  type: 'context.deleted'
-  contextId: ContextId
-}
-
-// ── Agenda events ─────────────────────────────────────────────────────────────
-
-export interface AgendaCreatedEvent extends EventBase {
-  type: 'agenda.created'
-  agendaId: AgendaId
-  sphereId: SphereId
-  title: string
-}
-
-export type AgendaPatch = {
-  title?: string
-}
-
-export interface AgendaUpdatedEvent extends EventBase {
-  type: 'agenda.updated'
-  agendaId: AgendaId
-  patch: AgendaPatch
-}
-
-export interface AgendaDeletedEvent extends EventBase {
-  type: 'agenda.deleted'
-  agendaId: AgendaId
 }
 
 // ── Task events ───────────────────────────────────────────────────────────────
@@ -180,20 +105,11 @@ export interface TaskDeletedEvent extends EventBase {
 // ── Union ─────────────────────────────────────────────────────────────────────
 
 export type PalimpsestEvent =
-  | SphereCreatedEvent
-  | SphereUpdatedEvent
-  | SphereDeletedEvent
   | ProjectCreatedEvent
   | ProjectUpdatedEvent
   | ProjectDeletedEvent
   | ProjectArchivedEvent
   | ProjectUnarchivedEvent
-  | ContextCreatedEvent
-  | ContextUpdatedEvent
-  | ContextDeletedEvent
-  | AgendaCreatedEvent
-  | AgendaUpdatedEvent
-  | AgendaDeletedEvent
   | TaskCreatedEvent
   | TaskUpdatedEvent
   | TaskCompletedEvent

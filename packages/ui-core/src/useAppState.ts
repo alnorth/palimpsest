@@ -1,9 +1,8 @@
 import { useState, useMemo, useCallback, useEffect } from 'react'
 import {
-  listSpheres, listTasks, listProjects,
+  listTasks, listProjects,
   createTask, updateTask, completeTask, uncompleteTask,
   createProject, updateProject, archiveProject, unarchiveProject,
-  createSphere, createAgenda,
   createEmptyState,
   CLEAR,
 } from 'palimpsest'
@@ -45,9 +44,7 @@ function isDataAction(action: Action): action is DataAction {
     action.type === 'create-project' ||
     action.type === 'edit-project' ||
     action.type === 'archive-project' ||
-    action.type === 'unarchive-project' ||
-    action.type === 'create-sphere' ||
-    action.type === 'create-agenda'
+    action.type === 'unarchive-project'
   )
 }
 
@@ -286,22 +283,6 @@ export function useAppState(store: PalimpsestStore): AppStateResult {
           break
         }
 
-        case 'create-sphere': {
-          await store.appendEvents(createSphere(resolvedState, { name: action.name }))
-          const next = await refreshProj()
-          setUIState(prev => ({
-            ...uiReducer(prev, { type: 'set-mode', mode: 'settings' }),
-            currentSphereId: prev.currentSphereId ?? listSpheres(next)[0]?.id,
-          }))
-          break
-        }
-
-        case 'create-agenda': {
-          await store.appendEvents(createAgenda(resolvedState, { title: action.title, sphereId: action.sphereId }))
-          await refreshProj()
-          setUIState(prev => uiReducer(prev, { type: 'set-mode', mode: 'settings' }))
-          break
-        }
       }
     })()
   // eslint-disable-next-line react-hooks/exhaustive-deps
