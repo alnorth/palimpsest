@@ -5,20 +5,18 @@
 - [x] Add the necessary code for running this in a decentralized manner. We'll need to deal with out-of-sync client states and reconcile any resulting conflicts.
 - [x] Due date picker in TUI.
 - [x] Project picker for tasks.
-- [ ] Set due date expression on a task.
-- [ ] Completing a recurring task sets the due date to the next value from the expression.
-- [ ] Add/edit/delete spheres.
-- [ ] Add/edit/delete agendas.
-- [ ] Add/edit/delete contexts.
+- [x] Set due date expression on a task.
+- [x] Completing a recurring task sets the due date to the next value from the expression.
+- [ ] Toggle isWaiting on a task.
+- [ ] Assign a context to a task.
 - [ ] Dashboard view showing tasks due today or overdue, plus starred tasks.
 - [ ] Pick list screen for choosing work to do, separated by contexts.
 - [ ] Agenda view listing tasks for a particular agenda, separated by isWaiting.
-- [ ] Assign a context to a task.
 - [ ] Search across tasks and projects.
-- [ ] Toggle isWaiting on a task.
 - [ ] Track what a task is waiting for.
 - [ ] Build the problem lists into the ui-core.
 - [ ] Expose problem lists in the TUI.
 - [ ] Implement a script that imports events from a Todoist export.
 - [ ] Show the day of the week when showing due dates in the TUI. Maybe replace the current date display with the day-of-week when it's in the next week. And have "Today", "Tomorrow" for those days too.
 - [ ] In the TUI, show the recurrence expression for a task.
+- [ ] Refine completion/postponing date handling for recurring tasks that have a due date in the future.
