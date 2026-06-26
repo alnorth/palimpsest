@@ -88,7 +88,7 @@ export function getCommands(vm: ViewModel): Command[] {
   }
 
   // ── Toggle next ──────────────────────────────────────────────────────────────
-  if ((view === 'project' || view === 'task') && currentTask?.status === 'open') {
+  if (currentTask?.status === 'open' && currentTask.projectId !== undefined) {
     commands.push({
       id: 'toggle-next',
       label: 'next',

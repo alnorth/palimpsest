@@ -2,7 +2,7 @@ import React from 'react'
 import { Text } from 'ink'
 import { getProject, getAgenda } from 'palimpsest'
 import type { Task, ProjectionState } from 'palimpsest'
-import { Row, Meta } from './Row.js'
+import { Row } from './Row.js'
 import { formatDateTime, dueDateColor } from './format.js'
 
 interface Props {
@@ -23,19 +23,27 @@ export function TaskList({ tasks, selected, state, showProject = false, emptyMes
         const agenda = task.agendaId !== undefined ? getAgenda(state, task.agendaId) : undefined
         const isSelected = i === selected
         const ddColor = task.dueDate !== undefined ? dueDateColor(task.dueDate) : undefined
+        const metaItems: React.ReactNode[] = []
+        if (task.description) metaItems.push(<Text dimColor>¶</Text>)
+        if (project !== undefined) metaItems.push(<Text dimColor>#{project.name}</Text>)
+        if (agenda !== undefined) metaItems.push(<Text dimColor>@{agenda.title}</Text>)
+        if (task.dueDate !== undefined) metaItems.push(<Text {...(ddColor !== undefined ? { color: ddColor } : { dimColor: true })}>{task.dueDate}</Text>)
+        if (task.dueDateExpression !== undefined) metaItems.push(<Text dimColor>↻ {task.dueDateExpression}</Text>)
+        if (task.completedAt !== undefined) metaItems.push(<Text dimColor>{formatDateTime(task.completedAt)}</Text>)
         return (
           <Row
             key={task.id}
             isSelected={isSelected}
             color={isSelected ? 'blue' : undefined}
+            twoLine={metaItems.length > 0}
             title={<><Text color="yellow">{task.isNext === true ? '→' : ' '} </Text><Text color="yellow">{task.isStarred === true ? '★ ' : ''}</Text>{task.title}</>}
           >
-            {task.description ? <Meta>¶</Meta> : null}
-            {project !== undefined ? <Meta>#{project.name}</Meta> : null}
-            {agenda !== undefined ? <Meta>@{agenda.title}</Meta> : null}
-            {task.dueDate !== undefined ? <><Text dimColor> · </Text><Text {...(ddColor !== undefined ? { color: ddColor } : { dimColor: true })}>{task.dueDate}</Text></> : null}
-            {task.dueDateExpression !== undefined ? <Text dimColor> ↻ {task.dueDateExpression}</Text> : null}
-            {task.completedAt !== undefined ? <Meta>{formatDateTime(task.completedAt)}</Meta> : null}
+            {metaItems.map((item, j) => (
+              <React.Fragment key={j}>
+                {j > 0 && <Text dimColor> · </Text>}
+                {item}
+              </React.Fragment>
+            ))}
           </Row>
         )
       })}
