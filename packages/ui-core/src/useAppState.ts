@@ -1,9 +1,8 @@
-import { useState, useMemo, useCallback, useEffect } from 'react'
+import { useState, useMemo, useCallback, useEffect, useReducer } from 'react'
 import {
   listTasks, listProjects,
   createTask, updateTask, completeTask, uncompleteTask,
   createProject, updateProject, archiveProject, unarchiveProject,
-  createEmptyState,
   CLEAR,
 } from 'palimpsest'
 import type { PalimpsestStore, ProjectionState, ProjectCreatedEvent } from 'palimpsest'
@@ -26,7 +25,6 @@ export interface AppStateResult extends ViewModel {
   projState: ProjectionState
   commands: Command[]
   dispatch: (action: Action) => void
-  isLoading: boolean
   syncHealth: SyncHealth
   unsyncedCount: number
   pendingConflicts: PendingConflict[]
@@ -67,58 +65,40 @@ function hasSyncHealth(store: PalimpsestStore): store is PalimpsestStore & HasSy
   return 'syncHealth' in store
 }
 
-export function useAppState(store: PalimpsestStore): AppStateResult {
-  const [projState, setProjState] = useState<ProjectionState | undefined>(undefined)
-  const [uiState, setUIState] = useState<UIState>(INITIAL_UI_STATE)
+export function useAppState(store: PalimpsestStore, initialState: ProjectionState): AppStateResult {
+  const [projState, setProjState] = useState<ProjectionState>(initialState)
+  const [uiState, dispatchUI] = useReducer(uiReducer, {
+    ...INITIAL_UI_STATE,
+    currentSphereId: initialState.spheres.values().next().value?.id,
+  })
   const [syncHealth, setSyncHealth] = useState<SyncHealth>('idle')
   const [unsyncedCount, setUnsyncedCount] = useState(0)
   const [pendingConflicts, setPendingConflicts] = useState<PendingConflict[]>([])
   const [lastSyncError, setLastSyncError] = useState<string | undefined>(undefined)
 
-  const applyState = useCallback((state: ProjectionState) => {
-    setProjState(state)
-    setUIState(prev => ({
-      ...prev,
-      currentSphereId: prev.currentSphereId ?? state.spheres.values().next().value?.id,
-    }))
-  }, [])
-
   useEffect(() => {
-    let cancelled = false
-    let unsubFn: (() => void) | undefined
-
-    void store.init().then(async () => {
-      if (cancelled) return
-      applyState(await store.getState())
-      if (cancelled) return
-
-      unsubFn = store.subscribe(() => {
-        void store.getState().then(applyState)
-        if (hasSyncHealth(store)) {
-          setSyncHealth(store.syncHealth)
-          setUnsyncedCount(store.unsyncedCount)
-          setPendingConflicts(store.pendingConflicts)
-          setLastSyncError(store.lastSyncError)
-        }
-      })
-      store.start()
+    const unsubFn = store.subscribe(() => {
+      void store.getState().then(setProjState).catch(() => {})
+      if (hasSyncHealth(store)) {
+        setSyncHealth(store.syncHealth)
+        setUnsyncedCount(store.unsyncedCount)
+        setPendingConflicts(store.pendingConflicts)
+        setLastSyncError(store.lastSyncError)
+      }
     })
-
+    store.start()
     return () => {
-      cancelled = true
-      unsubFn?.()
+      unsubFn()
       store.stop()
     }
-  }, [store, applyState])
+  }, [store])
 
-  const resolvedState = projState ?? createEmptyState()
-  const vm = useMemo(() => deriveViewModel(resolvedState, uiState), [resolvedState, uiState])
+  const vm = useMemo(() => deriveViewModel(projState, uiState), [projState, uiState])
   const commands = useMemo(() => getCommands(vm), [vm])
-  const isLoading = projState === undefined
 
   const dispatch = useCallback((action: Action) => {
     if (!isDataAction(action)) {
-      setUIState(prev => uiReducer(prev, action as UIAction))
+      dispatchUI(action as UIAction)
       return
     }
 
@@ -128,52 +108,52 @@ export function useAppState(store: PalimpsestStore): AppStateResult {
           const sphereId = action.sphereId ?? vm.activeSphere?.id
           const projectId = action.projectId
           if (projectId !== undefined) {
-            const tasks = listTasks(resolvedState, { projectId, status: 'open' })
+            const tasks = listTasks(projState, { projectId, status: 'open' })
             await store.appendEvents(createTask({ title: action.title, projectId }))
-            setUIState(prev => uiReducer(prev, { type: 'update-nav', patch: { selected: indexAfterAppend(tasks) } }))
+            dispatchUI({ type: 'update-nav', patch: { selected: indexAfterAppend(tasks) } })
           } else if (sphereId !== undefined) {
-            const tasks = listTasks(resolvedState, { sphereId, status: 'open' })
+            const tasks = listTasks(projState, { sphereId, status: 'open' })
             await store.appendEvents(createTask({ title: action.title, sphereId }))
-            setUIState(prev => uiReducer(prev, { type: 'update-nav', patch: { selected: indexAfterAppend(tasks) } }))
+            dispatchUI({ type: 'update-nav', patch: { selected: indexAfterAppend(tasks) } })
           }
-          setUIState(prev => uiReducer(prev, { type: 'set-mode', mode: 'list' }))
+          dispatchUI({ type: 'set-mode', mode: 'list' })
           break
         }
 
         case 'edit-task': {
-          const task = resolvedState.tasks.get(action.taskId)
+          const task = projState.tasks.get(action.taskId)
           if (!task) break
           await store.appendEvents(updateTask(task, { title: action.title }))
-          setUIState(prev => uiReducer(prev, { type: 'set-mode', mode: 'list' }))
+          dispatchUI({ type: 'set-mode', mode: 'list' })
           break
         }
 
         case 'edit-task-description': {
-          const task = resolvedState.tasks.get(action.taskId)
+          const task = projState.tasks.get(action.taskId)
           if (!task) break
           await store.appendEvents(updateTask(task, { description: action.description }))
-          setUIState(prev => uiReducer(prev, { type: 'set-mode', mode: 'list' }))
+          dispatchUI({ type: 'set-mode', mode: 'list' })
           break
         }
 
         case 'set-task-due-date': {
-          const task = resolvedState.tasks.get(action.taskId)
+          const task = projState.tasks.get(action.taskId)
           if (!task) break
           await store.appendEvents(updateTask(task, { dueDate: action.dueDate }))
-          setUIState(prev => uiReducer(prev, { type: 'set-mode', mode: 'list' }))
+          dispatchUI({ type: 'set-mode', mode: 'list' })
           break
         }
 
         case 'set-task-due-date-expression': {
-          const task = resolvedState.tasks.get(action.taskId)
+          const task = projState.tasks.get(action.taskId)
           if (!task) break
           await store.appendEvents(updateTask(task, { dueDateExpression: action.dueDateExpression }))
-          setUIState(prev => uiReducer(prev, { type: 'set-mode', mode: 'list' }))
+          dispatchUI({ type: 'set-mode', mode: 'list' })
           break
         }
 
         case 'complete-task': {
-          const task = resolvedState.tasks.get(action.taskId)
+          const task = projState.tasks.get(action.taskId)
           if (!task) break
           if (vm.view !== 'task') {
             let tasks: typeof vm.dashboardTasks
@@ -183,16 +163,16 @@ export function useAppState(store: PalimpsestStore): AppStateResult {
               const activeProjectId = vm.activeProject?.id
               const activeSphereId = vm.activeSphere?.id
               tasks = activeProjectId !== undefined
-                ? listTasks(resolvedState, { projectId: activeProjectId, status: 'open' })
+                ? listTasks(projState, { projectId: activeProjectId, status: 'open' })
                 : activeSphereId !== undefined
-                  ? listTasks(resolvedState, { sphereId: activeSphereId, status: 'open' })
+                  ? listTasks(projState, { sphereId: activeSphereId, status: 'open' })
                   : []
             }
             await store.appendEvents(completeTask(task))
-            setUIState(prev => uiReducer(prev, {
+            dispatchUI({
               type: 'update-nav',
-              patch: { selected: indexAfterRemove(tasks, navSelected(prev.navStack[prev.navStack.length - 1])) },
-            }))
+              patch: { selected: indexAfterRemove(tasks, navSelected(uiState.navStack[uiState.navStack.length - 1])) },
+            })
           } else {
             await store.appendEvents(completeTask(task))
           }
@@ -200,21 +180,21 @@ export function useAppState(store: PalimpsestStore): AppStateResult {
         }
 
         case 'uncomplete-task': {
-          const task = resolvedState.tasks.get(action.taskId)
+          const task = projState.tasks.get(action.taskId)
           if (!task) break
           if (vm.view !== 'task') {
             const activeProjectId = vm.activeProject?.id
             const activeSphereId = vm.activeSphere?.id
             const tasks = activeProjectId !== undefined
-              ? listTasks(resolvedState, { projectId: activeProjectId, status: 'completed' })
+              ? listTasks(projState, { projectId: activeProjectId, status: 'completed' })
               : activeSphereId !== undefined
-                ? listTasks(resolvedState, { sphereId: activeSphereId, status: 'completed' })
+                ? listTasks(projState, { sphereId: activeSphereId, status: 'completed' })
                 : []
             await store.appendEvents(uncompleteTask(task))
-            setUIState(prev => uiReducer(prev, {
+            dispatchUI({
               type: 'update-nav',
-              patch: { selected: indexAfterRemove(tasks, navSelected(prev.navStack[prev.navStack.length - 1])) },
-            }))
+              patch: { selected: indexAfterRemove(tasks, navSelected(uiState.navStack[uiState.navStack.length - 1])) },
+            })
           } else {
             await store.appendEvents(uncompleteTask(task))
           }
@@ -222,7 +202,7 @@ export function useAppState(store: PalimpsestStore): AppStateResult {
         }
 
         case 'toggle-next': {
-          const task = resolvedState.tasks.get(action.taskId)
+          const task = projState.tasks.get(action.taskId)
           if (task !== undefined) {
             await store.appendEvents(updateTask(task, { isNext: task.isNext !== true }))
           }
@@ -230,7 +210,7 @@ export function useAppState(store: PalimpsestStore): AppStateResult {
         }
 
         case 'toggle-starred': {
-          const task = resolvedState.tasks.get(action.taskId)
+          const task = projState.tasks.get(action.taskId)
           if (task !== undefined) {
             await store.appendEvents(updateTask(task, { isStarred: task.isStarred !== true }))
           }
@@ -238,7 +218,7 @@ export function useAppState(store: PalimpsestStore): AppStateResult {
         }
 
         case 'toggle-waiting': {
-          const task = resolvedState.tasks.get(action.taskId)
+          const task = projState.tasks.get(action.taskId)
           if (task !== undefined) {
             await store.appendEvents(updateTask(task, { isWaiting: task.isWaiting !== true }))
           }
@@ -246,97 +226,96 @@ export function useAppState(store: PalimpsestStore): AppStateResult {
         }
 
         case 'set-task-project': {
-          const task = resolvedState.tasks.get(action.taskId)
+          const task = projState.tasks.get(action.taskId)
           if (task === undefined) break
           if (action.projectId === CLEAR) {
             const sphereId =
               task.sphereId ??
-              (task.projectId !== undefined ? resolvedState.projects.get(task.projectId)?.sphereId : undefined) ??
+              (task.projectId !== undefined ? projState.projects.get(task.projectId)?.sphereId : undefined) ??
               vm.activeSphere?.id
             if (sphereId === undefined) break
             await store.appendEvents(updateTask(task, { projectId: CLEAR, sphereId }))
           } else {
             await store.appendEvents(updateTask(task, { projectId: action.projectId, sphereId: CLEAR }))
           }
-          setUIState(prev => uiReducer(prev, { type: 'set-mode', mode: 'list' }))
+          dispatchUI({ type: 'set-mode', mode: 'list' })
           break
         }
 
         case 'set-task-agenda': {
-          const task = resolvedState.tasks.get(action.taskId)
+          const task = projState.tasks.get(action.taskId)
           if (!task) break
           await store.appendEvents(updateTask(task, { agendaId: action.agendaId }))
-          setUIState(prev => uiReducer(prev, { type: 'set-mode', mode: 'list' }))
+          dispatchUI({ type: 'set-mode', mode: 'list' })
           break
         }
 
         case 'set-task-context': {
-          const task = resolvedState.tasks.get(action.taskId)
+          const task = projState.tasks.get(action.taskId)
           if (!task) break
           await store.appendEvents(updateTask(task, { contextId: action.contextId }))
-          setUIState(prev => uiReducer(prev, { type: 'set-mode', mode: 'list' }))
+          dispatchUI({ type: 'set-mode', mode: 'list' })
           break
         }
 
         case 'create-project': {
           await store.appendEvents(createProject({ name: action.name, sphereId: action.sphereId }))
-          setUIState(prev => uiReducer(prev, { type: 'set-mode', mode: 'list' }))
+          dispatchUI({ type: 'set-mode', mode: 'list' })
           break
         }
 
         case 'create-and-assign-project': {
           const createEvts = createProject({ name: action.name, sphereId: action.sphereId })
           const projectId = (createEvts[0] as ProjectCreatedEvent).projectId
-          const task = resolvedState.tasks.get(action.taskId)
+          const task = projState.tasks.get(action.taskId)
           if (!task) break
           const assignEvts = updateTask(task, { projectId, sphereId: CLEAR })
           await store.appendEvents([...createEvts, ...assignEvts])
-          setUIState(prev => uiReducer(prev, { type: 'set-mode', mode: 'list' }))
+          dispatchUI({ type: 'set-mode', mode: 'list' })
           break
         }
 
         case 'edit-project': {
-          const project = resolvedState.projects.get(action.projectId)
+          const project = projState.projects.get(action.projectId)
           if (!project) break
           await store.appendEvents(updateProject(project, { name: action.name }))
-          setUIState(prev => uiReducer(prev, { type: 'set-mode', mode: 'list' }))
+          dispatchUI({ type: 'set-mode', mode: 'list' })
           break
         }
 
         case 'archive-project': {
-          const project = resolvedState.projects.get(action.projectId)
+          const project = projState.projects.get(action.projectId)
           if (!project) break
           const activeSphereId = vm.activeSphere?.id
           const projects = activeSphereId !== undefined
-            ? listProjects(resolvedState, { sphereId: activeSphereId, isArchived: false })
+            ? listProjects(projState, { sphereId: activeSphereId, isArchived: false })
             : []
           await store.appendEvents(archiveProject(project))
-          setUIState(prev => uiReducer(prev, {
+          dispatchUI({
             type: 'update-nav',
-            patch: { selected: indexAfterRemove(projects, navSelected(prev.navStack[prev.navStack.length - 1])) },
-          }))
+            patch: { selected: indexAfterRemove(projects, navSelected(uiState.navStack[uiState.navStack.length - 1])) },
+          })
           break
         }
 
         case 'unarchive-project': {
-          const project = resolvedState.projects.get(action.projectId)
+          const project = projState.projects.get(action.projectId)
           if (!project) break
           const activeSphereId = vm.activeSphere?.id
           const projects = activeSphereId !== undefined
-            ? listProjects(resolvedState, { sphereId: activeSphereId, isArchived: true })
+            ? listProjects(projState, { sphereId: activeSphereId, isArchived: true })
             : []
           await store.appendEvents(unarchiveProject(project))
-          setUIState(prev => uiReducer(prev, {
+          dispatchUI({
             type: 'update-nav',
-            patch: { selected: indexAfterRemove(projects, navSelected(prev.navStack[prev.navStack.length - 1])) },
-          }))
+            patch: { selected: indexAfterRemove(projects, navSelected(uiState.navStack[uiState.navStack.length - 1])) },
+          })
           break
         }
-
       }
     })()
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [resolvedState, uiState, vm])
+  }, [projState, uiState, vm])
 
-  return { ...vm, projState: resolvedState, commands, dispatch, isLoading, syncHealth, unsyncedCount, pendingConflicts, lastSyncError }
+  return { ...vm, projState, commands, dispatch, syncHealth, unsyncedCount, pendingConflicts, lastSyncError }
 }

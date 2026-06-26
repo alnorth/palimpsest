@@ -5,8 +5,8 @@ import { Row, Meta } from './Row.js'
 import { Title } from './Title.js'
 import TextInput from 'ink-text-input'
 import { FilePalimpsestStore, CLEAR, getProject, getAgenda, getContext, isValidExpression, nextDueDate, buildStateFromConfig, PALIMPSEST_CONFIG, createEmptyState } from 'palimpsest'
-import type { PalimpsestStore } from 'palimpsest'
-import { useAppState, INITIAL_NAV, ClientPalimpsestStore, parseDueDate, AGENDA_PREFIX, PROJECT_PREFIX, CONTEXT_PREFIX, RECURRENCE_PREFIX } from 'palimpsest-ui-core'
+import type { PalimpsestStore, ProjectionState } from 'palimpsest'
+import { useAppState, ClientPalimpsestStore, parseDueDate, AGENDA_PREFIX, PROJECT_PREFIX, CONTEXT_PREFIX, RECURRENCE_PREFIX } from 'palimpsest-ui-core'
 import { FilePendingEventStore } from './FilePendingEventStore.js'
 import type { View } from 'palimpsest-ui-core'
 import { formatDate, formatDateWithDay, formatDateTime } from './format.js'
@@ -17,7 +17,7 @@ import { mkdirSync } from 'node:fs'
 const apiUrl = process.env['PALIMPSEST_API_URL']
 const authToken = process.env['PALIMPSEST_AUTH_TOKEN']
 
-const initialState = { ...createEmptyState(), ...buildStateFromConfig(PALIMPSEST_CONFIG) }
+const configState = { ...createEmptyState(), ...buildStateFromConfig(PALIMPSEST_CONFIG) }
 
 let store: PalimpsestStore
 if (apiUrl !== undefined && authToken !== undefined) {
@@ -35,22 +35,49 @@ if (apiUrl !== undefined && authToken !== undefined) {
       if (!res.ok) throw new Error(`Sync failed: ${res.status} ${await res.text()}`)
       return res.json() as Promise<any>
     },
-    { pendingStore: new FilePendingEventStore(pendingPath), initialState },
+    { pendingStore: new FilePendingEventStore(pendingPath), initialState: configState },
   )
 } else {
   const filePath = process.env['PALIMPSEST_FILE'] ?? join(homedir(), '.palimpsest', 'events.jsonl')
   mkdirSync(dirname(filePath), { recursive: true })
-  store = new FilePalimpsestStore(filePath, initialState)
+  store = new FilePalimpsestStore(filePath, configState)
 }
 
-
 function App() {
+  const [initialState, setInitialState] = useState<ProjectionState | undefined>(undefined)
+  const { rows: termRows } = useWindowSize()
+
+  useEffect(() => {
+    let cancelled = false
+    void store.init()
+      .catch(() => {})
+      .then(() => store.getState())
+      .then(state => { if (!cancelled) setInitialState(state) })
+      .catch(() => { if (!cancelled) setInitialState(configState) })
+    return () => { cancelled = true }
+  }, [])
+
+  if (initialState === undefined) {
+    return (
+      <Box flexDirection="column" height={termRows} paddingX={1}>
+        <Box paddingTop={1}><Text bold color="cyan">Palimpsest</Text></Box>
+        <Box flexGrow={1} flexDirection="column" paddingTop={1}>
+          <Text dimColor>Connecting…</Text>
+        </Box>
+      </Box>
+    )
+  }
+
+  return <LoadedApp initialState={initialState} />
+}
+
+function LoadedApp({ initialState }: { initialState: ProjectionState }) {
   const {
     view, mode, selected, activeTask, activeProject,
     activeSphere, agendas, contexts, projectStats, listItems, listLength, currentTask, spheres, subtitle,
     searchQuery, projState, commands, dispatch, canGoBack, showCompleted, showArchived,
-    isLoading, syncHealth, unsyncedCount, pendingConflicts, lastSyncError,
-  } = useAppState(store)
+    syncHealth, unsyncedCount, pendingConflicts, lastSyncError,
+  } = useAppState(store, initialState)
 
   const [formValue, setFormValue] = useState('')
   const { rows: termRows } = useWindowSize()
@@ -472,17 +499,6 @@ function App() {
         <TextInput value={formValue} onChange={setFormValue} onSubmit={handleEditProjectSubmit} />
       </Box>
     ) : listHint
-  }
-
-  if (isLoading) {
-    return (
-      <Box flexDirection="column" height={termRows} paddingX={1}>
-        <Box paddingTop={1}><Text bold color="cyan">Palimpsest</Text></Box>
-        <Box flexGrow={1} flexDirection="column" paddingTop={1}>
-          <Text dimColor>Connecting…</Text>
-        </Box>
-      </Box>
-    )
   }
 
   const syncRow = syncHealth === 'error' ? (
