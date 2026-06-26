@@ -43,6 +43,7 @@ function isDataAction(action: Action): action is DataAction {
     action.type === 'toggle-waiting' ||
     action.type === 'set-task-project' ||
     action.type === 'set-task-agenda' ||
+    action.type === 'set-task-context' ||
     action.type === 'create-project' ||
     action.type === 'create-and-assign-project' ||
     action.type === 'edit-project' ||
@@ -256,6 +257,14 @@ export function useAppState(store: PalimpsestStore): AppStateResult {
           const task = resolvedState.tasks.get(action.taskId)
           if (!task) break
           await store.appendEvents(updateTask(task, { agendaId: action.agendaId }))
+          setUIState(prev => uiReducer(prev, { type: 'set-mode', mode: 'list' }))
+          break
+        }
+
+        case 'set-task-context': {
+          const task = resolvedState.tasks.get(action.taskId)
+          if (!task) break
+          await store.appendEvents(updateTask(task, { contextId: action.contextId }))
           setUIState(prev => uiReducer(prev, { type: 'set-mode', mode: 'list' }))
           break
         }

@@ -1,7 +1,7 @@
 import {
-  listTasks, listProjects, listSpheres, listAgendas, getProject,
+  listTasks, listProjects, listSpheres, listAgendas, listContexts, getProject,
 } from 'palimpsest'
-import type { Task, Project, Sphere, Agenda, ProjectionState, ProjectId } from 'palimpsest'
+import type { Task, Project, Sphere, Agenda, Context, ProjectionState, ProjectId } from 'palimpsest'
 import { INITIAL_NAV } from './types.js'
 import type { UIState, View, Mode } from './types.js'
 
@@ -16,6 +16,7 @@ export interface ViewModel {
   tasks: Task[]
   projects: Project[]
   agendas: Agenda[]
+  contexts: Context[]
   projectStats: ProjectStats
   activeProject: Project | undefined
   projectTasks: Task[]
@@ -58,6 +59,10 @@ export function deriveViewModel(projState: ProjectionState, uiState: UIState): V
 
   const agendas: Agenda[] = activeSphere !== undefined
     ? listAgendas(projState, { sphereId: activeSphere.id })
+    : []
+
+  const contexts: Context[] = activeSphere !== undefined
+    ? listContexts(projState, { sphereId: activeSphere.id })
     : []
 
   const projectStats: ProjectStats = (() => {
@@ -106,6 +111,7 @@ export function deriveViewModel(projState: ProjectionState, uiState: UIState): V
     tasks,
     projects,
     agendas,
+    contexts,
     projectStats,
     activeProject,
     projectTasks,

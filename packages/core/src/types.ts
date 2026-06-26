@@ -51,4 +51,5 @@ export interface Context {
   sphereId: SphereId
   name: string
   description?: string
+  key?: string
 }

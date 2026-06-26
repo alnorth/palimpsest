@@ -39,6 +39,9 @@ export function uiReducer(state: UIState, action: UIAction): UIState {
     case 'set-agenda-picker-selected':
       return { ...state, agendaPickerSelected: action.index }
 
+    case 'set-context-picker-selected':
+      return { ...state, contextPickerSelected: action.index }
+
     case 'set-due-date-picker-selected':
       return { ...state, dueDatePickerSelected: action.index }
 

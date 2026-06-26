@@ -3,9 +3,9 @@ import { render, Box, Text, useInput, useWindowSize } from 'ink'
 import { TaskList } from './TaskList.js'
 import { Row, Meta } from './Row.js'
 import TextInput from 'ink-text-input'
-import { FilePalimpsestStore, CLEAR, getProject, getAgenda, listProjects, isValidExpression, nextDueDate, buildStateFromConfig, PALIMPSEST_CONFIG, createEmptyState } from 'palimpsest'
+import { FilePalimpsestStore, CLEAR, getProject, getAgenda, getContext, listProjects, isValidExpression, nextDueDate, buildStateFromConfig, PALIMPSEST_CONFIG, createEmptyState } from 'palimpsest'
 import type { PalimpsestStore } from 'palimpsest'
-import { useAppState, INITIAL_NAV, ClientPalimpsestStore, addDays, nextWeekday, parseDueDate } from 'palimpsest-ui-core'
+import { useAppState, INITIAL_NAV, ClientPalimpsestStore, addDays, nextWeekday, parseDueDate, AGENDA_PREFIX, PROJECT_PREFIX, CONTEXT_PREFIX } from 'palimpsest-ui-core'
 import { FilePendingEventStore } from './FilePendingEventStore.js'
 import type { View } from 'palimpsest-ui-core'
 import { formatDate, formatDateWithDay, formatDateTime } from './format.js'
@@ -54,12 +54,12 @@ const TOP_LEVEL_VIEWS = (['tasks', 'projects'] as const).filter(v => VIEW_CONFIG
 function App() {
   const {
     view, mode, selected, tasks, projects, projectTasks, activeTask, activeProject,
-    activeSphere, agendas, projectStats, listLength, currentTask, spheres,
+    activeSphere, agendas, contexts, projectStats, listLength, currentTask, spheres,
     projState, uiState, commands, dispatch, canGoBack, showCompleted, showArchived,
     isLoading, syncHealth, unsyncedCount, pendingConflicts, lastSyncError,
   } = useAppState(store)
 
-  const { viewPickerSelected, agendaPickerSelected, dueDatePickerSelected, projectPickerSelected } = uiState
+  const { viewPickerSelected, agendaPickerSelected, contextPickerSelected, dueDatePickerSelected, projectPickerSelected } = uiState
   const [formValue, setFormValue] = useState('')
   const { rows: termRows } = useWindowSize()
 
@@ -152,6 +152,21 @@ function App() {
       }
       return
     }
+    if (mode === 'picking-context-for-task') {
+      if (key.escape) { dispatch({ type: 'set-mode', mode: 'list' }); return }
+      if (key.upArrow) dispatch({ type: 'set-context-picker-selected', index: Math.max(0, contextPickerSelected - 1) })
+      if (key.downArrow) dispatch({ type: 'set-context-picker-selected', index: Math.min(contexts.length, contextPickerSelected + 1) })
+      const shortcutContext = contexts.find(c => c.key === input)
+      if (shortcutContext !== undefined && currentTask !== undefined) {
+        dispatch({ type: 'set-task-context', taskId: currentTask.id, contextId: shortcutContext.id })
+        return
+      }
+      if (key.return && currentTask !== undefined) {
+        const contextId = contextPickerSelected === 0 ? CLEAR : contexts[contextPickerSelected - 1]!.id
+        dispatch({ type: 'set-task-context', taskId: currentTask.id, contextId })
+      }
+      return
+    }
     if (mode === 'picking-due-date') {
       if (key.escape) { dispatch({ type: 'set-mode', mode: 'list' }); return }
       if (key.upArrow) dispatch({ type: 'set-due-date-picker-selected', index: Math.max(0, dueDatePickerSelected - 1) })
@@ -202,6 +217,10 @@ function App() {
       if (cmd.id === 'pick-agenda' && currentTask !== undefined) {
         const idx = currentTask.agendaId !== undefined ? agendas.findIndex(a => a.id === currentTask.agendaId) + 1 : 0
         dispatch({ type: 'set-agenda-picker-selected', index: Math.max(0, idx) })
+      }
+      if (cmd.id === 'pick-context' && currentTask !== undefined) {
+        const idx = currentTask.contextId !== undefined ? contexts.findIndex(c => c.id === currentTask.contextId) + 1 : 0
+        dispatch({ type: 'set-context-picker-selected', index: Math.max(0, idx) })
       }
       if (cmd.id === 'pick-view') {
         dispatch({ type: 'set-view-picker-selected', index: Math.max(0, TOP_LEVEL_VIEWS.indexOf(view as 'tasks' | 'projects')) })
@@ -343,7 +362,17 @@ function App() {
     title = <Text bold color="cyan">Agenda{currentTask !== undefined ? ` — ${currentTask.title}` : ''}</Text>
     content = agendaOptions.map((opt, i) => (
       <Text key={opt.title} {...(i === agendaPickerSelected ? { color: 'blue' as const } : {})}>
-        {i === agendaPickerSelected ? '> ' : '  '}{i > 0 ? '@' : ''}{opt.title}
+        {i === agendaPickerSelected ? '> ' : '  '}{i > 0 ? AGENDA_PREFIX : ''}{opt.title}
+        {opt.key !== undefined ? <Text dimColor>  {opt.key}</Text> : null}
+      </Text>
+    ))
+    footer = <Text dimColor>↑↓ navigate  enter/key select  esc back</Text>
+  } else if (mode === 'picking-context-for-task') {
+    const contextOptions = [{ name: 'No context', key: undefined }, ...contexts.map(c => ({ name: c.name, key: c.key }))]
+    title = <Text bold color="cyan">Context{currentTask !== undefined ? ` — ${currentTask.title}` : ''}</Text>
+    content = contextOptions.map((opt, i) => (
+      <Text key={opt.name} {...(i === contextPickerSelected ? { color: 'blue' as const } : {})}>
+        {i === contextPickerSelected ? '> ' : '  '}{i > 0 ? CONTEXT_PREFIX : ''}{opt.name}
         {opt.key !== undefined ? <Text dimColor>  {opt.key}</Text> : null}
       </Text>
     ))
@@ -428,6 +457,7 @@ function App() {
     ) : view === 'task' ? (() => {
       const detailProject = activeTask?.projectId !== undefined ? getProject(projState, activeTask.projectId) : undefined
       const detailAgenda = activeTask?.agendaId !== undefined ? getAgenda(projState, activeTask.agendaId) : undefined
+      const detailContext = activeTask?.contextId !== undefined ? getContext(projState, activeTask.contextId) : undefined
       return (
         <Box flexDirection="column">
           {activeTask?.description
@@ -436,7 +466,8 @@ function App() {
           }
           <Box flexDirection="column" marginTop={1}>
             {detailProject !== undefined ? <Text dimColor>project    {detailProject.name}</Text> : null}
-            {detailAgenda !== undefined ? <Text dimColor>agenda     @{detailAgenda.title}</Text> : null}
+            {detailAgenda !== undefined ? <Text dimColor>agenda     {AGENDA_PREFIX}{detailAgenda.title}</Text> : null}
+            {detailContext !== undefined ? <Text dimColor>context    {CONTEXT_PREFIX}{detailContext.name}</Text> : null}
             {activeTask?.dueDate !== undefined ? <Text dimColor>due        {activeTask.dueDate}</Text> : null}
             {activeTask?.dueDateExpression !== undefined ? <Text dimColor>recurring  {activeTask.dueDateExpression}</Text> : null}
             {activeTask?.completedAt !== undefined ? <Text dimColor>completed  {formatDateTime(activeTask.completedAt)}</Text> : null}

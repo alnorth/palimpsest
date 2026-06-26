@@ -3,7 +3,7 @@ import type { Command } from './types.js'
 import type { ViewModel } from './viewModel.js'
 
 export function getCommands(vm: ViewModel): Command[] {
-  const { view, mode, selected, currentTask, activeSphere, projects, showCompleted, showArchived, canGoBack, agendas, spheres } = vm
+  const { view, mode, selected, currentTask, activeSphere, projects, showCompleted, showArchived, canGoBack, agendas, contexts, spheres } = vm
   const commands: Command[] = []
 
   if (mode !== 'list') return commands
@@ -161,6 +161,17 @@ export function getCommands(vm: ViewModel): Command[] {
       group: 'state',
       key: 'a',
       action: { type: 'set-mode', mode: 'picking-agenda-for-task' },
+    })
+  }
+
+  // ── Pick context ──────────────────────────────────────────────────────────────
+  if (currentTask?.status === 'open') {
+    commands.push({
+      id: 'pick-context',
+      label: 'context',
+      group: 'state',
+      key: 'k',
+      action: { type: 'set-mode', mode: 'picking-context-for-task' },
     })
   }
 

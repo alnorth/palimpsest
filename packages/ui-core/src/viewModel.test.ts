@@ -3,7 +3,7 @@ import {
   project, createEmptyState, buildStateFromConfig,
   createProject, createTask,
 } from 'palimpsest'
-import type { SphereId } from 'palimpsest'
+import type { SphereId, ContextId } from 'palimpsest'
 import { deriveViewModel } from './viewModel.js'
 import { INITIAL_UI_STATE, INITIAL_NAV } from './types.js'
 import type { UIState } from './types.js'
@@ -169,6 +169,26 @@ describe('deriveViewModel — navigation helpers', () => {
     })
     const vm = deriveViewModel(projState, uiState)
     expect(vm.listLength).toBe(vm.projects.length)
+  })
+})
+
+describe('deriveViewModel — contexts', () => {
+  it('lists contexts for the active sphere', () => {
+    const contextId = 'ctx1' as ContextId
+    const baseState = {
+      ...createEmptyState(),
+      ...buildStateFromConfig([{ id: SPHERE_ID, name: 'Work', agendas: [], contexts: [{ id: contextId, name: 'Phone' }] }]),
+    }
+    const uiState = makeUIState({ currentSphereId: SPHERE_ID })
+    const vm = deriveViewModel(baseState, uiState)
+    expect(vm.contexts.some(c => c.id === contextId)).toBe(true)
+  })
+
+  it('returns empty contexts when activeSphere is undefined', () => {
+    const projState = createEmptyState()
+    const uiState = makeUIState({ currentSphereId: undefined })
+    const vm = deriveViewModel(projState, uiState)
+    expect(vm.contexts).toHaveLength(0)
   })
 })
 

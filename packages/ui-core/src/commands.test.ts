@@ -209,6 +209,19 @@ describe('commands — task view', () => {
   })
 })
 
+describe('commands — pick-context', () => {
+  it('is available for open tasks', () => {
+    const { projState, sphere, task1 } = buildTestState()
+    const tasks = [...projState.tasks.values()].filter(t => !t.projectId && t.status === 'open')
+    const idx = tasks.findIndex(t => t.id === task1.id)
+    const uiState = makeUIState({
+      currentSphereId: sphere.id,
+      navStack: [{ ...INITIAL_NAV, view: 'tasks', selected: idx }],
+    })
+    expect(commandIds(projState, uiState)).toContain('pick-context')
+  })
+})
+
 describe('commands — pick-due-date', () => {
   it('is available for open tasks in tasks view', () => {
     const { projState, sphere, task1 } = buildTestState()

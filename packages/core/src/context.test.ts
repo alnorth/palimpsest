@@ -34,6 +34,17 @@ describe('getContext', () => {
     expect(ctx?.description).toBe('At home')
   })
 
+  it('preserves the key field', () => {
+    const stateWithKey = {
+      ...createEmptyState(),
+      ...buildStateFromConfig([{
+        id: sphereId, name: 'Work', agendas: [],
+        contexts: [{ id: contextId, name: 'Home', key: 'h' }],
+      }]),
+    }
+    expect(getContext(stateWithKey, contextId)?.key).toBe('h')
+  })
+
   it('returns undefined for unknown id', () => {
     expect(getContext(baseState, 'nope' as ContextId)).toBeUndefined()
   })

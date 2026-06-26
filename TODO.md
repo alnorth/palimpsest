@@ -8,8 +8,8 @@
 - [x] Set due date expression on a task.
 - [x] Completing a recurring task sets the due date to the next value from the expression.
 - [x] Put task metadata onto a second line
-- [ ] Toggle isWaiting on a task.
-- [ ] Assign a context to a task.
+- [x] Toggle isWaiting on a task.
+- [x] Assign a context to a task.
 - [ ] Dashboard view showing tasks due today or overdue, plus starred tasks.
 - [ ] Pick list screen for choosing work to do, separated by contexts.
 - [ ] Agenda view listing tasks for a particular agenda, separated by isWaiting.
@@ -21,3 +21,5 @@
 - [ ] Show the day of the week when showing due dates in the TUI. Maybe replace the current date display with the day-of-week when it's in the next week. And have "Today", "Tomorrow" for those days too.
 - [ ] In the TUI, show the recurrence expression for a task.
 - [ ] Refine completion/postponing date handling for recurring tasks that have a due date in the future.
+- [ ] Think through how a task inbox will work.
+- [ ] Display the first line of a task's description under it in the TUI.

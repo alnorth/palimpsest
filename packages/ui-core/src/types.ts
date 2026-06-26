@@ -1,4 +1,4 @@
-import type { TaskId, ProjectId, SphereId, AgendaId } from 'palimpsest'
+import type { TaskId, ProjectId, SphereId, AgendaId, ContextId } from 'palimpsest'
 import type { CLEAR } from 'palimpsest'
 
 export type View = 'tasks' | 'projects' | 'project' | 'task'
@@ -10,6 +10,7 @@ export type Mode =
   | 'editing-task'
   | 'editing-description'
   | 'picking-agenda-for-task'
+  | 'picking-context-for-task'
   | 'picking-due-date'
   | 'editing-due-date'
   | 'picking-project-for-task'
@@ -41,6 +42,7 @@ export interface UIState {
   mode: Mode
   viewPickerSelected: number
   agendaPickerSelected: number
+  contextPickerSelected: number
   dueDatePickerSelected: number
   projectPickerSelected: number
 }
@@ -51,6 +53,7 @@ export const INITIAL_UI_STATE: UIState = {
   mode: 'list',
   viewPickerSelected: 0,
   agendaPickerSelected: 0,
+  contextPickerSelected: 0,
   dueDatePickerSelected: 0,
   projectPickerSelected: 0,
 }
@@ -64,6 +67,7 @@ export type UIAction =
   | { type: 'set-sphere'; sphereId: SphereId }
   | { type: 'set-view-picker-selected'; index: number }
   | { type: 'set-agenda-picker-selected'; index: number }
+  | { type: 'set-context-picker-selected'; index: number }
   | { type: 'set-due-date-picker-selected'; index: number }
   | { type: 'set-project-picker-selected'; index: number }
 
@@ -80,6 +84,7 @@ export type DataAction =
   | { type: 'toggle-starred'; taskId: TaskId }
   | { type: 'toggle-waiting'; taskId: TaskId }
   | { type: 'set-task-agenda'; taskId: TaskId; agendaId: AgendaId | typeof CLEAR }
+  | { type: 'set-task-context'; taskId: TaskId; contextId: ContextId | typeof CLEAR }
   | { type: 'create-project'; name: string; sphereId: SphereId }
   | { type: 'create-and-assign-project'; name: string; sphereId: SphereId; taskId: TaskId }
   | { type: 'edit-project'; projectId: ProjectId; name: string }
