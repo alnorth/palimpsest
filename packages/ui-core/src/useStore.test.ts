@@ -5,7 +5,8 @@ import { useStore } from './useStore.js'
 import { ClientPalimpsestStore } from './ClientPalimpsestStore.js'
 import { INITIAL_SYNC_STATE } from './ClientPalimpsestStore.js'
 import { createEmptyState, buildStateFromConfig } from 'palimpsest'
-import type { PalimpsestStore, ProjectionState, SphereId } from 'palimpsest'
+import { PalimpsestStore } from 'palimpsest'
+import type { ProjectionState, SphereId } from 'palimpsest'
 
 const SPHERE_ID = 'sph1' as SphereId
 const initialState: ProjectionState = {
@@ -17,31 +18,29 @@ function makePassthroughSyncFn() {
   return vi.fn(async () => ({ status: 'ok' as const, serverSeq: 0, missedEvents: [] }))
 }
 
-class FakeStore implements PalimpsestStore {
-  private listeners = new Set<() => void>()
+class FakeStore extends PalimpsestStore {
   private _state: ProjectionState = initialState
   started = false
   stopped = false
   subscribeCount = 0
 
-  subscribe(cb: () => void): () => void {
+  override subscribe(cb: () => void): () => void {
     this.subscribeCount++
-    this.listeners.add(cb)
-    return () => this.listeners.delete(cb)
+    return super.subscribe(cb)
   }
 
-  notify() {
-    for (const cb of this.listeners) cb()
+  override notify(): void {
+    super.notify()
   }
 
   setState(s: ProjectionState) { this._state = s }
 
-  async getState(): Promise<ProjectionState> { return this._state }
-  async readAllEvents() { return [] }
-  async appendEvents() {}
-  async init() {}
-  start() { this.started = true }
-  stop() { this.stopped = true }
+  override async getState(): Promise<ProjectionState> { return this._state }
+  override async readAllEvents() { return [] }
+  protected override async doAppend() {}
+  override async init() {}
+  override start() { this.started = true }
+  override stop() { this.stopped = true }
 }
 
 describe('useStore', () => {

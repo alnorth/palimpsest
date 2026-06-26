@@ -8,7 +8,9 @@
     "build": "npm run build --workspaces",
     "test": "npm run test --workspace=packages/core",
     "typecheck": "npm run typecheck --workspaces",
-    "dev": "npm run dev --workspace=packages/cli"
+    "dev": "npm run dev --workspace=packages/cli",
+    "dev:web": "npm run dev --workspace=packages/web",
+    "deploy": "npm run build --workspace=packages/backend && npm run build --workspace=packages/web && npm run deploy --workspace=packages/cdk"
   },
   "optionalDependencies": {
     "@rollup/rollup-linux-x64-gnu": "4.62.2"

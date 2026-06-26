@@ -11,6 +11,8 @@
 - [x] Toggle isWaiting on a task.
 - [x] Assign a context to a task.
 - [x] Dashboard view showing tasks due today or overdue, plus starred tasks.
+- [ ] Fix web app display of starred and next tasks.
+- [ ] Update the web app so it can be used on mobile without all the keyboard shortcuts.
 - [ ] Pick list screen for choosing work to do, separated by contexts.
 - [ ] Agenda view listing tasks for a particular agenda, separated by isWaiting.
 - [ ] Search across tasks and projects.
@@ -27,3 +29,5 @@
 - [ ] Connection errors on intial sync should show an error message, rather than failing silently.
 - [ ] When there's a form value then pressing Esc should clear it rather than go back.
 - [ ] Add a top-level view for showing all the waiting fors.
+- [ ] Add all projects and one off tasks views to facilitate weekly reviews.
+- [ ] Show in the task detail view whether the task is completed or not.
