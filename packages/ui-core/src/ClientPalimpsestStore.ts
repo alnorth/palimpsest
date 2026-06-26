@@ -24,6 +24,20 @@ export interface PendingConflict {
   conflictingEvents: PalimpsestEvent[]
 }
 
+export interface SyncState {
+  health: SyncHealth
+  unsyncedCount: number
+  pendingConflicts: PendingConflict[]
+  lastError: string | undefined
+}
+
+export const INITIAL_SYNC_STATE: SyncState = {
+  health: 'idle',
+  unsyncedCount: 0,
+  pendingConflicts: [],
+  lastError: undefined,
+}
+
 export type SyncFn = (clientSeq: number, events: PalimpsestEvent[]) => Promise<SyncResponse>
 
 export class ClientPalimpsestStore extends PalimpsestStore {
@@ -39,9 +53,14 @@ export class ClientPalimpsestStore extends PalimpsestStore {
   private conflicts: PendingConflict[] = []
   private syncError: string | undefined
 
-  get syncHealth(): SyncHealth { return this.health }
-  get pendingConflicts(): PendingConflict[] { return this.conflicts }
-  get lastSyncError(): string | undefined { return this.syncError }
+  get syncState(): SyncState {
+    return {
+      health: this.health,
+      unsyncedCount: this.unsyncedEvents.length,
+      pendingConflicts: this.conflicts,
+      lastError: this.syncError,
+    }
+  }
 
   constructor(
     private readonly syncFn: SyncFn,
@@ -50,10 +69,6 @@ export class ClientPalimpsestStore extends PalimpsestStore {
     super(opts.initialState)
     this.syncIntervalMs = opts.syncIntervalMs ?? 30_000
     this.pendingStore = opts.pendingStore ?? new MemoryPendingEventStore()
-  }
-
-  get unsyncedCount(): number {
-    return this.unsyncedEvents.length
   }
 
   override async init(): Promise<void> {

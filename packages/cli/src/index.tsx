@@ -76,8 +76,10 @@ function LoadedApp({ initialState }: { initialState: ProjectionState }) {
     view, mode, selected, activeTask, activeProject,
     activeSphere, agendas, contexts, projectStats, listItems, listLength, currentTask, spheres, subtitle,
     searchQuery, projState, commands, dispatch, canGoBack, showCompleted, showArchived,
-    syncHealth, unsyncedCount, pendingConflicts, lastSyncError,
+    syncState,
   } = useAppState(store, initialState)
+
+  const { health: syncHealth, unsyncedCount, pendingConflicts, lastError: lastSyncError } = syncState
 
   const [formValue, setFormValue] = useState('')
   const { rows: termRows } = useWindowSize()

@@ -75,14 +75,14 @@ describe('ClientPalimpsestStore', () => {
   describe('unsyncedCount', () => {
     it('is 0 initially', async () => {
       const store = new ClientPalimpsestStore(makeServerWithEvents([]), { initialState: testInitialState })
-      expect(store.unsyncedCount).toBe(0)
+      expect(store.syncState.unsyncedCount).toBe(0)
     })
 
     it('increments when events are appended', async () => {
       const store = new ClientPalimpsestStore(makeServerWithEvents([]), { initialState: testInitialState })
       const ev = makeTaskEvent()
       await store.appendEvents([ev])
-      expect(store.unsyncedCount).toBe(1)
+      expect(store.syncState.unsyncedCount).toBe(1)
     })
 
     it('returns to 0 after successful sync', async () => {
@@ -90,7 +90,7 @@ describe('ClientPalimpsestStore', () => {
       const ev = makeTaskEvent()
       await store.appendEvents([ev])
       await store.sync()
-      expect(store.unsyncedCount).toBe(0)
+      expect(store.syncState.unsyncedCount).toBe(0)
     })
   })
 
@@ -150,9 +150,9 @@ describe('ClientPalimpsestStore', () => {
     it('clears unsyncedEvents after successful upload', async () => {
       const store = new ClientPalimpsestStore(makeServerWithEvents([]), { initialState: testInitialState })
       await store.appendEvents([makeTaskEvent()])
-      expect(store.unsyncedCount).toBe(1)
+      expect(store.syncState.unsyncedCount).toBe(1)
       await store.sync()
-      expect(store.unsyncedCount).toBe(0)
+      expect(store.syncState.unsyncedCount).toBe(0)
     })
 
     it('getState() still reflects submitted events after successful sync', async () => {
@@ -229,22 +229,22 @@ describe('ClientPalimpsestStore', () => {
   describe('syncHealth', () => {
     it('starts idle', () => {
       const store = new ClientPalimpsestStore(makeServerWithEvents([]), { initialState: testInitialState })
-      expect(store.syncHealth).toBe('idle')
+      expect(store.syncState.health).toBe('idle')
     })
 
     it('becomes error when syncFn throws', async () => {
       const store = new ClientPalimpsestStore(vi.fn().mockRejectedValue(new Error('network')), { initialState: testInitialState })
       await store.sync()
-      expect(store.syncHealth).toBe('error')
+      expect(store.syncState.health).toBe('error')
     })
 
-    it('exposes the error message on lastSyncError', async () => {
+    it('exposes the error message on lastError', async () => {
       const store = new ClientPalimpsestStore(vi.fn().mockRejectedValue(new Error('fetch failed: ECONNREFUSED')), { initialState: testInitialState })
       await store.sync()
-      expect(store.lastSyncError).toBe('fetch failed: ECONNREFUSED')
+      expect(store.syncState.lastError).toBe('fetch failed: ECONNREFUSED')
     })
 
-    it('clears lastSyncError after successful sync', async () => {
+    it('clears lastError after successful sync', async () => {
       let fail = true
       const syncFn = vi.fn(async () => {
         if (fail) throw new Error('timeout')
@@ -252,16 +252,16 @@ describe('ClientPalimpsestStore', () => {
       })
       const store = new ClientPalimpsestStore(syncFn, { initialState: testInitialState })
       await store.sync()
-      expect(store.lastSyncError).toBe('timeout')
+      expect(store.syncState.lastError).toBe('timeout')
       fail = false
       await store.sync()
-      expect(store.lastSyncError).toBeUndefined()
+      expect(store.syncState.lastError).toBeUndefined()
     })
 
     it('handles non-Error throws by converting to string', async () => {
       const store = new ClientPalimpsestStore(vi.fn().mockRejectedValue('plain string error'), { initialState: testInitialState })
       await store.sync()
-      expect(store.lastSyncError).toBe('plain string error')
+      expect(store.syncState.lastError).toBe('plain string error')
     })
 
     it('becomes conflict when server returns conflict status', async () => {
@@ -275,9 +275,9 @@ describe('ClientPalimpsestStore', () => {
       })
       const store = new ClientPalimpsestStore(syncFn, { initialState: testInitialState })
       await store.sync()
-      expect(store.syncHealth).toBe('conflict')
-      expect(store.pendingConflicts).toHaveLength(1)
-      expect(store.pendingConflicts[0]?.reason).toBe('task-deleted')
+      expect(store.syncState.health).toBe('conflict')
+      expect(store.syncState.pendingConflicts).toHaveLength(1)
+      expect(store.syncState.pendingConflicts[0]?.reason).toBe('task-deleted')
     })
 
     it('returns to idle and clears conflicts after successful sync', async () => {
@@ -288,11 +288,11 @@ describe('ClientPalimpsestStore', () => {
       })
       const store = new ClientPalimpsestStore(syncFn, { initialState: testInitialState })
       await store.sync()
-      expect(store.syncHealth).toBe('error')
+      expect(store.syncState.health).toBe('error')
       fail = false
       await store.sync()
-      expect(store.syncHealth).toBe('idle')
-      expect(store.pendingConflicts).toHaveLength(0)
+      expect(store.syncState.health).toBe('idle')
+      expect(store.syncState.pendingConflicts).toHaveLength(0)
     })
 
     it('notifies subscribers when sync health changes', async () => {

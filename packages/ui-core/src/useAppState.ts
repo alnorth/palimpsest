@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect, useReducer } from 'react'
+import { useMemo, useCallback, useReducer } from 'react'
 import {
   listTasks, listProjects,
   createTask, updateTask, completeTask, uncompleteTask,
@@ -13,7 +13,8 @@ import { deriveViewModel } from './viewModel.js'
 import { getCommands } from './commands.js'
 import type { ViewModel } from './viewModel.js'
 import type { Command } from './types.js'
-import type { SyncHealth, PendingConflict } from './ClientPalimpsestStore.js'
+import type { SyncState } from './ClientPalimpsestStore.js'
+import { useStore } from './useStore.js'
 import { indexAfterAppend, indexAfterRemove } from './navHelpers.js'
 import type { NavState } from './types.js'
 
@@ -25,10 +26,7 @@ export interface AppStateResult extends ViewModel {
   projState: ProjectionState
   commands: Command[]
   dispatch: (action: Action) => void
-  syncHealth: SyncHealth
-  unsyncedCount: number
-  pendingConflicts: PendingConflict[]
-  lastSyncError: string | undefined
+  syncState: SyncState
 }
 
 function isDataAction(action: Action): action is DataAction {
@@ -54,44 +52,12 @@ function isDataAction(action: Action): action is DataAction {
   )
 }
 
-interface HasSyncHealth {
-  readonly syncHealth: SyncHealth
-  readonly unsyncedCount: number
-  readonly pendingConflicts: PendingConflict[]
-  readonly lastSyncError: string | undefined
-}
-
-function hasSyncHealth(store: PalimpsestStore): store is PalimpsestStore & HasSyncHealth {
-  return 'syncHealth' in store
-}
-
 export function useAppState(store: PalimpsestStore, initialState: ProjectionState): AppStateResult {
-  const [projState, setProjState] = useState<ProjectionState>(initialState)
+  const { projState, syncState } = useStore(store, initialState)
   const [uiState, dispatchUI] = useReducer(uiReducer, {
     ...INITIAL_UI_STATE,
     currentSphereId: initialState.spheres.values().next().value?.id,
   })
-  const [syncHealth, setSyncHealth] = useState<SyncHealth>('idle')
-  const [unsyncedCount, setUnsyncedCount] = useState(0)
-  const [pendingConflicts, setPendingConflicts] = useState<PendingConflict[]>([])
-  const [lastSyncError, setLastSyncError] = useState<string | undefined>(undefined)
-
-  useEffect(() => {
-    const unsubFn = store.subscribe(() => {
-      void store.getState().then(setProjState).catch(() => {})
-      if (hasSyncHealth(store)) {
-        setSyncHealth(store.syncHealth)
-        setUnsyncedCount(store.unsyncedCount)
-        setPendingConflicts(store.pendingConflicts)
-        setLastSyncError(store.lastSyncError)
-      }
-    })
-    store.start()
-    return () => {
-      unsubFn()
-      store.stop()
-    }
-  }, [store])
 
   const vm = useMemo(() => deriveViewModel(projState, uiState), [projState, uiState])
   const commands = useMemo(() => getCommands(vm), [vm])
@@ -317,5 +283,5 @@ export function useAppState(store: PalimpsestStore, initialState: ProjectionStat
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projState, uiState, vm])
 
-  return { ...vm, projState, commands, dispatch, syncHealth, unsyncedCount, pendingConflicts, lastSyncError }
+  return { ...vm, projState, commands, dispatch, syncState }
 }
