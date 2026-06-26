@@ -346,12 +346,19 @@ describe('isValidExpression', () => {
       expect(isValidExpression('every 5th wednesday')).toBe(true)
       expect(isValidExpression('every last thursday')).toBe(true)
       expect(isValidExpression('ev last fri')).toBe(true)
+      expect(isValidExpression('ev third thur')).toBe(true)
+      expect(isValidExpression('every first monday')).toBe(true)
+      expect(isValidExpression('every second tuesday')).toBe(true)
+      expect(isValidExpression('every fourth fri')).toBe(true)
+      expect(isValidExpression('every fifth saturday')).toBe(true)
     })
 
     it('accepts Nth weekday of specific month (yearly)', () => {
       expect(isValidExpression('every 1st monday in october')).toBe(true)
       expect(isValidExpression('ev 2nd mon of jan')).toBe(true)
       expect(isValidExpression('every last thursday in november')).toBe(true)
+      expect(isValidExpression('every third thursday in november')).toBe(true)
+      expect(isValidExpression('ev second mon of jan')).toBe(true)
     })
   })
 
@@ -479,6 +486,7 @@ describe('nextDueDate — ordinal monthly', () => {
 
   it('bare number without suffix is equivalent', () => {
     expect(nextN('every 15', '2026-06-10')).toEqual(nextN('every 15th', '2026-06-10'))
+    expect(nextN('ev 5', '2026-06-10')).toEqual(nextN('every 5th', '2026-06-10'))
   })
 
   it('wraps year boundary', () => {

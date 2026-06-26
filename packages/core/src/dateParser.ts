@@ -6,7 +6,7 @@ const WEEKDAY_FULL: Record<string, number> = {
 }
 
 const WEEKDAY_ABBREV: Record<string, number> = {
-  sun: 0, mon: 1, tue: 2, wed: 3, thu: 4, fri: 5, sat: 6,
+  sun: 0, mon: 1, tue: 2, wed: 3, thu: 4, thur: 4, thurs: 4, fri: 5, sat: 6,
 }
 
 const MONTH_FULL: Record<string, number> = {
@@ -21,6 +21,17 @@ const MONTH_ABBREV: Record<string, number> = {
 
 function weekday(s: string): number | undefined {
   return WEEKDAY_FULL[s] ?? WEEKDAY_ABBREV[s]
+}
+
+const WORD_ORDINALS: Record<string, number> = {
+  first: 1, second: 2, third: 3, fourth: 4, fifth: 5,
+}
+
+function ordinalN(s: string): number | null {
+  const word = WORD_ORDINALS[s]
+  if (word !== undefined) return word
+  const m = s.match(/^([1-5])(?:st|nd|rd|th)?$/)
+  return m ? parseInt(m[1]!, 10) : null
 }
 
 function month(s: string): number | undefined {
@@ -253,12 +264,12 @@ function parseExpression(expression: string): ParsedExpression | null {
   }
 
   // "every <ordinal> <weekday> in/of <month>" — Nth weekday of a specific month yearly
-  const nthWdYM = rest.match(/^(1st|2nd|3rd|4th|5th) ([a-z]+) (?:in|of) ([a-z]+)$/)
+  const nthWdYM = rest.match(/^([a-z0-9]+(?:st|nd|rd|th)?) ([a-z]+) (?:in|of) ([a-z]+)$/)
   if (nthWdYM) {
-    const wd = weekday(nthWdYM[2]!), mo = month(nthWdYM[3]!)
-    if (wd !== undefined && mo !== undefined)
-      return { kind: 'nth-weekday-of-year', n: parseInt(nthWdYM[1]!, 10), dayOfWeek: wd, month: mo }
-    return null
+    const n = ordinalN(nthWdYM[1]!), wd = weekday(nthWdYM[2]!), mo = month(nthWdYM[3]!)
+    if (n !== null && wd !== undefined && mo !== undefined)
+      return { kind: 'nth-weekday-of-year', n, dayOfWeek: wd, month: mo }
+    // Fall through to "last <weekday> in/of <month>" if n is null (e.g. "last")
   }
 
   // "every last <weekday> in/of <month>" — last weekday of a specific month yearly
@@ -271,10 +282,11 @@ function parseExpression(expression: string): ParsedExpression | null {
   }
 
   // "every <ordinal> <weekday>" — Nth weekday of month (fall through if word is a month name, not weekday)
-  const nthWdM = rest.match(/^(1st|2nd|3rd|4th|5th) ([a-z]+)$/)
+  const nthWdM = rest.match(/^([a-z0-9]+(?:st|nd|rd|th)?) ([a-z]+)$/)
   if (nthWdM) {
+    const n = ordinalN(nthWdM[1]!)
     const wd = weekday(nthWdM[2]!)
-    if (wd !== undefined) return { kind: 'nth-weekday-of-month', n: parseInt(nthWdM[1]!, 10), dayOfWeek: wd }
+    if (n !== null && wd !== undefined) return { kind: 'nth-weekday-of-month', n, dayOfWeek: wd }
     // Fall through — could be a reversed yearly date like "1st jan"
   }
 
