@@ -5,6 +5,7 @@ import {
   createProject, updateProject, archiveProject, unarchiveProject,
   createSphere, createAgenda,
   createEmptyState,
+  CLEAR,
 } from 'palimpsest'
 import type { PalimpsestStore, ProjectionState } from 'palimpsest'
 import { INITIAL_UI_STATE } from './types.js'
@@ -38,6 +39,7 @@ function isDataAction(action: Action): action is DataAction {
     action.type === 'uncomplete-task' ||
     action.type === 'toggle-next' ||
     action.type === 'toggle-starred' ||
+    action.type === 'set-task-project' ||
     action.type === 'set-task-agenda' ||
     action.type === 'create-project' ||
     action.type === 'edit-project' ||
@@ -206,6 +208,24 @@ export function useAppState(store: PalimpsestStore): AppStateResult {
             await store.appendEvents(updateTask(resolvedState, { taskId: action.taskId, patch: { isStarred: task.isStarred !== true } }))
             await refreshProj()
           }
+          break
+        }
+
+        case 'set-task-project': {
+          const task = resolvedState.tasks.get(action.taskId)
+          if (task === undefined) break
+          if (action.projectId === CLEAR) {
+            const sphereId =
+              task.sphereId ??
+              (task.projectId !== undefined ? resolvedState.projects.get(task.projectId)?.sphereId : undefined) ??
+              vm.activeSphere?.id
+            if (sphereId === undefined) break
+            await store.appendEvents(updateTask(resolvedState, { taskId: action.taskId, patch: { projectId: CLEAR, sphereId } }))
+          } else {
+            await store.appendEvents(updateTask(resolvedState, { taskId: action.taskId, patch: { projectId: action.projectId, sphereId: CLEAR } }))
+          }
+          await refreshProj()
+          setUIState(prev => uiReducer(prev, { type: 'set-mode', mode: 'list' }))
           break
         }
 

@@ -120,6 +120,17 @@ export function getCommands(vm: ViewModel): Command[] {
     })
   }
 
+  // ── Pick project ─────────────────────────────────────────────────────────────
+  if (currentTask?.status === 'open') {
+    commands.push({
+      id: 'pick-project',
+      label: 'project',
+      group: 'state',
+      key: 'p',
+      action: { type: 'set-mode', mode: 'picking-project-for-task' },
+    })
+  }
+
   // ── Pick agenda ──────────────────────────────────────────────────────────────
   if (currentTask?.status === 'open') {
     commands.push({
