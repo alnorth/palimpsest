@@ -11,7 +11,7 @@ export NVM_DIR="/opt/nvm"
 [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
 
 cd "$CLAUDE_PROJECT_DIR"
-nvm use
+nvm install
 
 # Persist the activated Node bin path for the session
 echo "export PATH=$(dirname "$(which node)"):$PATH" >> "$CLAUDE_ENV_FILE"
