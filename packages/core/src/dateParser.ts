@@ -6,7 +6,7 @@ const WEEKDAY_FULL: Record<string, number> = {
 }
 
 const WEEKDAY_ABBREV: Record<string, number> = {
-  sun: 0, mon: 1, tue: 2, wed: 3, thu: 4, thur: 4, fri: 5, sat: 6,
+  sun: 0, mon: 1, tue: 2, wed: 3, thu: 4, thur: 4, thurs: 4, fri: 5, sat: 6,
 }
 
 const MONTH_FULL: Record<string, number> = {
