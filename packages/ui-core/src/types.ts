@@ -80,6 +80,7 @@ export type DataAction =
   | { type: 'toggle-starred'; taskId: TaskId }
   | { type: 'set-task-agenda'; taskId: TaskId; agendaId: AgendaId | typeof CLEAR }
   | { type: 'create-project'; name: string; sphereId: SphereId }
+  | { type: 'create-and-assign-project'; name: string; sphereId: SphereId; taskId: TaskId }
   | { type: 'edit-project'; projectId: ProjectId; name: string }
   | { type: 'archive-project'; projectId: ProjectId }
   | { type: 'unarchive-project'; projectId: ProjectId }

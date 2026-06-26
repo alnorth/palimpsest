@@ -6,7 +6,7 @@ import {
   createEmptyState,
   CLEAR,
 } from 'palimpsest'
-import type { PalimpsestStore, ProjectionState } from 'palimpsest'
+import type { PalimpsestStore, ProjectionState, ProjectCreatedEvent } from 'palimpsest'
 import { INITIAL_UI_STATE } from './types.js'
 import type { UIState, Action, UIAction, DataAction } from './types.js'
 import { uiReducer } from './reducer.js'
@@ -43,6 +43,7 @@ function isDataAction(action: Action): action is DataAction {
     action.type === 'set-task-project' ||
     action.type === 'set-task-agenda' ||
     action.type === 'create-project' ||
+    action.type === 'create-and-assign-project' ||
     action.type === 'edit-project' ||
     action.type === 'archive-project' ||
     action.type === 'unarchive-project'
@@ -238,6 +239,15 @@ export function useAppState(store: PalimpsestStore): AppStateResult {
 
         case 'create-project': {
           await store.appendEvents(createProject(resolvedState, { name: action.name, sphereId: action.sphereId }))
+          setUIState(prev => uiReducer(prev, { type: 'set-mode', mode: 'list' }))
+          break
+        }
+
+        case 'create-and-assign-project': {
+          const createEvts = createProject(resolvedState, { name: action.name, sphereId: action.sphereId })
+          const projectId = (createEvts[0] as ProjectCreatedEvent).projectId
+          const assignEvts = updateTask(resolvedState, { taskId: action.taskId, patch: { projectId, sphereId: CLEAR } })
+          await store.appendEvents([...createEvts, ...assignEvts])
           setUIState(prev => uiReducer(prev, { type: 'set-mode', mode: 'list' }))
           break
         }

@@ -88,20 +88,38 @@ function App() {
       if (mode === 'picking-project-for-task') {
         const query = formValue.toLowerCase().trim()
         const filtered = pickerProjects.filter(p => query === '' || p.name.toLowerCase().includes(query))
-        const maxIdx = filtered.length
-        const effectiveSelected = Math.min(projectPickerSelected, maxIdx)
-        if (key.upArrow) dispatch({ type: 'set-project-picker-selected', index: Math.max(0, effectiveSelected - 1) })
-        if (key.downArrow) dispatch({ type: 'set-project-picker-selected', index: Math.min(maxIdx, effectiveSelected + 1) })
-        if (key.return && currentTask !== undefined) {
-          if (effectiveSelected === 0) {
-            setFormValue('')
-            dispatch({ type: 'set-task-project', taskId: currentTask.id, projectId: CLEAR })
-          } else {
-            const proj = filtered[effectiveSelected - 1]
+        if (query === '') {
+          const effectiveSelected = Math.min(projectPickerSelected, filtered.length)
+          if (key.upArrow) dispatch({ type: 'set-project-picker-selected', index: Math.max(0, effectiveSelected - 1) })
+          if (key.downArrow) dispatch({ type: 'set-project-picker-selected', index: Math.min(filtered.length, effectiveSelected + 1) })
+          if (key.return && currentTask !== undefined) {
+            if (effectiveSelected === 0) {
+              setFormValue('')
+              dispatch({ type: 'set-task-project', taskId: currentTask.id, projectId: CLEAR })
+            } else {
+              const proj = filtered[effectiveSelected - 1]
+              if (proj !== undefined) {
+                setFormValue('')
+                dispatch({ type: 'set-task-project', taskId: currentTask.id, projectId: proj.id })
+              }
+            }
+          }
+        } else if (filtered.length > 0) {
+          const effectiveSelected = Math.min(projectPickerSelected, filtered.length - 1)
+          if (key.upArrow) dispatch({ type: 'set-project-picker-selected', index: Math.max(0, effectiveSelected - 1) })
+          if (key.downArrow) dispatch({ type: 'set-project-picker-selected', index: Math.min(filtered.length - 1, effectiveSelected + 1) })
+          if (key.return && currentTask !== undefined) {
+            const proj = filtered[effectiveSelected]
             if (proj !== undefined) {
               setFormValue('')
               dispatch({ type: 'set-task-project', taskId: currentTask.id, projectId: proj.id })
             }
+          }
+        } else {
+          if (key.return && currentTask !== undefined && activeSphere !== undefined) {
+            const name = formValue.trim()
+            setFormValue('')
+            dispatch({ type: 'create-and-assign-project', name, sphereId: activeSphere.id, taskId: currentTask.id })
           }
         }
       }
@@ -333,20 +351,30 @@ function App() {
   } else if (mode === 'picking-project-for-task') {
     const query = formValue.toLowerCase().trim()
     const filtered = pickerProjects.filter(p => query === '' || p.name.toLowerCase().includes(query))
-    const effectiveSelected = Math.min(projectPickerSelected, filtered.length)
+    const effectiveSelected = query === ''
+      ? Math.min(projectPickerSelected, filtered.length)
+      : Math.min(projectPickerSelected, Math.max(0, filtered.length - 1))
     title = <Text bold color="cyan">Project{currentTask !== undefined ? ` — ${currentTask.title}` : ''}</Text>
     content = (
       <Box flexDirection="column">
         <Box>
           <Text dimColor>Search: </Text>
-          <TextInput value={formValue} onChange={setFormValue} onSubmit={() => {}} />
+          <TextInput
+            value={formValue}
+            onChange={(v) => { setFormValue(v); dispatch({ type: 'set-project-picker-selected', index: 0 }) }}
+            onSubmit={() => {}}
+          />
         </Box>
         <Box flexDirection="column" marginTop={1}>
-          <Text {...(effectiveSelected === 0 ? { color: 'blue' as const } : {})}>
-            {effectiveSelected === 0 ? '> ' : '  '}No project
-          </Text>
-          {filtered.map((p, i) => {
-            const isSelected = i + 1 === effectiveSelected
+          {query === '' && (
+            <Text {...(effectiveSelected === 0 ? { color: 'blue' as const } : {})}>
+              {effectiveSelected === 0 ? '> ' : '  '}No project
+            </Text>
+          )}
+          {query !== '' && filtered.length === 0 ? (
+            <Text color="blue">{'> '}Create "{formValue.trim()}"</Text>
+          ) : filtered.map((p, i) => {
+            const isSelected = query === '' ? i + 1 === effectiveSelected : i === effectiveSelected
             return (
               <Text key={p.id} {...(isSelected ? { color: 'blue' as const } : {})}>
                 {isSelected ? '> ' : '  '}{p.name}
