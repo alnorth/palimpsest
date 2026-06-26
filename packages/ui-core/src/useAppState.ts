@@ -15,6 +15,7 @@ import { getCommands } from './commands.js'
 import type { ViewModel } from './viewModel.js'
 import type { Command } from './types.js'
 import type { SyncHealth, PendingConflict } from './ClientPalimpsestStore.js'
+import { indexAfterAppend, indexAfterRemove } from './navHelpers.js'
 
 export interface AppStateResult extends ViewModel {
   projState: ProjectionState
@@ -120,13 +121,13 @@ export function useAppState(store: PalimpsestStore): AppStateResult {
           const sphereId = action.sphereId ?? vm.activeSphere?.id
           const projectId = action.projectId
           if (projectId !== undefined) {
-            const newIndex = listTasks(resolvedState, { projectId, status: 'open' }).length
+            const tasks = listTasks(resolvedState, { projectId, status: 'open' })
             await store.appendEvents(createTask(resolvedState, { title: action.title, projectId }))
-            setUIState(prev => uiReducer(prev, { type: 'update-nav', patch: { selected: newIndex } }))
+            setUIState(prev => uiReducer(prev, { type: 'update-nav', patch: { selected: indexAfterAppend(tasks) } }))
           } else if (sphereId !== undefined) {
-            const newIndex = listTasks(resolvedState, { sphereId, status: 'open' }).length
+            const tasks = listTasks(resolvedState, { sphereId, status: 'open' })
             await store.appendEvents(createTask(resolvedState, { title: action.title, sphereId }))
-            setUIState(prev => uiReducer(prev, { type: 'update-nav', patch: { selected: newIndex } }))
+            setUIState(prev => uiReducer(prev, { type: 'update-nav', patch: { selected: indexAfterAppend(tasks) } }))
           }
           setUIState(prev => uiReducer(prev, { type: 'set-mode', mode: 'list' }))
           break
@@ -160,15 +161,15 @@ export function useAppState(store: PalimpsestStore): AppStateResult {
           if (vm.view !== 'task') {
             const activeProjectId = vm.activeProject?.id
             const activeSphereId = vm.activeSphere?.id
-            const currentCount = activeProjectId !== undefined
-              ? listTasks(resolvedState, { projectId: activeProjectId, status: 'open' }).length
+            const tasks = activeProjectId !== undefined
+              ? listTasks(resolvedState, { projectId: activeProjectId, status: 'open' })
               : activeSphereId !== undefined
-                ? listTasks(resolvedState, { sphereId: activeSphereId, status: 'open' }).length
-                : 0
+                ? listTasks(resolvedState, { sphereId: activeSphereId, status: 'open' })
+                : []
             await store.appendEvents(completeTask(resolvedState, action.taskId))
             setUIState(prev => uiReducer(prev, {
               type: 'update-nav',
-              patch: { selected: Math.max(0, Math.min(prev.navStack[prev.navStack.length - 1]?.selected ?? 0, currentCount - 2)) },
+              patch: { selected: indexAfterRemove(tasks, prev.navStack[prev.navStack.length - 1]?.selected ?? 0) },
             }))
           } else {
             await store.appendEvents(completeTask(resolvedState, action.taskId))
@@ -180,15 +181,15 @@ export function useAppState(store: PalimpsestStore): AppStateResult {
           if (vm.view !== 'task') {
             const activeProjectId = vm.activeProject?.id
             const activeSphereId = vm.activeSphere?.id
-            const currentCount = activeProjectId !== undefined
-              ? listTasks(resolvedState, { projectId: activeProjectId, status: 'completed' }).length
+            const tasks = activeProjectId !== undefined
+              ? listTasks(resolvedState, { projectId: activeProjectId, status: 'completed' })
               : activeSphereId !== undefined
-                ? listTasks(resolvedState, { sphereId: activeSphereId, status: 'completed' }).length
-                : 0
+                ? listTasks(resolvedState, { sphereId: activeSphereId, status: 'completed' })
+                : []
             await store.appendEvents(uncompleteTask(resolvedState, action.taskId))
             setUIState(prev => uiReducer(prev, {
               type: 'update-nav',
-              patch: { selected: Math.max(0, Math.min(prev.navStack[prev.navStack.length - 1]?.selected ?? 0, currentCount - 2)) },
+              patch: { selected: indexAfterRemove(tasks, prev.navStack[prev.navStack.length - 1]?.selected ?? 0) },
             }))
           } else {
             await store.appendEvents(uncompleteTask(resolvedState, action.taskId))
@@ -249,26 +250,26 @@ export function useAppState(store: PalimpsestStore): AppStateResult {
 
         case 'archive-project': {
           const activeSphereId = vm.activeSphere?.id
-          const currentCount = activeSphereId !== undefined
-            ? listProjects(resolvedState, { sphereId: activeSphereId, isArchived: false }).length
-            : 0
+          const projects = activeSphereId !== undefined
+            ? listProjects(resolvedState, { sphereId: activeSphereId, isArchived: false })
+            : []
           await store.appendEvents(archiveProject(resolvedState, action.projectId))
           setUIState(prev => uiReducer(prev, {
             type: 'update-nav',
-            patch: { selected: Math.max(0, Math.min(prev.navStack[prev.navStack.length - 1]?.selected ?? 0, currentCount - 2)) },
+            patch: { selected: indexAfterRemove(projects, prev.navStack[prev.navStack.length - 1]?.selected ?? 0) },
           }))
           break
         }
 
         case 'unarchive-project': {
           const activeSphereId = vm.activeSphere?.id
-          const currentCount = activeSphereId !== undefined
-            ? listProjects(resolvedState, { sphereId: activeSphereId, isArchived: true }).length
-            : 0
+          const projects = activeSphereId !== undefined
+            ? listProjects(resolvedState, { sphereId: activeSphereId, isArchived: true })
+            : []
           await store.appendEvents(unarchiveProject(resolvedState, action.projectId))
           setUIState(prev => uiReducer(prev, {
             type: 'update-nav',
-            patch: { selected: Math.max(0, Math.min(prev.navStack[prev.navStack.length - 1]?.selected ?? 0, currentCount - 2)) },
+            patch: { selected: indexAfterRemove(projects, prev.navStack[prev.navStack.length - 1]?.selected ?? 0) },
           }))
           break
         }

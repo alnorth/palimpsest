@@ -11,3 +11,4 @@ export type { SyncFn, SyncResponse, SyncHealth, PendingConflict } from './Client
 export { ClientPalimpsestStore } from './ClientPalimpsestStore.js'
 export type { PendingEventStore } from './PendingEventStore.js'
 export { MemoryPendingEventStore } from './PendingEventStore.js'
+export { indexAfterAppend, indexAfterRemove } from './navHelpers.js'
