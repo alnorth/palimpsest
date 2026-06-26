@@ -24,7 +24,6 @@ function navSelected(nav: NavState | undefined): number {
 
 export interface AppStateResult extends ViewModel {
   projState: ProjectionState
-  uiState: UIState
   commands: Command[]
   dispatch: (action: Action) => void
   isLoading: boolean
@@ -339,5 +338,5 @@ export function useAppState(store: PalimpsestStore): AppStateResult {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resolvedState, uiState, vm])
 
-  return { ...vm, projState: resolvedState, uiState, commands, dispatch, isLoading, syncHealth, unsyncedCount, pendingConflicts, lastSyncError }
+  return { ...vm, projState: resolvedState, commands, dispatch, isLoading, syncHealth, unsyncedCount, pendingConflicts, lastSyncError }
 }

@@ -46,9 +46,9 @@ if (apiUrl !== undefined && authToken !== undefined) {
 
 function App() {
   const {
-    view, mode, selected, tasks, dashboardTasks, projects, projectTasks, activeTask, activeProject,
+    view, mode, selected, activeTask, activeProject,
     activeSphere, agendas, contexts, projectStats, listItems, listLength, currentTask, spheres, subtitle,
-    searchQuery, projState, uiState, commands, dispatch, canGoBack, showCompleted, showArchived,
+    searchQuery, projState, commands, dispatch, canGoBack, showCompleted, showArchived,
     isLoading, syncHealth, unsyncedCount, pendingConflicts, lastSyncError,
   } = useAppState(store)
 
@@ -77,50 +77,46 @@ function App() {
     if (key.downArrow) dispatch({ type: 'update-nav', patch: { selected: Math.min(Math.max(0, listLength - 1), selected + 1) } })
     // Picker views: handle enter/shortcut
     if (listItems.view === 'picking-view') {
-      const items = listItems.items
-      const shortcut = items.find(item => item.key === input)
-      const chosen = shortcut ?? (key.return ? items[selected] : undefined)
+      const shortcut = listItems.items.find(item => item.key === input)
+      const chosen = shortcut ?? (key.return ? listItems.items[selected] : undefined)
       if (chosen !== undefined) {
         dispatch({ type: 'set-nav', navState: { view: chosen.id, selected: 0, showCompleted: false, showArchived: false } })
       }
       return
     }
     if (listItems.view === 'picking-agenda-for-task') {
-      const items = listItems.items
       if (currentTask !== undefined) {
-        const shortcutItem = items.find(a => a.key === input)
+        const shortcutItem = listItems.items.find(a => a.key === input)
         if (shortcutItem !== undefined) {
           dispatch({ type: 'set-task-agenda', taskId: currentTask.id, agendaId: shortcutItem.id ?? CLEAR })
           return
         }
         if (key.return) {
-          const item = items[selected]
+          const item = listItems.items[selected]
           if (item !== undefined) dispatch({ type: 'set-task-agenda', taskId: currentTask.id, agendaId: item.id ?? CLEAR })
         }
       }
       return
     }
     if (listItems.view === 'picking-context-for-task') {
-      const items = listItems.items
       if (currentTask !== undefined) {
-        const shortcutItem = items.find(c => c.key === input)
+        const shortcutItem = listItems.items.find(c => c.key === input)
         if (shortcutItem !== undefined) {
           dispatch({ type: 'set-task-context', taskId: currentTask.id, contextId: shortcutItem.id ?? CLEAR })
           return
         }
         if (key.return) {
-          const item = items[selected]
+          const item = listItems.items[selected]
           if (item !== undefined) dispatch({ type: 'set-task-context', taskId: currentTask.id, contextId: item.id ?? CLEAR })
         }
       }
       return
     }
     if (listItems.view === 'picking-due-date') {
-      const items = listItems.items
-      const shortcutIdx = items.findIndex(o => o.key === input)
+      const shortcutIdx = listItems.items.findIndex(o => o.key === input)
       const activeIdx = shortcutIdx !== -1 ? shortcutIdx : (key.return ? selected : -1)
       if (activeIdx !== -1 && currentTask !== undefined) {
-        const opt = items[activeIdx]!
+        const opt = listItems.items[activeIdx]!
         if (opt.date !== null) {
           dispatch({ type: 'set-task-due-date', taskId: currentTask.id, dueDate: opt.date })
         } else if (opt.key === 'c') {
@@ -144,14 +140,14 @@ function App() {
       return
     }
     // List mode
-    if (key.return && view === 'projects') {
-      const project = projects[selected]
+    if (key.return && listItems.view === 'projects') {
+      const project = listItems.items[selected]
       if (project !== undefined) {
         dispatch({ type: 'navigate', navState: { view: 'project', selected: 0, activeProjectId: project.id, showCompleted: false, showArchived: false } })
       }
     }
-    if (key.return && (view === 'tasks' || view === 'project' || view === 'dashboard')) {
-      const task = (view === 'project' ? projectTasks : view === 'dashboard' ? dashboardTasks : tasks)[selected]
+    if (key.return && (listItems.view === 'tasks' || listItems.view === 'project' || listItems.view === 'dashboard')) {
+      const task = listItems.items[selected]
       if (task !== undefined) {
         dispatch({ type: 'navigate', navState: { view: 'task', activeTaskId: task.id } })
       }
@@ -162,7 +158,7 @@ function App() {
       if (cmd.id === 'edit-task' && currentTask !== undefined) setFormValue(currentTask.title)
       if (cmd.id === 'edit-description') setFormValue(currentTask?.description ?? '')
       if (cmd.id === 'set-recurrence') setFormValue(currentTask?.dueDateExpression ?? '')
-      if (cmd.id === 'edit-project') setFormValue(projects[selected]?.name ?? '')
+      if (cmd.id === 'edit-project' && listItems.view === 'projects') setFormValue(listItems.items[selected]?.name ?? '')
       if (cmd.id === 'pick-agenda' && currentTask !== undefined) {
         const idx = currentTask.agendaId !== undefined ? agendas.findIndex(a => a.id === currentTask.agendaId) + 1 : 0
         dispatch({ type: 'navigate', navState: { view: 'picking-agenda-for-task', selected: Math.max(0, idx), activeTaskId: currentTask.id } })
@@ -245,7 +241,7 @@ function App() {
 
   function handleEditProjectSubmit(name: string) {
     const trimmed = name.trim()
-    const project = projects[selected]
+    const project = listItems.view === 'projects' ? listItems.items[selected] : undefined
     if (trimmed && project !== undefined) {
       dispatch({ type: 'edit-project', projectId: project.id, name: trimmed })
     } else {
@@ -288,7 +284,6 @@ function App() {
   const viewCommands = commands.filter(c => c.group === 'view')
 
   if (listItems.view === 'picking-due-date') {
-    const dueDateItems = listItems.items
     title = <Text bold color="cyan">Due date{currentTask !== undefined ? ` — ${currentTask.title}` : ''}</Text>
     if (mode === 'editing-due-date') {
       content = (
@@ -302,7 +297,7 @@ function App() {
       )
       footer = <Text dimColor>enter to set  esc cancel</Text>
     } else {
-      content = dueDateItems.map((opt, i) => {
+      content = listItems.items.map((opt, i) => {
         const isSelected = i === selected
         const label = opt.date !== null ? `${opt.label} — ${formatDate(opt.date)}` : opt.label
         return (
@@ -314,9 +309,8 @@ function App() {
       footer = <Text dimColor>↑↓ navigate  enter/key select  esc back</Text>
     }
   } else if (listItems.view === 'picking-agenda-for-task') {
-    const agendaItems = listItems.items
     title = <Text bold color="cyan">Agenda{currentTask !== undefined ? ` — ${currentTask.title}` : ''}</Text>
-    content = agendaItems.map((opt, i) => (
+    content = listItems.items.map((opt, i) => (
       <Text key={opt.title} {...(i === selected ? { color: 'blue' as const } : {})}>
         {i === selected ? '> ' : '  '}{opt.id !== null ? AGENDA_PREFIX : ''}{opt.title}
         {opt.key !== undefined ? <Text dimColor>  {opt.key}</Text> : null}
@@ -324,9 +318,8 @@ function App() {
     ))
     footer = <Text dimColor>↑↓ navigate  enter/key select  esc back</Text>
   } else if (listItems.view === 'picking-context-for-task') {
-    const contextItems = listItems.items
     title = <Text bold color="cyan">Context{currentTask !== undefined ? ` — ${currentTask.title}` : ''}</Text>
-    content = contextItems.map((opt, i) => (
+    content = listItems.items.map((opt, i) => (
       <Text key={opt.name} {...(i === selected ? { color: 'blue' as const } : {})}>
         {i === selected ? '> ' : '  '}{opt.id !== null ? CONTEXT_PREFIX : ''}{opt.name}
         {opt.key !== undefined ? <Text dimColor>  {opt.key}</Text> : null}
@@ -334,7 +327,6 @@ function App() {
     ))
     footer = <Text dimColor>↑↓ navigate  enter/key select  esc back</Text>
   } else if (listItems.view === 'picking-project-for-task') {
-    const projectItems = listItems.items
     title = <Text bold color="cyan">Project{currentTask !== undefined ? ` — ${currentTask.title}` : ''}</Text>
     content = (
       <Box flexDirection="column">
@@ -347,9 +339,9 @@ function App() {
           />
         </Box>
         <Box flexDirection="column" marginTop={1}>
-          {projectItems.length === 0 && searchQuery.trim() !== '' ? (
+          {listItems.items.length === 0 && searchQuery.trim() !== '' ? (
             <Text color="blue">{'> '}Create project "{searchQuery.trim()}"</Text>
-          ) : projectItems.map((p, i) => (
+          ) : listItems.items.map((p, i) => (
             <Text key={p.id ?? 'null'} {...(i === selected ? { color: 'blue' as const } : {})}>
               {i === selected ? '> ' : '  '}{p.name}
             </Text>
@@ -394,7 +386,7 @@ function App() {
     title = <Title name={activeSphere?.name ?? 'Palimpsest'} subtitle={subtitle}>{archivedTag}{completedTag}</Title>
     content = activeSphere === undefined ? (
       <Text dimColor>No spheres configured — edit PALIMPSEST_CONFIG in packages/core/src/config.ts.</Text>
-    ) : view === 'task' ? (() => {
+    ) : listItems.view === 'task' ? (() => {
       const detailProject = activeTask?.projectId !== undefined ? getProject(projState, activeTask.projectId) : undefined
       const detailAgenda = activeTask?.agendaId !== undefined ? getAgenda(projState, activeTask.agendaId) : undefined
       const detailContext = activeTask?.contextId !== undefined ? getContext(projState, activeTask.contextId) : undefined
@@ -416,14 +408,14 @@ function App() {
           </Box>
         </Box>
       )
-    })() : view === 'dashboard' ? (
-      <TaskList tasks={dashboardTasks} selected={selected} state={projState} showProject emptyMessage="No tasks due today and no starred tasks." />
-    ) : view === 'tasks' ? (
-      <TaskList tasks={tasks} selected={selected} state={projState} showProject emptyMessage={showCompleted ? 'No completed tasks in this sphere.' : 'No open tasks in this sphere.'} />
-    ) : view === 'projects' ? (
-      projects.length === 0 ? (
+    })() : listItems.view === 'dashboard' ? (
+      <TaskList tasks={listItems.items} selected={selected} state={projState} showProject emptyMessage="No tasks due today and no starred tasks." />
+    ) : listItems.view === 'tasks' ? (
+      <TaskList tasks={listItems.items} selected={selected} state={projState} showProject emptyMessage={showCompleted ? 'No completed tasks in this sphere.' : 'No open tasks in this sphere.'} />
+    ) : listItems.view === 'projects' ? (
+      listItems.items.length === 0 ? (
         <Text dimColor>No projects.</Text>
-      ) : projects.map((project, i) => {
+      ) : listItems.items.map((project, i) => {
         const isSelected = i === selected
         const hasNext = projectStats.hasNext.has(project.id)
         const color = isSelected ? 'blue' as const : !showArchived && !hasNext ? 'red' as const : undefined
@@ -436,7 +428,7 @@ function App() {
         )
       })
     ) : (
-      <TaskList tasks={projectTasks} selected={selected} state={projState} emptyMessage={showCompleted ? 'No completed tasks in this project.' : 'No open tasks in this project.'} />
+      <TaskList tasks={listItems.items} selected={selected} state={projState} emptyMessage={showCompleted ? 'No completed tasks in this project.' : 'No open tasks in this project.'} />
     )
     footer = mode === 'adding' ? (
       activeSphere === undefined ? (
