@@ -13,9 +13,10 @@ interface Props {
   emptyMessage?: string
   onHover?: (index: number) => void
   onActivate?: (index: number) => void
+  onComplete?: (task: Task) => void
 }
 
-export function TaskList({ tasks, selected, state, showProject, emptyMessage, onHover, onActivate }: Props) {
+export function TaskList({ tasks, selected, state, showProject, emptyMessage, onHover, onActivate, onComplete }: Props) {
   if (tasks.length === 0) {
     return <Text c="dimmed" size="sm">{emptyMessage ?? 'No tasks.'}</Text>
   }
@@ -42,6 +43,16 @@ export function TaskList({ tasks, selected, state, showProject, emptyMessage, on
               userSelect: 'none',
             }}
           >
+            {onComplete !== undefined && (
+              <Text
+                span
+                c={task.status === 'completed' ? 'green' : 'dimmed'}
+                onClick={(e) => { e.stopPropagation(); onComplete(task) }}
+                style={{ cursor: 'pointer' }}
+              >
+                {task.status === 'completed' ? '● ' : '○ '}
+              </Text>
+            )}
             {isSelected ? '> ' : '  '}
             {task.isNext === true && <Text span c="yellow.6">→ </Text>}
             {task.isStarred === true && <Text span c="yellow.6">★ </Text>}

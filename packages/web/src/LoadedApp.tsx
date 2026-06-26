@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
-import { AppShell, Group, Text, ScrollArea, Badge } from '@mantine/core'
-import type { PalimpsestStore, ProjectionState } from 'palimpsest'
+import { AppShell, Group, Text, ScrollArea, Badge, Burger, Button, Stack } from '@mantine/core'
+import type { PalimpsestStore, ProjectionState, Task } from 'palimpsest'
 import { CLEAR, isValidExpression } from 'palimpsest'
 import { useAppState, parseDueDate } from 'palimpsest-ui-core'
 import { useKeyboard } from './useKeyboard.js'
@@ -8,6 +8,7 @@ import { TaskList } from './components/TaskList.js'
 import { TaskDetail } from './components/TaskDetail.js'
 import { ProjectList } from './components/ProjectList.js'
 import { CommandBar } from './components/CommandBar.js'
+import { NavDrawer } from './components/NavDrawer.js'
 import { SyncStatus } from './components/SyncStatus.js'
 import { ViewPicker, AgendaPicker, ContextPicker, DueDatePicker, ProjectSearch } from './components/Pickers.js'
 
@@ -20,12 +21,13 @@ export function LoadedApp({ store, initialState }: Props) {
   const appState = useAppState(store, initialState)
   const {
     view, mode, selected, activeTask, activeProject,
-    activeSphere, projectStats, listItems, currentTask,
+    activeSphere, spheres, projectStats, listItems, currentTask,
     subtitle, projState, commands, dispatch, canGoBack, showCompleted, showArchived,
     syncState, searchQuery, activate,
   } = appState
 
   const [formValue, setFormValue] = useState('')
+  const [navDrawerOpen, setNavDrawerOpen] = useState(false)
 
   useKeyboard(appState, formValue, setFormValue)
 
@@ -122,6 +124,16 @@ export function LoadedApp({ store, initialState }: Props) {
     dispatch({ type: 'update-nav', patch: { selected: i } })
   }
 
+  function handleTaskComplete(task: Task) {
+    if (task.status === 'open') {
+      dispatch({ type: 'complete-task', taskId: task.id })
+    } else {
+      dispatch({ type: 'uncomplete-task', taskId: task.id })
+    }
+  }
+
+  const toggleCmd = commands.find(c => c.id === 'toggle-completed' || c.id === 'toggle-archived')
+
   let titleText: string
   if (listItems.view === 'picking-due-date') {
     titleText = `Due date${currentTask !== undefined ? ` — ${currentTask.title}` : ''}`
@@ -159,7 +171,7 @@ export function LoadedApp({ store, initialState }: Props) {
       />
     )
   } else if (listItems.view === 'task' && activeTask !== undefined) {
-    content = <TaskDetail task={activeTask} state={projState} />
+    content = <TaskDetail task={activeTask} state={projState} commands={commands} dispatch={dispatch} />
   } else if (listItems.view === 'dashboard') {
     content = (
       <TaskList
@@ -170,6 +182,7 @@ export function LoadedApp({ store, initialState }: Props) {
         emptyMessage="No tasks due today and no starred tasks."
         onHover={handleHover}
         onActivate={activate}
+        onComplete={handleTaskComplete}
       />
     )
   } else if (listItems.view === 'tasks') {
@@ -182,6 +195,7 @@ export function LoadedApp({ store, initialState }: Props) {
         emptyMessage={showCompleted ? 'No completed tasks in this sphere.' : 'No open tasks in this sphere.'}
         onHover={handleHover}
         onActivate={activate}
+        onComplete={handleTaskComplete}
       />
     )
   } else if (listItems.view === 'projects') {
@@ -197,15 +211,28 @@ export function LoadedApp({ store, initialState }: Props) {
       />
     )
   } else if (listItems.view === 'project') {
+    const projectCmds = commands.filter(c => c.id === 'add-task')
     content = (
-      <TaskList
-        tasks={listItems.items}
-        selected={selected}
-        state={projState}
-        emptyMessage={showCompleted ? 'No completed tasks in this project.' : 'No open tasks in this project.'}
-        onHover={handleHover}
-        onActivate={activate}
-      />
+      <Stack gap="sm">
+        {projectCmds.length > 0 && (
+          <Group gap="xs">
+            {projectCmds.map(c => (
+              <Button key={c.id} size="xs" variant="light" onClick={() => dispatch(c.action)} style={{ fontFamily: 'monospace' }}>
+                {c.label}
+              </Button>
+            ))}
+          </Group>
+        )}
+        <TaskList
+          tasks={listItems.items}
+          selected={selected}
+          state={projState}
+          emptyMessage={showCompleted ? 'No completed tasks in this project.' : 'No open tasks in this project.'}
+          onHover={handleHover}
+          onActivate={activate}
+          onComplete={handleTaskComplete}
+        />
+      </Stack>
     )
   } else {
     content = activeSphere === undefined
@@ -224,10 +251,31 @@ export function LoadedApp({ store, initialState }: Props) {
         footer: { fontFamily: 'monospace' },
       }}
     >
+      <NavDrawer
+        opened={navDrawerOpen}
+        onClose={() => setNavDrawerOpen(false)}
+        spheres={spheres}
+        activeSphere={activeSphere}
+        currentView={view}
+        dispatch={dispatch}
+      />
       <AppShell.Header px="md">
         <Group h="100%" justify="space-between">
-          <Text fw={700}>{titleText}</Text>
           <Group gap="sm">
+            <Burger opened={navDrawerOpen} onClick={() => setNavDrawerOpen(o => !o)} size="sm" />
+            <Text fw={700}>{titleText}</Text>
+          </Group>
+          <Group gap="sm">
+            {toggleCmd !== undefined && (
+              <Button
+                variant="subtle"
+                size="xs"
+                onClick={() => dispatch(toggleCmd.action)}
+                style={{ fontFamily: 'monospace' }}
+              >
+                {toggleCmd.label}
+              </Button>
+            )}
             {showCompleted && view !== 'projects' && <Badge color="yellow" variant="light">completed</Badge>}
             {showArchived && view === 'projects' && <Badge color="yellow" variant="light">archived</Badge>}
             <SyncStatus syncState={syncState} />
