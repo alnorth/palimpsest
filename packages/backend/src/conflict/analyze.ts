@@ -23,7 +23,6 @@ interface InterveningIndex {
   deletedTasks: Set<string>
   completedTasks: Set<string>  // completed or recurred (closed state)
   uncompletedTasks: Set<string>
-  deletedTasks2: Set<string>
   deletedProjects: Set<string>
 }
 
@@ -32,7 +31,6 @@ function indexIntervening(intervening: PalimpsestEvent[]): InterveningIndex {
     deletedTasks: new Set(),
     completedTasks: new Set(),
     uncompletedTasks: new Set(),
-    deletedTasks2: new Set(),
     deletedProjects: new Set(),
   }
   for (const ev of intervening) {
@@ -40,9 +38,9 @@ function indexIntervening(intervening: PalimpsestEvent[]): InterveningIndex {
     const tid = e['taskId'] as string | undefined
     const pid = e['projectId'] as string | undefined
     switch (ev.type) {
-      case 'task.deleted':   if (tid) idx.deletedTasks.add(tid); break
-      case 'task.completed': if (tid) idx.completedTasks.add(tid); break
-      case 'task.recurred':  if (tid) idx.completedTasks.add(tid); break
+      case 'task.deleted':    if (tid) idx.deletedTasks.add(tid); break
+      case 'task.completed':  if (tid) idx.completedTasks.add(tid); break
+      case 'task.recurred':   if (tid) idx.completedTasks.add(tid); break
       case 'task.uncompleted': if (tid) idx.uncompletedTasks.add(tid); break
       case 'project.deleted': if (pid) idx.deletedProjects.add(pid); break
     }

@@ -5,8 +5,8 @@ import {
 } from 'palimpsest'
 import type { SphereId, ContextId } from 'palimpsest'
 import { deriveViewModel } from './viewModel.js'
-import { INITIAL_UI_STATE, INITIAL_NAV } from './types.js'
-import type { UIState } from './types.js'
+import { INITIAL_NAV } from './types.js'
+import { makeUIState } from './testHelpers.js'
 
 const SPHERE_ID = 'sph1' as SphereId
 
@@ -30,9 +30,6 @@ function buildTestState() {
   return { projState: finalState, sphere, proj, task1, task2 }
 }
 
-function makeUIState(overrides: Partial<UIState> = {}): UIState {
-  return { ...INITIAL_UI_STATE, ...overrides }
-}
 
 describe('deriveViewModel — tasks view', () => {
   it('returns the active sphere', () => {
@@ -76,7 +73,7 @@ describe('deriveViewModel — tasks view', () => {
     // simple check: completed tasks in showCompleted mode are sorted descending
     const uiState = makeUIState({
       currentSphereId: sphere.id,
-      navStack: [{ ...INITIAL_NAV, showCompleted: true }],
+      navStack: [{ view: 'tasks' as const, selected: 0, showCompleted: true }],
     })
     const vm = deriveViewModel(projState, uiState)
     // no completed tasks in our test state, so empty is fine
@@ -89,7 +86,7 @@ describe('deriveViewModel — projects view', () => {
     const { projState, sphere, proj } = buildTestState()
     const uiState = makeUIState({
       currentSphereId: sphere.id,
-      navStack: [{ ...INITIAL_NAV, view: 'projects' }],
+      navStack: [{ view: 'projects' as const, selected: 0, showArchived: false }],
     })
     const vm = deriveViewModel(projState, uiState)
     expect(vm.projects.some(p => p.id === proj.id)).toBe(true)
@@ -101,7 +98,7 @@ describe('deriveViewModel — project view', () => {
     const { projState, sphere, proj, task2 } = buildTestState()
     const uiState = makeUIState({
       currentSphereId: sphere.id,
-      navStack: [{ ...INITIAL_NAV, view: 'project', activeProjectId: proj.id }],
+      navStack: [{ view: 'project' as const, selected: 0, activeProjectId: proj.id, showCompleted: false }],
     })
     const vm = deriveViewModel(projState, uiState)
     expect(vm.projectTasks.some(t => t.id === task2.id)).toBe(true)
@@ -136,7 +133,7 @@ describe('deriveViewModel — navigation helpers', () => {
       currentSphereId: sphere.id,
       navStack: [
         INITIAL_NAV,
-        { ...INITIAL_NAV, view: 'project', activeProjectId: proj.id },
+        { view: 'project' as const, selected: 0, activeProjectId: proj.id, showCompleted: false },
       ],
     })
     const vm = deriveViewModel(projState, uiState)
@@ -147,7 +144,7 @@ describe('deriveViewModel — navigation helpers', () => {
     const { projState, sphere } = buildTestState()
     const uiState = makeUIState({
       currentSphereId: sphere.id,
-      navStack: [{ ...INITIAL_NAV, view: 'projects', selected: 2 }],
+      navStack: [{ view: 'projects' as const, selected: 2, showArchived: false }],
     })
     const vm = deriveViewModel(projState, uiState)
     expect(vm.view).toBe('projects')
@@ -156,7 +153,7 @@ describe('deriveViewModel — navigation helpers', () => {
 
   it('listLength equals tasks.length in tasks view', () => {
     const { projState, sphere } = buildTestState()
-    const uiState = makeUIState({ currentSphereId: sphere.id, navStack: [{ ...INITIAL_NAV, view: 'tasks' }] })
+    const uiState = makeUIState({ currentSphereId: sphere.id, navStack: [{ view: 'tasks' as const, selected: 0, showCompleted: false }] })
     const vm = deriveViewModel(projState, uiState)
     expect(vm.listLength).toBe(vm.tasks.length)
   })
@@ -165,7 +162,7 @@ describe('deriveViewModel — navigation helpers', () => {
     const { projState, sphere } = buildTestState()
     const uiState = makeUIState({
       currentSphereId: sphere.id,
-      navStack: [{ ...INITIAL_NAV, view: 'projects' }],
+      navStack: [{ view: 'projects' as const, selected: 0, showArchived: false }],
     })
     const vm = deriveViewModel(projState, uiState)
     expect(vm.listLength).toBe(vm.projects.length)
@@ -208,7 +205,7 @@ describe('deriveViewModel — currentTask', () => {
     const idx = tasks.findIndex(t => t.id === task1.id)
     const uiState = makeUIState({
       currentSphereId: sphere.id,
-      navStack: [{ ...INITIAL_NAV, view: 'tasks', selected: idx }],
+      navStack: [{ view: 'tasks' as const, selected: idx, showCompleted: false }],
     })
     const vm = deriveViewModel(projState, uiState)
     expect(vm.currentTask?.id).toBe(task1.id)
@@ -218,7 +215,7 @@ describe('deriveViewModel — currentTask', () => {
     const { projState, sphere } = buildTestState()
     const uiState = makeUIState({
       currentSphereId: sphere.id,
-      navStack: [{ ...INITIAL_NAV, view: 'projects' }],
+      navStack: [{ view: 'projects' as const, selected: 0, showArchived: false }],
     })
     const vm = deriveViewModel(projState, uiState)
     expect(vm.currentTask).toBeUndefined()

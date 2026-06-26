@@ -107,7 +107,11 @@ function LoadedApp({ initialState }: { initialState: ProjectionState }) {
       const shortcut = listItems.items.find(item => item.key === input)
       const chosen = shortcut ?? (key.return ? listItems.items[selected] : undefined)
       if (chosen !== undefined) {
-        dispatch({ type: 'set-nav', navState: { view: chosen.id, selected: 0, showCompleted: false, showArchived: false } })
+        const navState =
+          chosen.id === 'tasks'    ? { view: 'tasks' as const,    selected: 0, showCompleted: false } :
+          chosen.id === 'projects' ? { view: 'projects' as const, selected: 0, showArchived: false } :
+                                     { view: 'dashboard' as const, selected: 0 }
+        dispatch({ type: 'set-nav', navState })
       }
       return
     }
@@ -170,7 +174,7 @@ function LoadedApp({ initialState }: { initialState: ProjectionState }) {
     if (key.return && listItems.view === 'projects') {
       const project = listItems.items[selected]
       if (project !== undefined) {
-        dispatch({ type: 'navigate', navState: { view: 'project', selected: 0, activeProjectId: project.id, showCompleted: false, showArchived: false } })
+        dispatch({ type: 'navigate', navState: { view: 'project', selected: 0, activeProjectId: project.id, showCompleted: false } })
       }
     }
     if (key.return && (listItems.view === 'tasks' || listItems.view === 'project' || listItems.view === 'dashboard')) {

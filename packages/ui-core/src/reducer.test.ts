@@ -4,7 +4,7 @@ import { INITIAL_UI_STATE, INITIAL_NAV } from './types.js'
 import type { NavState } from './types.js'
 import type { SphereId } from 'palimpsest'
 
-const PROJECT_NAV: NavState = { ...INITIAL_NAV, view: 'projects' }
+const PROJECT_NAV: NavState = { view: 'projects', selected: 0, showArchived: false }
 
 describe('navigate', () => {
   it('pushes a new nav state onto the stack', () => {
@@ -22,7 +22,7 @@ describe('navigate', () => {
 describe('set-nav', () => {
   it('replaces the nav stack with a single entry', () => {
     const withTwo = uiReducer(INITIAL_UI_STATE, { type: 'navigate', navState: PROJECT_NAV })
-    const result = uiReducer(withTwo, { type: 'set-nav', navState: { ...INITIAL_NAV, view: 'projects' } })
+    const result = uiReducer(withTwo, { type: 'set-nav', navState: { view: 'projects', selected: 0, showArchived: false } })
     expect(result.navStack).toHaveLength(1)
     expect(result.navStack[0]?.view).toBe('projects')
   })

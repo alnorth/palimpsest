@@ -22,10 +22,10 @@ export type Mode =
   | 'editing-recurrence'
 
 export type NavState =
-  | { view: 'dashboard'; selected: number; showCompleted: boolean; showArchived: boolean }
-  | { view: 'tasks'; selected: number; showCompleted: boolean; showArchived: boolean }
-  | { view: 'projects'; selected: number; showCompleted: boolean; showArchived: boolean }
-  | { view: 'project'; selected: number; activeProjectId: ProjectId; showCompleted: boolean; showArchived: boolean }
+  | { view: 'dashboard'; selected: number }
+  | { view: 'tasks'; selected: number; showCompleted: boolean }
+  | { view: 'projects'; selected: number; showArchived: boolean }
+  | { view: 'project'; selected: number; activeProjectId: ProjectId; showCompleted: boolean }
   | { view: 'task'; activeTaskId: TaskId }
   | { view: 'picking-view'; selected: number }
   | { view: 'picking-agenda-for-task'; selected: number; activeTaskId: TaskId }
@@ -36,8 +36,6 @@ export type NavState =
 export const INITIAL_NAV = {
   view: 'dashboard' as const,
   selected: 0,
-  showCompleted: false,
-  showArchived: false,
 } satisfies NavState
 
 export interface UIState {

@@ -211,7 +211,7 @@ export function getCommands(vm: ViewModel): Command[] {
       key: 'P',
       action: {
         type: 'navigate',
-        navState: { view: 'project', selected: 0, activeProjectId: currentTask.projectId, showCompleted: false, showArchived: false },
+        navState: { view: 'project', selected: 0, activeProjectId: currentTask.projectId, showCompleted: false },
       },
     })
   }
@@ -223,7 +223,7 @@ export function getCommands(vm: ViewModel): Command[] {
       label: showCompleted ? 'open' : 'completed',
       group: 'view',
       key: 'C',
-      action: { type: 'navigate', navState: { view: 'tasks', selected: 0, showCompleted: !showCompleted, showArchived } },
+      action: { type: 'navigate', navState: { view: 'tasks', selected: 0, showCompleted: !showCompleted } },
     })
   }
   if (view === 'project' && vm.activeProject !== undefined) {
@@ -232,7 +232,7 @@ export function getCommands(vm: ViewModel): Command[] {
       label: showCompleted ? 'open' : 'completed',
       group: 'view',
       key: 'C',
-      action: { type: 'navigate', navState: { view: 'project', selected: 0, activeProjectId: vm.activeProject.id, showCompleted: !showCompleted, showArchived: false } },
+      action: { type: 'navigate', navState: { view: 'project', selected: 0, activeProjectId: vm.activeProject.id, showCompleted: !showCompleted } },
     })
   }
 
@@ -243,7 +243,7 @@ export function getCommands(vm: ViewModel): Command[] {
       label: showArchived ? 'active' : 'archived',
       group: 'view',
       key: 'X',
-      action: { type: 'navigate', navState: { view: 'projects', selected: 0, showCompleted: false, showArchived: !showArchived } },
+      action: { type: 'navigate', navState: { view: 'projects', selected: 0, showArchived: !showArchived } },
     })
   }
 

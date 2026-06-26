@@ -1,37 +1,40 @@
 import { describe, it, expect } from 'vitest'
 import { analyzeConflict } from './analyze.js'
-import type { PalimpsestEvent } from 'palimpsest'
+import type {
+  TaskCreatedEvent, TaskUpdatedEvent, TaskCompletedEvent, TaskDeletedEvent,
+  TaskRecurredEvent, TaskUncompletedEvent,
+  ProjectCreatedEvent, ProjectUpdatedEvent, ProjectDeletedEvent,
+} from 'palimpsest'
+import type { TaskId, ProjectId, SphereId, EventId } from 'palimpsest'
 
-// Minimal event factories — only the fields needed for conflict analysis
-function taskCreated(taskId: string, sphereId = 's1', projectId?: string): PalimpsestEvent {
-  return { id: 'e1' as any, type: 'task.created', taskId, sphereId, projectId, title: 'T', occurredAt: '2024-01-01T00:00:00Z' } as unknown as PalimpsestEvent
+const T = '2024-01-01T00:00:00Z'
+
+function taskCreated(taskId: string, sphereId = 's1', projectId?: string): TaskCreatedEvent {
+  return { id: 'e1' as EventId, type: 'task.created', taskId: taskId as TaskId, sphereId: sphereId as SphereId, ...(projectId !== undefined ? { projectId: projectId as ProjectId } : {}), title: 'T', description: '', occurredAt: T }
 }
-function taskUpdated(taskId: string): PalimpsestEvent {
-  return { id: 'e2' as any, type: 'task.updated', taskId, patch: { title: 'New' }, occurredAt: '2024-01-01T00:00:00Z' } as unknown as PalimpsestEvent
+function taskUpdated(taskId: string): TaskUpdatedEvent {
+  return { id: 'e2' as EventId, type: 'task.updated', taskId: taskId as TaskId, patch: { title: 'New' }, occurredAt: T }
 }
-function taskCompleted(taskId: string): PalimpsestEvent {
-  return { id: 'e3' as any, type: 'task.completed', taskId, occurredAt: '2024-01-01T00:00:00Z' } as unknown as PalimpsestEvent
+function taskCompleted(taskId: string): TaskCompletedEvent {
+  return { id: 'e3' as EventId, type: 'task.completed', taskId: taskId as TaskId, occurredAt: T }
 }
-function taskDeleted(taskId: string): PalimpsestEvent {
-  return { id: 'e4' as any, type: 'task.deleted', taskId, occurredAt: '2024-01-01T00:00:00Z' } as unknown as PalimpsestEvent
+function taskDeleted(taskId: string): TaskDeletedEvent {
+  return { id: 'e4' as EventId, type: 'task.deleted', taskId: taskId as TaskId, occurredAt: T }
 }
-function taskRecurred(taskId: string): PalimpsestEvent {
-  return { id: 'e5' as any, type: 'task.recurred', taskId, newDueDate: '2024-02-01', occurredAt: '2024-01-01T00:00:00Z' } as unknown as PalimpsestEvent
+function taskRecurred(taskId: string): TaskRecurredEvent {
+  return { id: 'e5' as EventId, type: 'task.recurred', taskId: taskId as TaskId, newDueDate: '2024-02-01', occurredAt: T }
 }
-function taskUncompleted(taskId: string): PalimpsestEvent {
-  return { id: 'e6' as any, type: 'task.uncompleted', taskId, occurredAt: '2024-01-01T00:00:00Z' } as unknown as PalimpsestEvent
+function taskUncompleted(taskId: string): TaskUncompletedEvent {
+  return { id: 'e6' as EventId, type: 'task.uncompleted', taskId: taskId as TaskId, occurredAt: T }
 }
-function sphereDeleted(sphereId: string): PalimpsestEvent {
-  return { id: 'e7' as any, type: 'sphere.deleted', sphereId, occurredAt: '2024-01-01T00:00:00Z' } as unknown as PalimpsestEvent
+function projectDeleted(projectId: string): ProjectDeletedEvent {
+  return { id: 'e8' as EventId, type: 'project.deleted', projectId: projectId as ProjectId, occurredAt: T }
 }
-function projectDeleted(projectId: string): PalimpsestEvent {
-  return { id: 'e8' as any, type: 'project.deleted', projectId, occurredAt: '2024-01-01T00:00:00Z' } as unknown as PalimpsestEvent
+function projectUpdated(projectId: string): ProjectUpdatedEvent {
+  return { id: 'e9' as EventId, type: 'project.updated', projectId: projectId as ProjectId, patch: {}, occurredAt: T }
 }
-function projectUpdated(projectId: string): PalimpsestEvent {
-  return { id: 'e9' as any, type: 'project.updated', projectId, patch: {}, occurredAt: '2024-01-01T00:00:00Z' } as unknown as PalimpsestEvent
-}
-function sphereCreated(): PalimpsestEvent {
-  return { id: 'e10' as any, type: 'sphere.created', sphereId: 'new-sphere', name: 'S', occurredAt: '2024-01-01T00:00:00Z' } as unknown as PalimpsestEvent
+function projectCreated(projectId: string): ProjectCreatedEvent {
+  return { id: 'e10' as EventId, type: 'project.created', projectId: projectId as ProjectId, sphereId: 's1' as SphereId, name: 'P', occurredAt: T }
 }
 
 describe('analyzeConflict', () => {
@@ -44,7 +47,7 @@ describe('analyzeConflict', () => {
 
     it('returns ok when intervening events only create new entities', () => {
       const submitted = [taskUpdated('taskA')]
-      const intervening = [sphereCreated()]
+      const intervening = [projectCreated('projNew')]
       expect(analyzeConflict(submitted, intervening).status).toBe('ok')
     })
 
@@ -125,14 +128,6 @@ describe('analyzeConflict', () => {
       const result = analyzeConflict(submitted, intervening)
       expect(result.status).toBe('conflict')
       if (result.status === 'conflict') expect(result.reason).toBe('task-already-completed')
-    })
-
-    it('task.created when parent sphere was deleted → conflict with reason parent-deleted', () => {
-      const submitted = [taskCreated('taskA', 's1')]
-      const intervening = [sphereDeleted('s1')]
-      const result = analyzeConflict(submitted, intervening)
-      expect(result.status).toBe('conflict')
-      if (result.status === 'conflict') expect(result.reason).toBe('parent-deleted')
     })
 
     it('task.created when parent project was deleted → conflict with reason parent-deleted', () => {

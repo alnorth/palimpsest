@@ -17,9 +17,13 @@
 - [ ] Track what a task is waiting for.
 - [ ] Build the problem lists into the ui-core.
 - [ ] Expose problem lists in the TUI.
-- [ ] Implement a script that imports events from a Todoist export.
+- [ ] Implement a script that imports events from a Todoist export or the sync API.
 - [ ] Show the day of the week when showing due dates in the TUI. Maybe replace the current date display with the day-of-week when it's in the next week. And have "Today", "Tomorrow" for those days too.
-- [ ] In the TUI, show the recurrence expression for a task.
+- [x] In the TUI, show the recurrence expression for a task.
 - [ ] Refine completion/postponing date handling for recurring tasks that have a due date in the future.
 - [ ] Think through how a task inbox will work.
 - [ ] Display the first line of a task's description under it in the TUI.
+- [ ] Merge this into my dashboard webapp in some way.
+- [ ] Connection errors on intial sync should show an error message, rather than failing silently.
+- [ ] When there's a form value then pressing Esc should clear it rather than go back.
+- [ ] Add a top-level view for showing all the waiting fors.
