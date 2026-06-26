@@ -53,7 +53,6 @@ export interface Context {
   sphereId: SphereId
   name: string
   description?: string
-  parentContextId?: ContextId
   createdAt: string
   updatedAt: string
 }

@@ -30,7 +30,6 @@ describe('createContext', () => {
     const ctx = getContext(s2, contextId)
     expect(ctx?.name).toBe('Home')
     expect(ctx?.sphereId).toBe(sphereId)
-    expect(ctx?.parentContextId).toBeUndefined()
   })
 
   it('creates a context with an optional description', () => {
@@ -42,32 +41,6 @@ describe('createContext', () => {
     expect(getContext(s3, childId)?.description).toBe('At the office')
   })
 
-  it('creates a child context under a parent', () => {
-    const { sphereEvts, ctxEvts, s2, sphereId, contextId } = setup()
-    const childEvts = createContext(s2, { sphereId, name: 'Desk', parentContextId: contextId })
-    const s3 = project([...sphereEvts, ...ctxEvts, ...childEvts])
-    const childId = (childEvts[0] as any).contextId as ContextId
-    expect(getContext(s3, childId)?.parentContextId).toBe(contextId)
-  })
-
-  it('throws if parent context does not exist', () => {
-    const { s2, sphereId } = setup()
-    expect(() =>
-      createContext(s2, { sphereId, name: 'Child', parentContextId: 'nope' as ContextId })
-    ).toThrow('Context not found')
-  })
-
-  it('throws if parent context is in a different sphere', () => {
-    const { sphereEvts, ctxEvts, s2, contextId } = setup()
-
-    const sphere2Evts = createSphere(s2, { name: 'Personal' })
-    const s3 = project([...sphereEvts, ...ctxEvts, ...sphere2Evts])
-    const sphere2Id = (sphere2Evts[0] as any).sphereId as SphereId
-
-    expect(() =>
-      createContext(s3, { sphereId: sphere2Id, name: 'Child', parentContextId: contextId })
-    ).toThrow('same sphere')
-  })
 })
 
 describe('updateContext', () => {
@@ -87,46 +60,12 @@ describe('updateContext', () => {
     expect(getContext(s3, contextId)?.description).toBeUndefined()
   })
 
-  it('sets and clears parentContextId', () => {
-    const { sphereEvts, ctxEvts, s2, sphereId, contextId } = setup()
-    const parentEvts = createContext(s2, { sphereId, name: 'Parent' })
-    const parentId = (parentEvts[0] as any).contextId as ContextId
-    const s3 = project([...sphereEvts, ...ctxEvts, ...parentEvts])
-
-    const setEvts = updateContext(s3, contextId, { parentContextId: parentId })
-    const s4 = project([...sphereEvts, ...ctxEvts, ...parentEvts, ...setEvts])
-    expect(getContext(s4, contextId)?.parentContextId).toBe(parentId)
-
-    const clearEvts = updateContext(s4, contextId, { parentContextId: CLEAR })
-    const s5 = project([...sphereEvts, ...ctxEvts, ...parentEvts, ...setEvts, ...clearEvts])
-    expect(getContext(s5, contextId)?.parentContextId).toBeUndefined()
-  })
-
   it('throws if context does not exist', () => {
     expect(() =>
       updateContext(createEmptyState(), 'nope' as ContextId, { name: 'X' })
     ).toThrow('Context not found')
   })
 
-  it('throws if a context is set as its own parent', () => {
-    const { s2, contextId } = setup()
-    expect(() =>
-      updateContext(s2, contextId, { parentContextId: contextId })
-    ).toThrow('cannot be its own parent')
-  })
-
-  it('throws if new parent is in a different sphere', () => {
-    const { sphereEvts, ctxEvts, s2, contextId } = setup()
-    const sphere2Evts = createSphere(s2, { name: 'Personal' })
-    const sphere2Id = (sphere2Evts[0] as any).sphereId as SphereId
-    const s3 = project([...sphereEvts, ...ctxEvts, ...sphere2Evts])
-    const otherEvts = createContext(s3, { sphereId: sphere2Id, name: 'Other' })
-    const otherId = (otherEvts[0] as any).contextId as ContextId
-    const s4 = project([...sphereEvts, ...ctxEvts, ...sphere2Evts, ...otherEvts])
-    expect(() =>
-      updateContext(s4, contextId, { parentContextId: otherId })
-    ).toThrow('same sphere')
-  })
 })
 
 describe('deleteContext', () => {
@@ -151,23 +90,6 @@ describe('listContexts', () => {
     expect(listContexts(s2, { sphereId: 'other' as SphereId })).toHaveLength(0)
   })
 
-  it('filters root contexts (null parentContextId)', () => {
-    const { sphereEvts, ctxEvts, s2, sphereId, contextId } = setup()
-    const childEvts = createContext(s2, { sphereId, name: 'Child', parentContextId: contextId })
-    const s3 = project([...sphereEvts, ...ctxEvts, ...childEvts])
-    const roots = listContexts(s3, { parentContextId: null })
-    expect(roots.map(c => c.id)).toContain(contextId)
-    expect(roots.map(c => c.id)).not.toContain((childEvts[0] as any).contextId)
-  })
-
-  it('filters by parentContextId', () => {
-    const { sphereEvts, ctxEvts, s2, sphereId, contextId } = setup()
-    const childEvts = createContext(s2, { sphereId, name: 'Child', parentContextId: contextId })
-    const childId = (childEvts[0] as any).contextId as ContextId
-    const s3 = project([...sphereEvts, ...ctxEvts, ...childEvts])
-    const children = listContexts(s3, { parentContextId: contextId })
-    expect(children.map(c => c.id)).toEqual([childId])
-  })
 })
 
 describe('task contextId', () => {

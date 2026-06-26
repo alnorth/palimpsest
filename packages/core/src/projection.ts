@@ -105,8 +105,7 @@ export function applyEvent(state: ProjectionState, event: PalimpsestEvent): Proj
         name: event.name,
         createdAt: event.occurredAt,
         updatedAt: event.occurredAt,
-        ...(event.description       !== undefined && { description:       event.description }),
-        ...(event.parentContextId   !== undefined && { parentContextId:   event.parentContextId }),
+        ...(event.description !== undefined && { description: event.description }),
       }
       state.contexts.set(context.id, context)
       return state
@@ -120,10 +119,6 @@ export function applyEvent(state: ProjectionState, event: PalimpsestEvent): Proj
       if (patch.description !== undefined) {
         if (patch.description === CLEAR) delete context.description
         else context.description = patch.description
-      }
-      if (patch.parentContextId !== undefined) {
-        if (patch.parentContextId === CLEAR) delete context.parentContextId
-        else context.parentContextId = patch.parentContextId
       }
       context.updatedAt = event.occurredAt
       return state

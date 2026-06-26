@@ -148,7 +148,6 @@ export interface CreateContextInput {
   sphereId: SphereId
   name: string
   description?: string
-  parentContextId?: ContextId
 }
 
 export function createContext(
@@ -156,11 +155,6 @@ export function createContext(
   input: CreateContextInput,
 ): PalimpsestEvent[] {
   if (!state.spheres.has(input.sphereId)) throw new Error(`Sphere not found: ${input.sphereId}`)
-  if (input.parentContextId !== undefined) {
-    const parent = state.contexts.get(input.parentContextId)
-    if (!parent) throw new Error(`Context not found: ${input.parentContextId}`)
-    if (parent.sphereId !== input.sphereId) throw new Error('Parent context must be in the same sphere')
-  }
   return [{
     id: newEventId(),
     type: 'context.created',
@@ -168,8 +162,7 @@ export function createContext(
     occurredAt: now(),
     sphereId: input.sphereId,
     name: input.name,
-    ...(input.description     !== undefined && { description:     input.description }),
-    ...(input.parentContextId !== undefined && { parentContextId: input.parentContextId }),
+    ...(input.description !== undefined && { description: input.description }),
   }]
 }
 
@@ -178,14 +171,7 @@ export function updateContext(
   contextId: ContextId,
   patch: ContextPatch,
 ): PalimpsestEvent[] {
-  const context = state.contexts.get(contextId)
-  if (!context) throw new Error(`Context not found: ${contextId}`)
-  if (patch.parentContextId !== undefined && patch.parentContextId !== null) {
-    const parent = state.contexts.get(patch.parentContextId)
-    if (!parent) throw new Error(`Context not found: ${patch.parentContextId}`)
-    if (parent.sphereId !== context.sphereId) throw new Error('Parent context must be in the same sphere')
-    if (patch.parentContextId === contextId) throw new Error('A context cannot be its own parent')
-  }
+  if (!state.contexts.has(contextId)) throw new Error(`Context not found: ${contextId}`)
   return [{
     id: newEventId(),
     type: 'context.updated',

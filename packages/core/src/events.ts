@@ -77,13 +77,11 @@ export interface ContextCreatedEvent extends EventBase {
   sphereId: SphereId
   name: string
   description?: string
-  parentContextId?: ContextId
 }
 
 export type ContextPatch = {
   name?: string
   description?: string | typeof CLEAR
-  parentContextId?: ContextId | typeof CLEAR
 }
 
 export interface ContextUpdatedEvent extends EventBase {

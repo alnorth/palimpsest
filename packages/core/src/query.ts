@@ -92,15 +92,10 @@ export function getContext(state: ProjectionState, contextId: ContextId): Contex
 
 export function listContexts(
   state: ProjectionState,
-  filter?: { sphereId?: SphereId; parentContextId?: ContextId | null },
+  filter?: { sphereId?: SphereId },
 ): Context[] {
   let contexts = [...state.contexts.values()]
   if (filter?.sphereId !== undefined) contexts = contexts.filter(c => c.sphereId === filter.sphereId)
-  if (filter?.parentContextId !== undefined) {
-    contexts = filter.parentContextId === null
-      ? contexts.filter(c => c.parentContextId === undefined)
-      : contexts.filter(c => c.parentContextId === filter.parentContextId)
-  }
   return contexts
 }
 
