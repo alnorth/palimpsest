@@ -7,7 +7,7 @@ import {
 } from 'palimpsest'
 import type { PalimpsestStore, ProjectionState, ProjectCreatedEvent } from 'palimpsest'
 import { INITIAL_UI_STATE } from './types.js'
-import type { UIState, Action, UIAction, DataAction } from './types.js'
+import type { UIState, Action, UIAction, DataAction, CommandId } from './types.js'
 import { uiReducer } from './reducer.js'
 import { deriveViewModel } from './viewModel.js'
 import { getCommands } from './commands.js'
@@ -24,7 +24,7 @@ function navSelected(nav: NavState | undefined): number {
 
 export interface AppStateResult extends ViewModel {
   projState: ProjectionState
-  commands: Command[]
+  commands: Partial<Record<CommandId, Command>>
   dispatch: (action: Action) => void
   activate: (index: number) => void
   syncState: SyncState

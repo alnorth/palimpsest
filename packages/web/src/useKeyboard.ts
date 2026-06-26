@@ -81,7 +81,7 @@ export function useKeyboard(
 
       // Letter command shortcuts
       if (input !== '') {
-        const cmd = commands.find(c => c.key === input)
+        const cmd = Object.values(commands).find(c => c.key === input)
         if (cmd !== undefined) {
           if (cmd.id === 'edit-task' && currentTask !== undefined) setFormValue(currentTask.title)
           if (cmd.id === 'edit-description') setFormValue(currentTask?.description ?? '')

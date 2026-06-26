@@ -132,7 +132,7 @@ export function LoadedApp({ store, initialState }: Props) {
     }
   }
 
-  const toggleCmd = commands.find(c => c.id === 'toggle-completed' || c.id === 'toggle-archived')
+  const toggleCmd = commands['toggle-completed'] ?? commands['toggle-archived']
 
   let titleText: string
   if (listItems.view === 'picking-due-date') {
@@ -211,16 +211,14 @@ export function LoadedApp({ store, initialState }: Props) {
       />
     )
   } else if (listItems.view === 'project') {
-    const projectCmds = commands.filter(c => c.id === 'add-task')
+    const addTaskCmd = commands['add-task']
     content = (
       <Stack gap="sm">
-        {projectCmds.length > 0 && (
+        {addTaskCmd !== undefined && (
           <Group gap="xs">
-            {projectCmds.map(c => (
-              <Button key={c.id} size="xs" variant="light" onClick={() => dispatch(c.action)} style={{ fontFamily: 'monospace' }}>
-                {c.label}
-              </Button>
-            ))}
+            <Button size="xs" variant="light" onClick={() => dispatch(addTaskCmd.action)} style={{ fontFamily: 'monospace' }}>
+              {addTaskCmd.label}
+            </Button>
           </Group>
         )}
         <TaskList

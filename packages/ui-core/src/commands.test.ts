@@ -31,7 +31,7 @@ function buildTestState() {
 
 function commandIds(projState: ReturnType<typeof project>, uiState: UIState) {
   const vm = deriveViewModel(projState, uiState)
-  return getCommands(vm).map(c => c.id)
+  return Object.keys(getCommands(vm))
 }
 
 describe('commands — tasks view, list mode', () => {
@@ -105,7 +105,7 @@ describe('commands — completed tasks view', () => {
     // In completed mode, the 'c' key action should be uncomplete-task
     const vm = deriveViewModel(projState, uiState)
     const commands = getCommands(vm)
-    const toggleCmd = commands.find(c => c.id === 'complete-task' || c.id === 'uncomplete-task')
+    const toggleCmd = commands['complete-task'] ?? commands['uncomplete-task']
     // No completed tasks so no toggle command
     expect(toggleCmd).toBeUndefined()
   })

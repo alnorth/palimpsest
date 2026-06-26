@@ -3,13 +3,13 @@ import { Stack, Text, Group, Button } from '@mantine/core'
 import type { Task } from 'palimpsest'
 import type { ProjectionState } from 'palimpsest'
 import { getProject, getAgenda, getContext } from 'palimpsest'
-import type { Action, Command } from 'palimpsest-ui-core'
+import type { Action, Command, CommandId } from 'palimpsest-ui-core'
 import { PROJECT_PREFIX, AGENDA_PREFIX, CONTEXT_PREFIX, RECURRENCE_PREFIX } from 'palimpsest-ui-core'
 
 interface Props {
   task: Task
   state: ProjectionState
-  commands?: Command[]
+  commands?: Partial<Record<CommandId, Command>>
   dispatch?: (action: Action) => void
 }
 
@@ -38,9 +38,9 @@ export function TaskDetail({ task, state, commands, dispatch }: Props) {
         {task.isNext === true && <Text size="sm" c="dimmed">next action</Text>}
         {task.isStarred === true && <Text size="sm" c="dimmed">starred</Text>}
       </Stack>
-      {commands !== undefined && dispatch !== undefined && commands.filter(c => c.group === 'state').length > 0 && (
+      {commands !== undefined && dispatch !== undefined && Object.values(commands).some(c => c.group === 'state') && (
         <Group gap="xs" mt="md" wrap="wrap">
-          {commands.filter(c => c.group === 'state').map(c => (
+          {Object.values(commands).filter(c => c.group === 'state').map(c => (
             <Button
               key={c.id}
               size="xs"

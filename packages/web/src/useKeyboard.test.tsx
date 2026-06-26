@@ -40,7 +40,7 @@ function makeAppState(overrides: Partial<AppStateResult> = {}): AppStateResult {
   return {
     ...base,
     projState,
-    commands: [],
+    commands: {},
     dispatch: vi.fn(),
     activate: vi.fn(),
     syncState: { health: 'idle', unsyncedCount: 0, pendingConflicts: [], lastError: undefined },
