@@ -372,7 +372,7 @@ function App() {
             </Text>
           )}
           {query !== '' && filtered.length === 0 ? (
-            <Text color="blue">{'> '}Create "{formValue.trim()}"</Text>
+            <Text color="blue">{'> '}Create project "{formValue.trim()}"</Text>
           ) : filtered.map((p, i) => {
             const isSelected = query === '' ? i + 1 === effectiveSelected : i === effectiveSelected
             return (
