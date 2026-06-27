@@ -8,7 +8,6 @@ function isInputFocused(): boolean {
 
 export function useKeyboard(
   appState: AppStateResult,
-  formValue: string,
   setFormValue: (v: string) => void,
 ): void {
   const { mode, selected, listLength, listItems, currentTask, agendas, contexts, commands, dispatch, activate } = appState
@@ -83,10 +82,6 @@ export function useKeyboard(
       if (input !== '') {
         const cmd = Object.values(commands).filter((c): c is Command => c !== undefined).find(c => c.key === input)
         if (cmd !== undefined) {
-          if (cmd.id === 'edit-task' && currentTask !== undefined) setFormValue(currentTask.title)
-          if (cmd.id === 'edit-description') setFormValue(currentTask?.description ?? '')
-          if (cmd.id === 'set-recurrence') setFormValue(currentTask?.dueDateExpression ?? '')
-          if (cmd.id === 'edit-project' && listItems.view === 'projects') setFormValue(listItems.items[selected]?.name ?? '')
           if (cmd.id === 'pick-agenda' && currentTask !== undefined) {
             const idx = currentTask.agendaId !== undefined ? agendas.findIndex(a => a.id === currentTask.agendaId) + 1 : 0
             dispatch({ type: 'navigate', navState: { view: 'picking-agenda-for-task', selected: Math.max(0, idx), activeTaskId: currentTask.id } })
@@ -104,5 +99,5 @@ export function useKeyboard(
 
     document.addEventListener('keydown', handler)
     return () => document.removeEventListener('keydown', handler)
-  }, [mode, selected, listLength, listItems, currentTask, agendas, contexts, commands, dispatch, activate, formValue, setFormValue])
+  }, [mode, selected, listLength, listItems, currentTask, agendas, contexts, commands, dispatch, activate, setFormValue])
 }

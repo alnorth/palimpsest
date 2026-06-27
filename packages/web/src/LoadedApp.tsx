@@ -90,7 +90,7 @@ export function LoadedApp({ store, initialState }: Props) {
     }
   }, [mode]) // intentionally omit other deps — we only want to run on mode transitions
 
-  useKeyboard(appState, formValue, setFormValue)
+  useKeyboard(appState, setFormValue)
 
   const today = new Date().toISOString().slice(0, 10)
 
