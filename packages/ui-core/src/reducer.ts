@@ -4,10 +4,10 @@ import type { UIState, UIAction } from './types.js'
 export function uiReducer(state: UIState, action: UIAction): UIState {
   switch (action.type) {
     case 'navigate':
-      return { ...state, navStack: [...state.navStack, action.navState] }
+      return { ...state, navStack: [...state.navStack, action.navState], mode: 'list' }
 
     case 'set-nav':
-      return { ...state, navStack: [action.navState] }
+      return { ...state, navStack: [action.navState], mode: 'list' }
 
     case 'go-back':
       return state.navStack.length > 1
