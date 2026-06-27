@@ -301,6 +301,7 @@ function LoadedApp({ initialState }: { initialState: ProjectionState }) {
 
   const allCommands = Object.values(commands)
   const stateCommands = allCommands.filter(c => c.group === 'state')
+  const createCommands = allCommands.filter(c => c.group === 'create')
   const viewCommands = allCommands.filter(c => c.group === 'view')
 
   if (listItems.view === 'picking-due-date') {
@@ -388,6 +389,15 @@ function LoadedApp({ initialState }: { initialState: ProjectionState }) {
         {stateCommands.length > 0 && (
           <Box flexWrap="wrap">
             {stateCommands.map(c => (
+              <Box key={c.key} marginRight={2} flexShrink={0}>
+                <Text dimColor>{c.key} {c.label}</Text>
+              </Box>
+            ))}
+          </Box>
+        )}
+        {createCommands.length > 0 && (
+          <Box flexWrap="wrap">
+            {createCommands.map(c => (
               <Box key={c.key} marginRight={2} flexShrink={0}>
                 <Text dimColor>{c.key} {c.label}</Text>
               </Box>

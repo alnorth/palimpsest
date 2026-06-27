@@ -11,25 +11,26 @@ export function getCommands(vm: ViewModel): Partial<Record<CommandId, Command>> 
   if (mode !== 'list') return commands
 
   const isTopLevel = view === 'dashboard' || view === 'tasks' || view === 'projects'
+  const isNormalView = isTopLevel || view === 'project'
 
   // ── Add task ─────────────────────────────────────────────────────────────────
-  if ((view === 'tasks' || view === 'project') && !showCompleted) {
+  if (isNormalView && !showCompleted) {
     commands['add-task'] = {
       id: 'add-task',
-      label: 'new',
-      group: 'state',
+      label: 'task',
+      group: 'create',
       key: 'q',
       action: { type: 'set-mode', mode: 'adding' },
     }
   }
 
   // ── Add project ───────────────────────────────────────────────────────────────
-  if (view === 'projects' && !showArchived) {
+  if (isNormalView && !showArchived) {
     commands['add-project'] = {
       id: 'add-project',
-      label: 'new',
-      group: 'state',
-      key: 'q',
+      label: 'project',
+      group: 'create',
+      key: 'j',
       action: { type: 'set-mode', mode: 'adding-project' },
     }
   }

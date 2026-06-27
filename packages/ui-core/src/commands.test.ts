@@ -122,14 +122,14 @@ describe('commands — projects view', () => {
     expect(ids).toContain('add-project')
   })
 
-  it('does not include add-task', () => {
+  it('includes add-task', () => {
     const { projState, sphere } = buildTestState()
     const uiState = makeUIState({
       currentSphereId: sphere.id,
       navStack: [{ view: 'projects' as const, selected: 0, showArchived: false }],
     })
     const ids = commandIds(projState, uiState)
-    expect(ids).not.toContain('add-task')
+    expect(ids).toContain('add-task')
   })
 
   it('includes edit-project when a project is selected', () => {
