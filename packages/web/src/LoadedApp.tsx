@@ -4,6 +4,7 @@ import type { PalimpsestStore, ProjectionState, Task } from 'palimpsest'
 import { CLEAR, isValidExpression } from 'palimpsest'
 import { useAppState, parseDueDate, getDueDatePreview, getRecurrencePreview } from 'palimpsest-ui-core'
 import { useKeyboard } from './useKeyboard.js'
+import { useUrlSync } from './useUrlSync.js'
 import { TaskList } from './components/TaskList.js'
 import { TaskDetail } from './components/TaskDetail.js'
 import { ProjectList } from './components/ProjectList.js'
@@ -92,6 +93,7 @@ export function LoadedApp({ store, initialState }: Props) {
     }
   }, [mode]) // intentionally omit other deps — we only want to run on mode transitions
 
+  useUrlSync({ view, sphereId: activeSphere?.id, activeTaskId: activeTask?.id, activeProjectId: activeProject?.id, dispatch })
   useKeyboard(appState, setFormValue)
 
   const today = new Date().toISOString().slice(0, 10)
