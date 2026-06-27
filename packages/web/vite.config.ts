@@ -6,10 +6,7 @@ import { fileURLToPath } from 'node:url'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 export default defineConfig({
-  // Cast needed because @vitejs/plugin-react ships vite 8 types while
-  // vitest/config ships its own vite 6 peer dependency.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  plugins: [react() as any],
+  plugins: [react()],
   resolve: {
     alias: {
       'node:fs': path.resolve(__dirname, 'src/stubs/node-fs.ts'),
