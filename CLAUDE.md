@@ -23,6 +23,8 @@ packages/backend/  — AWS Lambda sync API (DynamoDB event store, conflict resol
 packages/cdk/      — AWS CDK infrastructure (Lambda, API Gateway, S3, CloudFront, DynamoDB)
 ```
 
+Run `npm install` from the repo root before running typechecks or tests in a fresh environment — missing `node_modules` will cause spurious errors.
+
 Run commands from the repo root, or `cd` into a package directory:
 
 ```bash
