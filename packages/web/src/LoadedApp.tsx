@@ -31,7 +31,7 @@ function FormModal({ opened, onClose, title, placeholder, preview, value, onChan
   const submitDisabled = preview !== undefined && !preview.ok
   const inputStyles = { fontFamily: 'monospace', ...(preview !== undefined && { borderColor: preview.ok ? 'var(--mantine-color-green-6)' : 'var(--mantine-color-red-6)' }) }
   return (
-    <Modal opened={opened} onClose={onClose} title={title} size="sm" styles={{ title: { fontFamily: 'monospace' } }}>
+    <Modal opened={opened} onClose={onClose} title={title} size="sm" styles={{ title: { fontFamily: 'monospace' } }} transitionProps={{ duration: 0 }}>
       {multiline ? (
         <Textarea
           placeholder={placeholder}
