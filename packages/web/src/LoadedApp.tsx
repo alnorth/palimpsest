@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect } from 'react'
 import { AppShell, Group, Text, ScrollArea, Badge, Burger, Button, Stack, Modal, TextInput, Textarea } from '@mantine/core'
 import type { PalimpsestStore, ProjectionState, Task } from 'palimpsest'
 import { CLEAR, isValidExpression } from 'palimpsest'
@@ -28,19 +28,17 @@ function FormModal({ opened, onClose, title, placeholder, preview, value, onChan
   onSubmit: (v: string) => void
   multiline?: boolean
 }) {
-  const textInputRef = useRef<HTMLInputElement>(null)
-  const textareaRef = useRef<HTMLTextAreaElement>(null)
   const submitDisabled = preview !== undefined && !preview.ok
   const inputStyles = { fontFamily: 'monospace', ...(preview !== undefined && { borderColor: preview.ok ? 'var(--mantine-color-green-6)' : 'var(--mantine-color-red-6)' }) }
   return (
-    <Modal opened={opened} onClose={onClose} title={title} size="sm" styles={{ title: { fontFamily: 'monospace' } }} transitionProps={{ onEntered: () => (multiline ? textareaRef : textInputRef).current?.focus() }}>
+    <Modal opened={opened} onClose={onClose} title={title} size="sm" styles={{ title: { fontFamily: 'monospace' } }} transitionProps={{ duration: 0 }}>
       {multiline ? (
         <Textarea
-          ref={textareaRef}
           placeholder={placeholder}
           value={value}
           onChange={e => onChange(e.currentTarget.value)}
           onKeyDown={e => { if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { onSubmit(value); e.preventDefault() } }}
+          autoFocus
           size="sm"
           minRows={3}
           autosize
@@ -48,11 +46,11 @@ function FormModal({ opened, onClose, title, placeholder, preview, value, onChan
         />
       ) : (
         <TextInput
-          ref={textInputRef}
           placeholder={placeholder}
           value={value}
           onChange={e => onChange(e.currentTarget.value)}
           onKeyDown={e => { if (e.key === 'Enter') { onSubmit(value); e.preventDefault() } }}
+          autoFocus
           size="sm"
           styles={{ input: inputStyles }}
         />
