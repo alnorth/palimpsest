@@ -5,7 +5,8 @@
   "private": true,
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "deploy": "cdk deploy --app 'npx tsx app.ts' --profile dashboard"
+    "deploy": "cdk deploy --app 'npx tsx app.ts' --profile dashboard",
+    "deploy:ci": "cdk deploy --app 'npx tsx app.ts' --require-approval never"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",
