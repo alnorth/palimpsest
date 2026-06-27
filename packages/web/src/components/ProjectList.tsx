@@ -45,7 +45,7 @@ export function ProjectList({ projects, selected, projectStats, showArchived, em
             }}
           >
             <Text size="sm" {...(c !== undefined ? { c } : {})}>
-              <Text span style={{ display: 'inline-block', width: '2ch' }}>{isSelected ? '>' : ''}</Text>{project.name}
+              <Text span visibleFrom="sm" style={{ display: 'inline-block', width: '2ch' }}>{isSelected ? '>' : ''}</Text>{project.name}
             </Text>
             <Group gap="xs">
               {project.archivedAt !== undefined && <Text size="xs" c="dimmed">{formatDate(project.archivedAt)}</Text>}

@@ -43,7 +43,7 @@ export function TaskList({ tasks, selected, state, showProject, emptyMessage, on
               userSelect: 'none',
             }}
           >
-            <Text span style={{ display: 'inline-block', width: '2ch' }}>{isSelected ? '>' : ''}</Text>
+            <Text span visibleFrom="sm" style={{ display: 'inline-block', width: '2ch' }}>{isSelected ? '>' : ''}</Text>
             {onComplete !== undefined && (
               <Text
                 span
