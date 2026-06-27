@@ -107,7 +107,7 @@ export function CommandBar({ mode, commands, canGoBack, formValue, onFormChange,
   if (canGoBack) navHints.push('esc back')
 
   return (
-    <Group gap="lg" wrap="wrap">
+    <Group gap="lg" wrap="wrap" visibleFrom="sm">
       {stateCommands.map(c => (
         <Text key={c.key} size="xs" c="dimmed">{c.key} {c.label}</Text>
       ))}
