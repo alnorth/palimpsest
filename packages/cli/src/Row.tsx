@@ -1,5 +1,5 @@
 import React from 'react'
-import { Box, Text } from 'ink'
+import { Box, Text, useWindowSize } from 'ink'
 
 interface Props {
   isSelected: boolean
@@ -11,22 +11,25 @@ interface Props {
 }
 
 export function Row({ isSelected, color, dimColor, title, children, twoLine }: Props) {
+  const { columns } = useWindowSize()
+  const isMobile = columns < 60
+  const caret = isMobile ? '' : (isSelected ? '> ' : '  ')
   if (twoLine === true) {
     return (
       <Box flexDirection="column" marginBottom={1}>
         <Box>
           <Text {...(color !== undefined ? { color } : {})} dimColor={dimColor === true}>
-            {isSelected ? '> ' : '  '}{title}
+            {caret}{title}
           </Text>
         </Box>
-        <Box marginLeft={4}>{children}</Box>
+        <Box marginLeft={isMobile ? 0 : 4}>{children}</Box>
       </Box>
     )
   }
   return (
     <Box marginBottom={1}>
       <Text {...(color !== undefined ? { color } : {})} dimColor={dimColor === true}>
-        {isSelected ? '> ' : '  '}{title}
+        {caret}{title}
       </Text>
       {children}
     </Box>

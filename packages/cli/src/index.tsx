@@ -82,7 +82,8 @@ function LoadedApp({ initialState }: { initialState: ProjectionState }) {
   const { health: syncHealth, unsyncedCount, pendingConflicts, lastError: lastSyncError } = syncState
 
   const [formValue, setFormValue] = useState('')
-  const { rows: termRows } = useWindowSize()
+  const { rows: termRows, columns: termColumns } = useWindowSize()
+  const isMobile = termColumns < 60
 
   useEffect(() => {
     process.stdout.write(`\x1b]0;Palimpsest — ${subtitle}\x07`)
@@ -328,37 +329,37 @@ function LoadedApp({ initialState }: { initialState: ProjectionState }) {
           {dueDatePreviewHint}
         </Box>
       )
-      footer = <Text dimColor>enter to set  esc cancel</Text>
+      footer = isMobile ? null : <Text dimColor>enter to set  esc cancel</Text>
     } else {
       content = listItems.items.map((opt, i) => {
         const isSelected = i === selected
         const label = opt.date !== null ? `${opt.label} — ${formatDate(opt.date)}` : opt.label
         return (
           <Text key={opt.key} {...(isSelected ? { color: 'blue' as const } : {})}>
-            {isSelected ? '> ' : '  '}{label}<Text dimColor>  {opt.key}</Text>
+            {isMobile ? '' : (isSelected ? '> ' : '  ')}{label}<Text dimColor>  {opt.key}</Text>
           </Text>
         )
       })
-      footer = <Text dimColor>↑↓ navigate  enter/key select  esc back</Text>
+      footer = isMobile ? null : <Text dimColor>↑↓ navigate  enter/key select  esc back</Text>
     }
   } else if (listItems.view === 'picking-agenda-for-task') {
     title = <Text bold color="cyan">Agenda{currentTask !== undefined ? ` — ${currentTask.title}` : ''}</Text>
     content = listItems.items.map((opt, i) => (
       <Text key={opt.title} {...(i === selected ? { color: 'blue' as const } : {})}>
-        {i === selected ? '> ' : '  '}{opt.id !== null ? AGENDA_PREFIX : ''}{opt.title}
+        {isMobile ? '' : (i === selected ? '> ' : '  ')}{opt.id !== null ? AGENDA_PREFIX : ''}{opt.title}
         {opt.key !== undefined ? <Text dimColor>  {opt.key}</Text> : null}
       </Text>
     ))
-    footer = <Text dimColor>↑↓ navigate  enter/key select  esc back</Text>
+    footer = isMobile ? null : <Text dimColor>↑↓ navigate  enter/key select  esc back</Text>
   } else if (listItems.view === 'picking-context-for-task') {
     title = <Text bold color="cyan">Context{currentTask !== undefined ? ` — ${currentTask.title}` : ''}</Text>
     content = listItems.items.map((opt, i) => (
       <Text key={opt.name} {...(i === selected ? { color: 'blue' as const } : {})}>
-        {i === selected ? '> ' : '  '}{opt.id !== null ? CONTEXT_PREFIX : ''}{opt.name}
+        {isMobile ? '' : (i === selected ? '> ' : '  ')}{opt.id !== null ? CONTEXT_PREFIX : ''}{opt.name}
         {opt.key !== undefined ? <Text dimColor>  {opt.key}</Text> : null}
       </Text>
     ))
-    footer = <Text dimColor>↑↓ navigate  enter/key select  esc back</Text>
+    footer = isMobile ? null : <Text dimColor>↑↓ navigate  enter/key select  esc back</Text>
   } else if (listItems.view === 'picking-project-for-task') {
     title = <Text bold color="cyan">Project{currentTask !== undefined ? ` — ${currentTask.title}` : ''}</Text>
     content = (
@@ -373,24 +374,24 @@ function LoadedApp({ initialState }: { initialState: ProjectionState }) {
         </Box>
         <Box flexDirection="column" marginTop={1}>
           {listItems.items.length === 0 && searchQuery.trim() !== '' ? (
-            <Text color="blue">{'> '}Create project "{searchQuery.trim()}"</Text>
+            <Text color="blue">{isMobile ? '' : '> '}Create project "{searchQuery.trim()}"</Text>
           ) : listItems.items.map((p, i) => (
             <Text key={p.id ?? 'null'} {...(i === selected ? { color: 'blue' as const } : {})}>
-              {i === selected ? '> ' : '  '}{p.name}
+              {isMobile ? '' : (i === selected ? '> ' : '  ')}{p.name}
             </Text>
           ))}
         </Box>
       </Box>
     )
-    footer = <Text dimColor>type to search  ↑↓ navigate  enter select  esc back</Text>
+    footer = isMobile ? null : <Text dimColor>type to search  ↑↓ navigate  enter select  esc back</Text>
   } else if (listItems.view === 'picking-view') {
     title = <Text bold color="cyan">View</Text>
     content = listItems.items.map((item, i) => (
       <Text key={item.id} {...(i === selected ? { color: 'blue' as const } : {})}>
-        {i === selected ? '> ' : '  '}{item.label}<Text dimColor>  {item.key}</Text>
+        {isMobile ? '' : (i === selected ? '> ' : '  ')}{item.label}<Text dimColor>  {item.key}</Text>
       </Text>
     ))
-    footer = <Text dimColor>↑↓ navigate  enter select  esc back</Text>
+    footer = isMobile ? null : <Text dimColor>↑↓ navigate  enter select  esc back</Text>
   } else {
     const completedTag = showCompleted && view !== 'projects' ? <Text color="yellow"> completed</Text> : null
     const archivedTag = showArchived && view === 'projects' ? <Text color="yellow"> archived</Text> : null
@@ -504,7 +505,7 @@ function LoadedApp({ initialState }: { initialState: ProjectionState }) {
         <Text>Edit project: </Text>
         <TextInput value={formValue} onChange={setFormValue} onSubmit={handleEditProjectSubmit} />
       </Box>
-    ) : listHint
+    ) : isMobile ? null : listHint
   }
 
   const syncRow = syncHealth === 'error' ? (
