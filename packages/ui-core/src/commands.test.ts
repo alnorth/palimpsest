@@ -34,12 +34,36 @@ function commandIds(projState: ReturnType<typeof project>, uiState: UIState) {
   return Object.keys(getCommands(vm))
 }
 
+describe('commands — dashboard view', () => {
+  it('includes add-task and add-project', () => {
+    const { projState, sphere } = buildTestState()
+    const uiState = makeUIState({ currentSphereId: sphere.id, navStack: [{ view: 'dashboard' as const, selected: 0 }] })
+    const ids = commandIds(projState, uiState)
+    expect(ids).toContain('add-task')
+    expect(ids).toContain('add-project')
+  })
+})
+
 describe('commands — tasks view, list mode', () => {
   it('includes add-task', () => {
     const { projState, sphere } = buildTestState()
     const uiState = makeUIState({ currentSphereId: sphere.id, navStack: [{ view: 'tasks' as const, selected: 0, showCompleted: false }] })
     const ids = commandIds(projState, uiState)
     expect(ids).toContain('add-task')
+  })
+
+  it('includes add-project', () => {
+    const { projState, sphere } = buildTestState()
+    const uiState = makeUIState({ currentSphereId: sphere.id, navStack: [{ view: 'tasks' as const, selected: 0, showCompleted: false }] })
+    const ids = commandIds(projState, uiState)
+    expect(ids).toContain('add-project')
+  })
+
+  it('suppresses add-task when showing completed tasks', () => {
+    const { projState, sphere } = buildTestState()
+    const uiState = makeUIState({ currentSphereId: sphere.id, navStack: [{ view: 'tasks' as const, selected: 0, showCompleted: true }] })
+    const ids = commandIds(projState, uiState)
+    expect(ids).not.toContain('add-task')
   })
 
   it('includes view-switcher and sphere-cycle', () => {
@@ -132,6 +156,16 @@ describe('commands — projects view', () => {
     expect(ids).toContain('add-task')
   })
 
+  it('suppresses add-project when showing archived projects', () => {
+    const { projState, sphere } = buildTestState()
+    const uiState = makeUIState({
+      currentSphereId: sphere.id,
+      navStack: [{ view: 'projects' as const, selected: 0, showArchived: true }],
+    })
+    const ids = commandIds(projState, uiState)
+    expect(ids).not.toContain('add-project')
+  })
+
   it('includes edit-project when a project is selected', () => {
     const { projState, sphere } = buildTestState()
     const uiState = makeUIState({
@@ -164,7 +198,7 @@ describe('commands — projects view', () => {
 })
 
 describe('commands — project view', () => {
-  it('includes add-task', () => {
+  it('includes add-task and add-project', () => {
     const { projState, sphere, proj } = buildTestState()
     const uiState = makeUIState({
       currentSphereId: sphere.id,
@@ -172,6 +206,17 @@ describe('commands — project view', () => {
     })
     const ids = commandIds(projState, uiState)
     expect(ids).toContain('add-task')
+    expect(ids).toContain('add-project')
+  })
+
+  it('suppresses add-task when showing completed tasks', () => {
+    const { projState, sphere, proj } = buildTestState()
+    const uiState = makeUIState({
+      currentSphereId: sphere.id,
+      navStack: [{ view: 'project' as const, selected: 0, activeProjectId: proj.id, showCompleted: true }],
+    })
+    const ids = commandIds(projState, uiState)
+    expect(ids).not.toContain('add-task')
   })
 
   it('includes toggle-next for open tasks', () => {
@@ -186,7 +231,7 @@ describe('commands — project view', () => {
 })
 
 describe('commands — task view', () => {
-  it('does not include add-task', () => {
+  it('does not include add-task or add-project', () => {
     const { projState, sphere, task1 } = buildTestState()
     const uiState = makeUIState({
       currentSphereId: sphere.id,
@@ -194,6 +239,7 @@ describe('commands — task view', () => {
     })
     const ids = commandIds(projState, uiState)
     expect(ids).not.toContain('add-task')
+    expect(ids).not.toContain('add-project')
   })
 
   it('includes complete-task for open task', () => {
@@ -248,6 +294,50 @@ describe('commands — pick-due-date', () => {
       navStack: [{ view: 'projects' as const, selected: 0, showArchived: false }],
     })
     expect(commandIds(projState, uiState)).not.toContain('pick-due-date')
+  })
+})
+
+describe('commands — picker views', () => {
+  it('does not include add-task or add-project in picking-view', () => {
+    const { projState, sphere } = buildTestState()
+    const uiState = makeUIState({
+      currentSphereId: sphere.id,
+      navStack: [{ view: 'dashboard' as const, selected: 0 }, { view: 'picking-view' as const, selected: 0 }],
+    })
+    const ids = commandIds(projState, uiState)
+    expect(ids).not.toContain('add-task')
+    expect(ids).not.toContain('add-project')
+  })
+
+  it('does not include add-task or add-project in picking-due-date', () => {
+    const { projState, sphere, task1 } = buildTestState()
+    const uiState = makeUIState({
+      currentSphereId: sphere.id,
+      navStack: [{ view: 'tasks' as const, selected: 0, showCompleted: false }, { view: 'picking-due-date' as const, selected: 0, activeTaskId: task1.id }],
+    })
+    const ids = commandIds(projState, uiState)
+    expect(ids).not.toContain('add-task')
+    expect(ids).not.toContain('add-project')
+  })
+})
+
+describe('commands — create group', () => {
+  it('add-task has group create and key q', () => {
+    const { projState, sphere } = buildTestState()
+    const uiState = makeUIState({ currentSphereId: sphere.id, navStack: [{ view: 'dashboard' as const, selected: 0 }] })
+    const vm = deriveViewModel(projState, uiState)
+    const cmd = getCommands(vm)['add-task']
+    expect(cmd?.group).toBe('create')
+    expect(cmd?.key).toBe('q')
+  })
+
+  it('add-project has group create and key j', () => {
+    const { projState, sphere } = buildTestState()
+    const uiState = makeUIState({ currentSphereId: sphere.id, navStack: [{ view: 'dashboard' as const, selected: 0 }] })
+    const vm = deriveViewModel(projState, uiState)
+    const cmd = getCommands(vm)['add-project']
+    expect(cmd?.group).toBe('create')
+    expect(cmd?.key).toBe('j')
   })
 })
 
