@@ -241,7 +241,7 @@ export function LoadedApp({ store, initialState }: Props) {
   return (
     <AppShell
       header={{ height: 50 }}
-      footer={{ height: mode !== 'list' ? 70 : 44 }}
+      footer={{ height: mode !== 'list' ? 70 : { base: 0, sm: 44 } }}
       padding="md"
       styles={{
         main: { fontFamily: 'monospace' },
@@ -287,7 +287,7 @@ export function LoadedApp({ store, initialState }: Props) {
         </ScrollArea>
       </AppShell.Main>
 
-      <AppShell.Footer px="md" py="sm">
+      <AppShell.Footer px="md" py="sm" {...(mode === 'list' ? { visibleFrom: 'sm' } : {})}>
         <CommandBar
           mode={mode}
           commands={commands}
