@@ -22,7 +22,7 @@
     "react-dom": "^19.2.7",
     "tsup": "^8.0.0",
     "typescript": "^6.0.0",
-    "vitest": "^4.0.0"
+    "vitest": "^4.1.9"
   },
   "peerDependencies": {
     "react": "^19.0.0"
