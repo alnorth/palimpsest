@@ -1,11 +1,11 @@
 import React from 'react'
 import { Group, Text, TextInput } from '@mantine/core'
-import type { Command } from 'palimpsest-ui-core'
+import type { Command, CommandId } from 'palimpsest-ui-core'
 import type { Mode } from 'palimpsest-ui-core'
 
 interface Props {
   mode: Mode
-  commands: Command[]
+  commands: Partial<Record<CommandId, Command>>
   canGoBack: boolean
   formValue: string
   onFormChange: (v: string) => void
@@ -100,8 +100,9 @@ export function CommandBar({ mode, commands, canGoBack, formValue, onFormChange,
     )
   }
 
-  const stateCommands = commands.filter(c => c.group === 'state')
-  const viewCommands = commands.filter(c => c.group === 'view')
+  const allCommands = Object.values(commands)
+  const stateCommands = allCommands.filter(c => c.group === 'state')
+  const viewCommands = allCommands.filter(c => c.group === 'view')
   const navHints = ['↑↓ navigate', ...viewCommands.map(c => `${c.key} ${c.label}`)]
   if (canGoBack) navHints.push('esc back')
 

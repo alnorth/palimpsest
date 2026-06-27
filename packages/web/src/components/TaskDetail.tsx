@@ -1,20 +1,23 @@
 import React from 'react'
-import { Stack, Text } from '@mantine/core'
+import { Stack, Text, Group, Button } from '@mantine/core'
 import type { Task } from 'palimpsest'
 import type { ProjectionState } from 'palimpsest'
 import { getProject, getAgenda, getContext } from 'palimpsest'
+import type { Action, Command, CommandId } from 'palimpsest-ui-core'
 import { PROJECT_PREFIX, AGENDA_PREFIX, CONTEXT_PREFIX, RECURRENCE_PREFIX } from 'palimpsest-ui-core'
 
 interface Props {
   task: Task
   state: ProjectionState
+  commands?: Partial<Record<CommandId, Command>>
+  dispatch?: (action: Action) => void
 }
 
 function formatDateTime(iso: string): string {
   return new Date(iso).toLocaleString()
 }
 
-export function TaskDetail({ task, state }: Props) {
+export function TaskDetail({ task, state, commands, dispatch }: Props) {
   const project = task.projectId !== undefined ? getProject(state, task.projectId) : undefined
   const agenda = task.agendaId !== undefined ? getAgenda(state, task.agendaId) : undefined
   const context = task.contextId !== undefined ? getContext(state, task.contextId) : undefined
@@ -35,6 +38,21 @@ export function TaskDetail({ task, state }: Props) {
         {task.isNext === true && <Text size="sm" c="dimmed">next action</Text>}
         {task.isStarred === true && <Text size="sm" c="dimmed">starred</Text>}
       </Stack>
+      {commands !== undefined && dispatch !== undefined && Object.values(commands).some(c => c.group === 'state') && (
+        <Group gap="xs" mt="md" wrap="wrap">
+          {Object.values(commands).filter(c => c.group === 'state').map(c => (
+            <Button
+              key={c.id}
+              size="xs"
+              variant="light"
+              onClick={() => dispatch(c.action)}
+              style={{ fontFamily: 'monospace' }}
+            >
+              {c.label}
+            </Button>
+          ))}
+        </Group>
+      )}
     </Stack>
   )
 }

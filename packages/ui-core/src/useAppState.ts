@@ -7,7 +7,7 @@ import {
 } from 'palimpsest'
 import type { PalimpsestStore, ProjectionState, ProjectCreatedEvent } from 'palimpsest'
 import { INITIAL_UI_STATE } from './types.js'
-import type { UIState, Action, UIAction, DataAction } from './types.js'
+import type { UIState, Action, UIAction, DataAction, CommandId } from './types.js'
 import { uiReducer } from './reducer.js'
 import { deriveViewModel } from './viewModel.js'
 import { getCommands } from './commands.js'
@@ -15,7 +15,7 @@ import type { ViewModel } from './viewModel.js'
 import type { Command } from './types.js'
 import type { SyncState } from './ClientPalimpsestStore.js'
 import { useStore } from './useStore.js'
-import { indexAfterAppend, indexAfterRemove } from './navHelpers.js'
+import { indexAfterAppend, indexAfterRemove, navStateForTopLevelView } from './navHelpers.js'
 import type { NavState } from './types.js'
 
 function navSelected(nav: NavState | undefined): number {
@@ -24,7 +24,7 @@ function navSelected(nav: NavState | undefined): number {
 
 export interface AppStateResult extends ViewModel {
   projState: ProjectionState
-  commands: Command[]
+  commands: Partial<Record<CommandId, Command>>
   dispatch: (action: Action) => void
   activate: (index: number) => void
   syncState: SyncState
@@ -288,11 +288,7 @@ export function useAppState(store: PalimpsestStore, initialState: ProjectionStat
     if (vm.listItems.view === 'picking-view') {
       const item = vm.listItems.items[i]
       if (item !== undefined) {
-        const navState =
-          item.id === 'tasks'    ? { view: 'tasks' as const, selected: 0, showCompleted: false } :
-          item.id === 'projects' ? { view: 'projects' as const, selected: 0, showArchived: false } :
-                                   { view: 'dashboard' as const, selected: 0 }
-        dispatch({ type: 'set-nav', navState })
+        dispatch({ type: 'set-nav', navState: navStateForTopLevelView(item.id) })
       }
     } else if (vm.listItems.view === 'picking-agenda-for-task' && vm.currentTask !== undefined) {
       const item = vm.listItems.items[i]

@@ -186,7 +186,7 @@ function LoadedApp({ initialState }: { initialState: ProjectionState }) {
       }
     }
 
-    const cmd = commands.find(c => c.key === input)
+    const cmd = Object.values(commands).find(c => c.key === input)
     if (cmd) {
       if (cmd.id === 'edit-task' && currentTask !== undefined) setFormValue(currentTask.title)
       if (cmd.id === 'edit-description') setFormValue(currentTask?.description ?? '')
@@ -312,8 +312,9 @@ function LoadedApp({ initialState }: { initialState: ProjectionState }) {
   let content: React.ReactNode
   let footer: React.ReactNode
 
-  const stateCommands = commands.filter(c => c.group === 'state')
-  const viewCommands = commands.filter(c => c.group === 'view')
+  const allCommands = Object.values(commands)
+  const stateCommands = allCommands.filter(c => c.group === 'state')
+  const viewCommands = allCommands.filter(c => c.group === 'view')
 
   if (listItems.view === 'picking-due-date') {
     title = <Text bold color="cyan">Due date{currentTask !== undefined ? ` — ${currentTask.title}` : ''}</Text>
