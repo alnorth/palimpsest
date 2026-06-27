@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import { AppShell, Group, Text, ScrollArea, Badge, Burger, Button, Stack, Modal, TextInput } from '@mantine/core'
 import type { PalimpsestStore, ProjectionState, Task } from 'palimpsest'
-import { CLEAR, isValidExpression } from 'palimpsest'
+import { CLEAR, isValidExpression, nextDueDate } from 'palimpsest'
 import { useAppState, parseDueDate } from 'palimpsest-ui-core'
 import { useKeyboard } from './useKeyboard.js'
 import { TaskList } from './components/TaskList.js'
@@ -17,11 +17,12 @@ interface Props {
   initialState: ProjectionState
 }
 
-function FormModal({ opened, onClose, title, placeholder, value, onChange, onSubmit }: {
+function FormModal({ opened, onClose, title, placeholder, preview, value, onChange, onSubmit }: {
   opened: boolean
   onClose: () => void
   title: string
   placeholder?: string
+  preview?: string | undefined
   value: string
   onChange: (v: string) => void
   onSubmit: (v: string) => void
@@ -37,6 +38,9 @@ function FormModal({ opened, onClose, title, placeholder, value, onChange, onSub
         size="sm"
         styles={{ input: { fontFamily: 'monospace' } }}
       />
+      {preview !== undefined && (
+        <Text size="sm" c="dimmed" mt="xs" style={{ fontFamily: 'monospace' }}>{preview}</Text>
+      )}
     </Modal>
   )
 }
@@ -259,6 +263,20 @@ export function LoadedApp({ store, initialState }: Props) {
 
   const taskTitle = currentTask?.title
 
+  const dueDatePreview = (() => {
+    if (mode !== 'editing-due-date' || formValue.trim() === '') return undefined
+    const parsed = parseDueDate(formValue, today)
+    return parsed !== null ? parsed : 'not recognised'
+  })()
+
+  const recurrencePreview = (() => {
+    if (mode !== 'editing-recurrence' || formValue.trim() === '') return undefined
+    const trimmed = formValue.trim()
+    if (!isValidExpression(trimmed)) return 'not recognised'
+    const next = nextDueDate(trimmed, today)
+    return next !== null ? `next: ${next}` : undefined
+  })()
+
   return (
     <AppShell
       header={{ height: 50 }}
@@ -315,8 +333,8 @@ export function LoadedApp({ store, initialState }: Props) {
       <FormModal opened={mode === 'adding'} onClose={dismissModal} title="New task" value={formValue} onChange={setFormValue} onSubmit={handleTaskSubmit} />
       <FormModal opened={mode === 'editing-task'} onClose={dismissModal} title={taskTitle !== undefined ? `Edit — ${taskTitle}` : 'Edit task'} value={formValue} onChange={setFormValue} onSubmit={handleEditSubmit} />
       <FormModal opened={mode === 'editing-description'} onClose={dismissModal} title={taskTitle !== undefined ? `Description — ${taskTitle}` : 'Description'} value={formValue} onChange={setFormValue} onSubmit={handleEditDescriptionSubmit} />
-      <FormModal opened={mode === 'editing-due-date'} onClose={dismissModal} title={taskTitle !== undefined ? `Due date — ${taskTitle}` : 'Due date'} placeholder="tomorrow · next monday · jul 4 · 2026-12-25" value={formValue} onChange={setFormValue} onSubmit={handleDueDateSubmit} />
-      <FormModal opened={mode === 'editing-recurrence'} onClose={dismissModal} title={taskTitle !== undefined ? `Recurrence — ${taskTitle}` : 'Recurrence'} placeholder="daily · every monday · every 2 weeks · monthly" value={formValue} onChange={setFormValue} onSubmit={handleRecurrenceSubmit} />
+      <FormModal opened={mode === 'editing-due-date'} onClose={dismissModal} title={taskTitle !== undefined ? `Due date — ${taskTitle}` : 'Due date'} placeholder="tomorrow · next monday · jul 4 · 2026-12-25" preview={dueDatePreview} value={formValue} onChange={setFormValue} onSubmit={handleDueDateSubmit} />
+      <FormModal opened={mode === 'editing-recurrence'} onClose={dismissModal} title={taskTitle !== undefined ? `Recurrence — ${taskTitle}` : 'Recurrence'} placeholder="daily · every monday · every 2 weeks · monthly" preview={recurrencePreview} value={formValue} onChange={setFormValue} onSubmit={handleRecurrenceSubmit} />
       <FormModal opened={mode === 'adding-project'} onClose={dismissModal} title="New project" value={formValue} onChange={setFormValue} onSubmit={handleProjectSubmit} />
       <FormModal opened={mode === 'editing-project'} onClose={dismissModal} title="Edit project" value={formValue} onChange={setFormValue} onSubmit={handleEditProjectSubmit} />
     </AppShell>
