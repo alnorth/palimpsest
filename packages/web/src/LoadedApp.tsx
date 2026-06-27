@@ -28,24 +28,22 @@ function FormModal({ opened, onClose, title, placeholder, preview, value, onChan
   onSubmit: (v: string) => void
   multiline?: boolean
 }) {
+  const submitDisabled = preview !== undefined && !preview.ok
   const inputStyles = { fontFamily: 'monospace', ...(preview !== undefined && { borderColor: preview.ok ? 'var(--mantine-color-green-6)' : 'var(--mantine-color-red-6)' }) }
   return (
     <Modal opened={opened} onClose={onClose} title={title} size="sm" styles={{ title: { fontFamily: 'monospace' } }}>
       {multiline ? (
-        <>
-          <Textarea
-            placeholder={placeholder}
-            value={value}
-            onChange={e => onChange(e.currentTarget.value)}
-            onKeyDown={e => { if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { onSubmit(value); e.preventDefault() } }}
-            autoFocus
-            size="sm"
-            minRows={3}
-            autosize
-            styles={{ input: inputStyles }}
-          />
-          <Text size="xs" c="dimmed" mt={4}>Ctrl+Enter to save</Text>
-        </>
+        <Textarea
+          placeholder={placeholder}
+          value={value}
+          onChange={e => onChange(e.currentTarget.value)}
+          onKeyDown={e => { if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { onSubmit(value); e.preventDefault() } }}
+          autoFocus
+          size="sm"
+          minRows={3}
+          autosize
+          styles={{ input: inputStyles }}
+        />
       ) : (
         <TextInput
           placeholder={placeholder}
@@ -60,6 +58,10 @@ function FormModal({ opened, onClose, title, placeholder, preview, value, onChan
       {preview !== undefined && (
         <Text size="sm" c={preview.ok ? 'green' : 'red'} mt="xs" style={{ fontFamily: 'monospace' }}>→ {preview.text}</Text>
       )}
+      <Group justify="flex-end" mt="sm">
+        {multiline && <Text size="xs" c="dimmed" visibleFrom="sm">Ctrl+Enter to save</Text>}
+        <Button size="xs" disabled={submitDisabled} onClick={() => onSubmit(value)}>Save</Button>
+      </Group>
     </Modal>
   )
 }
