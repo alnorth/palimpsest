@@ -17,6 +17,30 @@ interface Props {
   initialState: ProjectionState
 }
 
+function FormModal({ opened, onClose, title, placeholder, value, onChange, onSubmit }: {
+  opened: boolean
+  onClose: () => void
+  title: string
+  placeholder?: string
+  value: string
+  onChange: (v: string) => void
+  onSubmit: (v: string) => void
+}) {
+  return (
+    <Modal opened={opened} onClose={onClose} title={title} size="sm" styles={{ title: { fontFamily: 'monospace' } }}>
+      <TextInput
+        placeholder={placeholder}
+        value={value}
+        onChange={e => onChange(e.currentTarget.value)}
+        onKeyDown={e => { if (e.key === 'Enter') { onSubmit(value); e.preventDefault() } }}
+        autoFocus
+        size="sm"
+        styles={{ input: { fontFamily: 'monospace' } }}
+      />
+    </Modal>
+  )
+}
+
 export function LoadedApp({ store, initialState }: Props) {
   const appState = useAppState(store, initialState)
   const {
@@ -32,6 +56,11 @@ export function LoadedApp({ store, initialState }: Props) {
   useKeyboard(appState, formValue, setFormValue)
 
   const today = new Date().toISOString().slice(0, 10)
+
+  function dismissModal() {
+    dispatch({ type: 'set-mode', mode: 'list' })
+    setFormValue('')
+  }
 
   function handleTaskSubmit(title: string) {
     const trimmed = title.trim()
@@ -77,11 +106,6 @@ export function LoadedApp({ store, initialState }: Props) {
     }
   }
 
-  function closeDueDateModal() {
-    dispatch({ type: 'set-mode', mode: 'list' })
-    setFormValue('')
-  }
-
   function handleRecurrenceSubmit(value: string) {
     const trimmed = value.trim()
     if (currentTask === undefined) return
@@ -113,17 +137,6 @@ export function LoadedApp({ store, initialState }: Props) {
       dispatch({ type: 'set-mode', mode: 'list' })
     }
     setFormValue('')
-  }
-
-  function getSubmitHandler(): (v: string) => void {
-    if (mode === 'adding') return handleTaskSubmit
-    if (mode === 'editing-task') return handleEditSubmit
-    if (mode === 'editing-description') return handleEditDescriptionSubmit
-    if (mode === 'editing-due-date') return handleDueDateSubmit
-    if (mode === 'editing-recurrence') return handleRecurrenceSubmit
-    if (mode === 'adding-project') return handleProjectSubmit
-    if (mode === 'editing-project') return handleEditProjectSubmit
-    return () => {}
   }
 
   function handleHover(i: number) {
@@ -244,10 +257,12 @@ export function LoadedApp({ store, initialState }: Props) {
       : null
   }
 
+  const taskTitle = currentTask?.title
+
   return (
     <AppShell
       header={{ height: 50 }}
-      footer={{ height: mode !== 'list' && mode !== 'editing-due-date' ? 70 : { base: 0, sm: 44 } }}
+      footer={{ height: { base: 0, sm: 44 } }}
       padding="md"
       styles={{
         main: { fontFamily: 'monospace' },
@@ -293,34 +308,17 @@ export function LoadedApp({ store, initialState }: Props) {
         </ScrollArea>
       </AppShell.Main>
 
-      <AppShell.Footer px="md" py="sm" {...(mode === 'list' ? { visibleFrom: 'sm' } : {})}>
-        <CommandBar
-          mode={mode}
-          commands={commands}
-          canGoBack={canGoBack}
-          formValue={formValue}
-          onFormChange={setFormValue}
-          onFormSubmit={getSubmitHandler()}
-        />
+      <AppShell.Footer px="md" py="sm" visibleFrom="sm">
+        <CommandBar commands={commands} canGoBack={canGoBack} />
       </AppShell.Footer>
 
-      <Modal
-        opened={mode === 'editing-due-date'}
-        onClose={closeDueDateModal}
-        title={currentTask !== undefined ? `Due date — ${currentTask.title}` : 'Due date'}
-        size="sm"
-        styles={{ title: { fontFamily: 'monospace' } }}
-      >
-        <TextInput
-          placeholder="tomorrow · next monday · jul 4 · 2026-12-25"
-          value={formValue}
-          onChange={e => setFormValue(e.currentTarget.value)}
-          onKeyDown={e => { if (e.key === 'Enter') { handleDueDateSubmit(formValue); e.preventDefault() } }}
-          autoFocus
-          size="sm"
-          styles={{ input: { fontFamily: 'monospace' } }}
-        />
-      </Modal>
+      <FormModal opened={mode === 'adding'} onClose={dismissModal} title="New task" value={formValue} onChange={setFormValue} onSubmit={handleTaskSubmit} />
+      <FormModal opened={mode === 'editing-task'} onClose={dismissModal} title={taskTitle !== undefined ? `Edit — ${taskTitle}` : 'Edit task'} value={formValue} onChange={setFormValue} onSubmit={handleEditSubmit} />
+      <FormModal opened={mode === 'editing-description'} onClose={dismissModal} title={taskTitle !== undefined ? `Description — ${taskTitle}` : 'Description'} value={formValue} onChange={setFormValue} onSubmit={handleEditDescriptionSubmit} />
+      <FormModal opened={mode === 'editing-due-date'} onClose={dismissModal} title={taskTitle !== undefined ? `Due date — ${taskTitle}` : 'Due date'} placeholder="tomorrow · next monday · jul 4 · 2026-12-25" value={formValue} onChange={setFormValue} onSubmit={handleDueDateSubmit} />
+      <FormModal opened={mode === 'editing-recurrence'} onClose={dismissModal} title={taskTitle !== undefined ? `Recurrence — ${taskTitle}` : 'Recurrence'} placeholder="daily · every monday · every 2 weeks · monthly" value={formValue} onChange={setFormValue} onSubmit={handleRecurrenceSubmit} />
+      <FormModal opened={mode === 'adding-project'} onClose={dismissModal} title="New project" value={formValue} onChange={setFormValue} onSubmit={handleProjectSubmit} />
+      <FormModal opened={mode === 'editing-project'} onClose={dismissModal} title="Edit project" value={formValue} onChange={setFormValue} onSubmit={handleEditProjectSubmit} />
     </AppShell>
   )
 }
