@@ -44,7 +44,7 @@ function FormModal({ opened, onClose, title, placeholder, preview, value, onChan
         onKeyDown={e => { if (e.key === 'Enter') { onSubmit(value); e.preventDefault() } }}
         autoFocus
         size="sm"
-        styles={{ input: { fontFamily: 'monospace' } }}
+        styles={{ input: { fontFamily: 'monospace', ...(preview !== undefined && { borderColor: preview.ok ? 'var(--mantine-color-green-6)' : 'var(--mantine-color-red-6)' }) } }}
       />
       {preview !== undefined && (
         <Text size="sm" c={preview.ok ? 'green' : 'red'} mt="xs" style={{ fontFamily: 'monospace' }}>→ {preview.text}</Text>
