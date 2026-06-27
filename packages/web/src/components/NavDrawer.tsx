@@ -1,5 +1,5 @@
 import React from 'react'
-import { Drawer, Stack, Text } from '@mantine/core'
+import { Drawer, Stack, Text, Menu, Button } from '@mantine/core'
 import type { Sphere } from 'palimpsest'
 import type { Action, TopLevelView, View } from 'palimpsest-ui-core'
 import { VIEW_CONFIG, navStateForTopLevelView } from 'palimpsest-ui-core'
@@ -38,30 +38,31 @@ export function NavDrawer({ opened, onClose, spheres, activeSphere, currentView,
             <Text size="xs" c="dimmed" mb="xs" style={{ textTransform: 'uppercase', fontWeight: 600, letterSpacing: '0.05em' }}>
               Sphere
             </Text>
-            <Stack gap={2}>
-              {spheres.map(sphere => {
-                const isActive = sphere.id === activeSphere?.id
-                return (
-                  <Text
+            <Menu>
+              <Menu.Target>
+                <Button
+                  variant="default"
+                  size="sm"
+                  fullWidth
+                  styles={{ inner: { justifyContent: 'space-between', fontFamily: 'monospace' }, label: { fontWeight: 400 } }}
+                  rightSection="▾"
+                >
+                  {activeSphere?.name ?? 'Select sphere'}
+                </Button>
+              </Menu.Target>
+              <Menu.Dropdown>
+                {spheres.map(sphere => (
+                  <Menu.Item
                     key={sphere.id}
-                    size="sm"
-                    px="xs"
-                    py={4}
-                    {...(isActive ? { c: 'blue' } : {})}
                     onClick={() => handleSphere(sphere.id)}
-                    style={{
-                      background: isActive ? 'var(--mantine-color-blue-light)' : undefined,
-                      borderRadius: 4,
-                      cursor: 'pointer',
-                      fontFamily: 'monospace',
-                      userSelect: 'none',
-                    }}
+                    style={{ fontFamily: 'monospace', fontWeight: sphere.id === activeSphere?.id ? 600 : undefined }}
+                    {...(sphere.id === activeSphere?.id ? { color: 'blue' as const } : {})}
                   >
                     {sphere.name}
-                  </Text>
-                )
-              })}
-            </Stack>
+                  </Menu.Item>
+                ))}
+              </Menu.Dropdown>
+            </Menu>
           </div>
         )}
         <div>

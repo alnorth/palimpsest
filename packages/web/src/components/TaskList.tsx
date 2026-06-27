@@ -43,6 +43,7 @@ export function TaskList({ tasks, selected, state, showProject, emptyMessage, on
               userSelect: 'none',
             }}
           >
+            <Text span style={{ display: 'inline-block', width: '2ch' }}>{isSelected ? '>' : ''}</Text>
             {onComplete !== undefined && (
               <Text
                 span
@@ -53,13 +54,12 @@ export function TaskList({ tasks, selected, state, showProject, emptyMessage, on
                 {task.status === 'completed' ? '● ' : '○ '}
               </Text>
             )}
-            {isSelected ? '> ' : '  '}
-            {task.isNext === true && <Text span c="yellow.6">→ </Text>}
-            {task.isStarred === true && <Text span c="yellow.6">★ </Text>}
+            {task.isNext === true && <Text span c="yellow.6">{'→ '}</Text>}
+            {task.isStarred === true && <Text span c="yellow.6">{'★ '}</Text>}
             {task.title}
-            {project !== undefined && <Text span size="xs" c="dimmed"> · {PROJECT_PREFIX}{project.name}</Text>}
-            {agenda !== undefined && <Text span size="xs" c="dimmed"> · {AGENDA_PREFIX}{agenda.title}</Text>}
-            {task.dueDate !== undefined && <Text span size="xs" c="dimmed"> · {task.dueDate}</Text>}
+            {project !== undefined && <Text span size="xs" c="dimmed">{' · '}{PROJECT_PREFIX}{project.name}</Text>}
+            {agenda !== undefined && <Text span size="xs" c="dimmed">{' · '}{AGENDA_PREFIX}{agenda.title}</Text>}
+            {task.dueDate !== undefined && <Text span size="xs" c="dimmed">{' · '}{task.dueDate}</Text>}
           </Text>
         )
       })}

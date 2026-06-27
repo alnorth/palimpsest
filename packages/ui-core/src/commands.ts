@@ -228,7 +228,7 @@ export function getCommands(vm: ViewModel): Partial<Record<CommandId, Command>> 
   if (view === 'tasks') {
     commands['toggle-completed'] = {
       id: 'toggle-completed',
-      label: showCompleted ? 'open' : 'completed',
+      label: showCompleted ? 'show open' : 'show completed',
       group: 'view',
       key: 'C',
       action: { type: 'navigate', navState: { view: 'tasks', selected: 0, showCompleted: !showCompleted } },
@@ -237,7 +237,7 @@ export function getCommands(vm: ViewModel): Partial<Record<CommandId, Command>> 
   if (view === 'project' && vm.activeProject !== undefined) {
     commands['toggle-completed'] = {
       id: 'toggle-completed',
-      label: showCompleted ? 'open' : 'completed',
+      label: showCompleted ? 'show open' : 'show completed',
       group: 'view',
       key: 'C',
       action: { type: 'navigate', navState: { view: 'project', selected: 0, activeProjectId: vm.activeProject.id, showCompleted: !showCompleted } },
@@ -248,7 +248,7 @@ export function getCommands(vm: ViewModel): Partial<Record<CommandId, Command>> 
   if (view === 'projects') {
     commands['toggle-archived'] = {
       id: 'toggle-archived',
-      label: showArchived ? 'active' : 'archived',
+      label: showArchived ? 'show active' : 'show archived',
       group: 'view',
       key: 'X',
       action: { type: 'navigate', navState: { view: 'projects', selected: 0, showArchived: !showArchived } },
