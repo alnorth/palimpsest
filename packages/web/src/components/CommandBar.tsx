@@ -1,105 +1,13 @@
 import React from 'react'
-import { Group, Text, TextInput } from '@mantine/core'
+import { Group, Text } from '@mantine/core'
 import type { Command, CommandId } from 'palimpsest-ui-core'
-import type { Mode } from 'palimpsest-ui-core'
 
 interface Props {
-  mode: Mode
   commands: Partial<Record<CommandId, Command>>
   canGoBack: boolean
-  formValue: string
-  onFormChange: (v: string) => void
-  onFormSubmit: (v: string) => void
 }
 
-export function CommandBar({ mode, commands, canGoBack, formValue, onFormChange, onFormSubmit }: Props) {
-  if (mode === 'adding') {
-    return (
-      <TextInput
-        label="New task"
-        value={formValue}
-        onChange={e => onFormChange(e.currentTarget.value)}
-        onKeyDown={e => { if (e.key === 'Enter') { onFormSubmit(formValue); e.preventDefault() } }}
-        autoFocus
-        size="sm"
-      />
-    )
-  }
-  if (mode === 'editing-task') {
-    return (
-      <TextInput
-        label="Edit task"
-        value={formValue}
-        onChange={e => onFormChange(e.currentTarget.value)}
-        onKeyDown={e => { if (e.key === 'Enter') { onFormSubmit(formValue); e.preventDefault() } }}
-        autoFocus
-        size="sm"
-      />
-    )
-  }
-  if (mode === 'editing-description') {
-    return (
-      <TextInput
-        label="Description"
-        value={formValue}
-        onChange={e => onFormChange(e.currentTarget.value)}
-        onKeyDown={e => { if (e.key === 'Enter') { onFormSubmit(formValue); e.preventDefault() } }}
-        autoFocus
-        size="sm"
-      />
-    )
-  }
-  if (mode === 'editing-due-date') {
-    return (
-      <TextInput
-        label="Due date"
-        placeholder="tomorrow · next monday · jul 4 · 2026-12-25"
-        value={formValue}
-        onChange={e => onFormChange(e.currentTarget.value)}
-        onKeyDown={e => { if (e.key === 'Enter') { onFormSubmit(formValue); e.preventDefault() } }}
-        autoFocus
-        size="sm"
-      />
-    )
-  }
-  if (mode === 'editing-recurrence') {
-    return (
-      <TextInput
-        label="Recurrence"
-        placeholder="daily · every monday · every 2 weeks · monthly"
-        value={formValue}
-        onChange={e => onFormChange(e.currentTarget.value)}
-        onKeyDown={e => { if (e.key === 'Enter') { onFormSubmit(formValue); e.preventDefault() } }}
-        autoFocus
-        size="sm"
-      />
-    )
-  }
-  if (mode === 'adding-project') {
-    return (
-      <TextInput
-        label="New project"
-        value={formValue}
-        onChange={e => onFormChange(e.currentTarget.value)}
-        onKeyDown={e => { if (e.key === 'Enter') { onFormSubmit(formValue); e.preventDefault() } }}
-        autoFocus
-        size="sm"
-      />
-    )
-  }
-  if (mode === 'editing-project') {
-    return (
-      <TextInput
-        label="Edit project"
-        value={formValue}
-        onChange={e => onFormChange(e.currentTarget.value)}
-        onKeyDown={e => { if (e.key === 'Enter') { onFormSubmit(formValue); e.preventDefault() } }}
-        autoFocus
-        size="sm"
-      />
-    )
-  }
-
+export function CommandBar({ commands, canGoBack }: Props) {
   const allCommands = Object.values(commands)
   const stateCommands = allCommands.filter(c => c.group === 'state')
   const viewCommands = allCommands.filter(c => c.group === 'view')
