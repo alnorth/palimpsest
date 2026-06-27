@@ -198,6 +198,7 @@ export function deriveViewModel(projState: ProjectionState, uiState: UIState): V
     : ''
 
   const dueDateOptions: DueDateOption[] = [
+    { label: 'Today',         date: today,                  key: 'd' },
     { label: 'Tomorrow',      date: addDays(today, 1),      key: 't' },
     { label: 'Next Saturday', date: nextWeekday(today, 6),  key: 's' },
     { label: 'Next Monday',   date: nextWeekday(today, 1),  key: 'm' },
