@@ -1,5 +1,6 @@
 import React from 'react'
 import { Stack, Group, Text } from '@mantine/core'
+import { useMediaQuery } from '@mantine/hooks'
 import type { Project } from 'palimpsest'
 import type { ProjectStats } from 'palimpsest-ui-core'
 
@@ -18,13 +19,14 @@ function formatDate(iso: string): string {
 }
 
 export function ProjectList({ projects, selected, projectStats, showArchived, emptyMessage, onHover, onActivate }: Props) {
+  const isMobile = useMediaQuery('(max-width: 768px)')
   if (projects.length === 0) {
     return <Text c="dimmed" size="sm">{emptyMessage ?? 'No projects.'}</Text>
   }
   return (
     <Stack gap={2}>
       {projects.map((project, i) => {
-        const isSelected = i === selected
+        const isSelected = i === selected && !isMobile
         const hasNext = projectStats.hasNext.has(project.id)
         const count = projectStats.taskCount.get(project.id) ?? 0
         const c: 'blue' | 'red' | undefined = isSelected ? 'blue' : (!showArchived && !hasNext ? 'red' : undefined)

@@ -1,5 +1,6 @@
 import React from 'react'
 import { Stack, Text } from '@mantine/core'
+import { useMediaQuery } from '@mantine/hooks'
 import type { Task } from 'palimpsest'
 import type { ProjectionState } from 'palimpsest'
 import { getProject, getAgenda } from 'palimpsest'
@@ -17,13 +18,14 @@ interface Props {
 }
 
 export function TaskList({ tasks, selected, state, showProject, emptyMessage, onHover, onActivate, onComplete }: Props) {
+  const isMobile = useMediaQuery('(max-width: 768px)')
   if (tasks.length === 0) {
     return <Text c="dimmed" size="sm">{emptyMessage ?? 'No tasks.'}</Text>
   }
   return (
     <Stack gap={2}>
       {tasks.map((task, i) => {
-        const isSelected = i === selected
+        const isSelected = i === selected && !isMobile
         const project = showProject && task.projectId !== undefined ? getProject(state, task.projectId) : undefined
         const agenda = task.agendaId !== undefined ? getAgenda(state, task.agendaId) : undefined
         return (
