@@ -50,7 +50,7 @@ function makeAppState(overrides: Partial<AppStateResult> = {}): AppStateResult {
 
 function TestHarness({ appState }: { appState: AppStateResult }) {
   const [formValue, setFormValue] = useState('')
-  useKeyboard(appState, formValue, setFormValue)
+  useKeyboard(appState, setFormValue)
   return <div data-testid="form-value">{formValue}</div>
 }
 
