@@ -3,6 +3,7 @@ import { AppShell, Group, Text, ScrollArea, Badge, Burger, Button, Stack, Modal,
 import type { PalimpsestStore, ProjectionState, Task } from 'palimpsest'
 import { CLEAR, isValidExpression } from 'palimpsest'
 import { useAppState, parseDueDate, getDueDatePreview, getRecurrencePreview } from 'palimpsest-ui-core'
+import type { Command } from 'palimpsest-ui-core'
 import { useKeyboard } from './useKeyboard.js'
 import { useUrlSync } from './useUrlSync.js'
 import { TaskList } from './components/TaskList.js'
@@ -272,14 +273,16 @@ export function LoadedApp({ store, initialState }: Props) {
       />
     )
   } else if (listItems.view === 'project') {
-    const addTaskCmd = commands['add-task']
+    const stateCommands = Object.values(commands).filter((c): c is Command => c !== undefined && c.group === 'state')
     content = (
       <Stack gap="sm">
-        {addTaskCmd !== undefined && (
+        {stateCommands.length > 0 && (
           <Group gap="xs">
-            <Button size="xs" variant="light" onClick={() => dispatch(addTaskCmd.action)} style={{ fontFamily: 'monospace' }}>
-              {addTaskCmd.label}
-            </Button>
+            {stateCommands.map(c => (
+              <Button key={c.id} size="xs" variant="light" onClick={() => dispatch(c.action)} style={{ fontFamily: 'monospace' }}>
+                {c.label}
+              </Button>
+            ))}
           </Group>
         )}
         <TaskList
