@@ -1,5 +1,5 @@
-import React, { useState } from 'react'
-import { AppShell, Group, Text, ScrollArea, Badge, Burger, Button, Stack, Modal, TextInput } from '@mantine/core'
+import React, { useState, useEffect } from 'react'
+import { AppShell, Group, Text, ScrollArea, Badge, Burger, Button, Stack, Modal, TextInput, Textarea } from '@mantine/core'
 import type { PalimpsestStore, ProjectionState, Task } from 'palimpsest'
 import { CLEAR, isValidExpression } from 'palimpsest'
 import { useAppState, parseDueDate, getDueDatePreview, getRecurrencePreview } from 'palimpsest-ui-core'
@@ -17,7 +17,7 @@ interface Props {
   initialState: ProjectionState
 }
 
-function FormModal({ opened, onClose, title, placeholder, preview, value, onChange, onSubmit }: {
+function FormModal({ opened, onClose, title, placeholder, preview, value, onChange, onSubmit, multiline }: {
   opened: boolean
   onClose: () => void
   title: string
@@ -26,18 +26,37 @@ function FormModal({ opened, onClose, title, placeholder, preview, value, onChan
   value: string
   onChange: (v: string) => void
   onSubmit: (v: string) => void
+  multiline?: boolean
 }) {
+  const inputStyles = { fontFamily: 'monospace', ...(preview !== undefined && { borderColor: preview.ok ? 'var(--mantine-color-green-6)' : 'var(--mantine-color-red-6)' }) }
   return (
     <Modal opened={opened} onClose={onClose} title={title} size="sm" styles={{ title: { fontFamily: 'monospace' } }}>
-      <TextInput
-        placeholder={placeholder}
-        value={value}
-        onChange={e => onChange(e.currentTarget.value)}
-        onKeyDown={e => { if (e.key === 'Enter') { onSubmit(value); e.preventDefault() } }}
-        autoFocus
-        size="sm"
-        styles={{ input: { fontFamily: 'monospace', ...(preview !== undefined && { borderColor: preview.ok ? 'var(--mantine-color-green-6)' : 'var(--mantine-color-red-6)' }) } }}
-      />
+      {multiline ? (
+        <>
+          <Textarea
+            placeholder={placeholder}
+            value={value}
+            onChange={e => onChange(e.currentTarget.value)}
+            onKeyDown={e => { if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { onSubmit(value); e.preventDefault() } }}
+            autoFocus
+            size="sm"
+            minRows={3}
+            autosize
+            styles={{ input: inputStyles }}
+          />
+          <Text size="xs" c="dimmed" mt={4}>Ctrl+Enter to save</Text>
+        </>
+      ) : (
+        <TextInput
+          placeholder={placeholder}
+          value={value}
+          onChange={e => onChange(e.currentTarget.value)}
+          onKeyDown={e => { if (e.key === 'Enter') { onSubmit(value); e.preventDefault() } }}
+          autoFocus
+          size="sm"
+          styles={{ input: inputStyles }}
+        />
+      )}
       {preview !== undefined && (
         <Text size="sm" c={preview.ok ? 'green' : 'red'} mt="xs" style={{ fontFamily: 'monospace' }}>→ {preview.text}</Text>
       )}
@@ -57,7 +76,21 @@ export function LoadedApp({ store, initialState }: Props) {
   const [formValue, setFormValue] = useState('')
   const [navDrawerOpen, setNavDrawerOpen] = useState(false)
 
-  useKeyboard(appState, formValue, setFormValue)
+  // Prepopulate the form when entering an editing mode (e.g. via button click in TaskDetail)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (mode === 'editing-task') {
+      setFormValue(currentTask?.title ?? '')
+    } else if (mode === 'editing-description') {
+      setFormValue(currentTask?.description ?? '')
+    } else if (mode === 'editing-recurrence') {
+      setFormValue(currentTask?.dueDateExpression ?? '')
+    } else if (mode === 'editing-project' && listItems.view === 'projects') {
+      setFormValue(listItems.items[selected]?.name ?? '')
+    }
+  }, [mode]) // intentionally omit other deps — we only want to run on mode transitions
+
+  useKeyboard(appState, setFormValue)
 
   const today = new Date().toISOString().slice(0, 10)
 
@@ -321,7 +354,7 @@ export function LoadedApp({ store, initialState }: Props) {
 
       <FormModal opened={mode === 'adding'} onClose={dismissModal} title="New task" value={formValue} onChange={setFormValue} onSubmit={handleTaskSubmit} />
       <FormModal opened={mode === 'editing-task'} onClose={dismissModal} title={taskTitle !== undefined ? `Edit — ${taskTitle}` : 'Edit task'} value={formValue} onChange={setFormValue} onSubmit={handleEditSubmit} />
-      <FormModal opened={mode === 'editing-description'} onClose={dismissModal} title={taskTitle !== undefined ? `Description — ${taskTitle}` : 'Description'} value={formValue} onChange={setFormValue} onSubmit={handleEditDescriptionSubmit} />
+      <FormModal opened={mode === 'editing-description'} onClose={dismissModal} title={taskTitle !== undefined ? `Description — ${taskTitle}` : 'Description'} value={formValue} onChange={setFormValue} onSubmit={handleEditDescriptionSubmit} multiline />
       <FormModal opened={mode === 'editing-due-date'} onClose={dismissModal} title={taskTitle !== undefined ? `Due date — ${taskTitle}` : 'Due date'} placeholder="tomorrow · next monday · jul 4 · 2026-12-25" preview={dueDatePreview} value={formValue} onChange={setFormValue} onSubmit={handleDueDateSubmit} />
       <FormModal opened={mode === 'editing-recurrence'} onClose={dismissModal} title={taskTitle !== undefined ? `Recurrence — ${taskTitle}` : 'Recurrence'} placeholder="daily · every monday · every 2 weeks · monthly" preview={recurrencePreview} value={formValue} onChange={setFormValue} onSubmit={handleRecurrenceSubmit} />
       <FormModal opened={mode === 'adding-project'} onClose={dismissModal} title="New project" value={formValue} onChange={setFormValue} onSubmit={handleProjectSubmit} />
