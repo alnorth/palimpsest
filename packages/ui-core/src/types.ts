@@ -107,7 +107,7 @@ export type CommandId =
 export interface Command {
   id: CommandId
   label: string
-  group: 'state' | 'view'
+  group: 'state' | 'create' | 'view'
   key: string
   action: Action
 }

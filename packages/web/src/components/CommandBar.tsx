@@ -10,6 +10,7 @@ interface Props {
 export function CommandBar({ commands, canGoBack }: Props) {
   const allCommands = Object.values(commands)
   const stateCommands = allCommands.filter(c => c.group === 'state')
+  const createCommands = allCommands.filter(c => c.group === 'create')
   const viewCommands = allCommands.filter(c => c.group === 'view')
   const navHints = ['↑↓ navigate', ...viewCommands.map(c => `${c.key} ${c.label}`)]
   if (canGoBack) navHints.push('esc back')
@@ -17,6 +18,9 @@ export function CommandBar({ commands, canGoBack }: Props) {
   return (
     <Group gap="lg" wrap="wrap" visibleFrom="sm">
       {stateCommands.map(c => (
+        <Text key={c.key} size="xs" c="dimmed">{c.key} {c.label}</Text>
+      ))}
+      {createCommands.map(c => (
         <Text key={c.key} size="xs" c="dimmed">{c.key} {c.label}</Text>
       ))}
       {navHints.map(hint => (

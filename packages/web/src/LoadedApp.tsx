@@ -9,6 +9,7 @@ import { TaskList } from './components/TaskList.js'
 import { TaskDetail } from './components/TaskDetail.js'
 import { ProjectList } from './components/ProjectList.js'
 import { CommandBar } from './components/CommandBar.js'
+import { MobileFooter } from './components/MobileFooter.js'
 import { NavDrawer } from './components/NavDrawer.js'
 import { SyncStatus } from './components/SyncStatus.js'
 import { ViewPicker, AgendaPicker, ContextPicker, DueDatePicker, ProjectSearch } from './components/Pickers.js'
@@ -306,7 +307,7 @@ export function LoadedApp({ store, initialState }: Props) {
   return (
     <AppShell
       header={{ height: 50 }}
-      footer={{ height: { base: 0, sm: 44 } }}
+      footer={{ height: { base: 50, sm: 44 } }}
       padding="md"
       styles={{
         main: { fontFamily: 'monospace' },
@@ -352,8 +353,9 @@ export function LoadedApp({ store, initialState }: Props) {
         </ScrollArea>
       </AppShell.Main>
 
-      <AppShell.Footer px="md" py="sm" visibleFrom="sm">
+      <AppShell.Footer px="md" py="sm">
         <CommandBar commands={commands} canGoBack={canGoBack} />
+        <MobileFooter commands={commands} dispatch={dispatch} />
       </AppShell.Footer>
 
       <FormModal opened={mode === 'adding'} onClose={dismissModal} title="New task" value={formValue} onChange={setFormValue} onSubmit={handleTaskSubmit} />
