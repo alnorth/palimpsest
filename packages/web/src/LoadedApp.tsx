@@ -17,12 +17,20 @@ interface Props {
   initialState: ProjectionState
 }
 
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+const DAYS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']
+
+function formatDateWithDay(iso: string): string {
+  const d = new Date(iso)
+  return `${DAYS[d.getDay()]} ${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`
+}
+
 function FormModal({ opened, onClose, title, placeholder, preview, value, onChange, onSubmit }: {
   opened: boolean
   onClose: () => void
   title: string
   placeholder?: string
-  preview?: string | undefined
+  preview?: { text: string; ok: boolean } | undefined
   value: string
   onChange: (v: string) => void
   onSubmit: (v: string) => void
@@ -39,7 +47,7 @@ function FormModal({ opened, onClose, title, placeholder, preview, value, onChan
         styles={{ input: { fontFamily: 'monospace' } }}
       />
       {preview !== undefined && (
-        <Text size="sm" c="dimmed" mt="xs" style={{ fontFamily: 'monospace' }}>{preview}</Text>
+        <Text size="sm" c={preview.ok ? 'green' : 'red'} mt="xs" style={{ fontFamily: 'monospace' }}>→ {preview.text}</Text>
       )}
     </Modal>
   )
@@ -266,15 +274,24 @@ export function LoadedApp({ store, initialState }: Props) {
   const dueDatePreview = (() => {
     if (mode !== 'editing-due-date' || formValue.trim() === '') return undefined
     const parsed = parseDueDate(formValue, today)
-    return parsed !== null ? parsed : 'not recognised'
+    if (parsed !== null) return { text: formatDateWithDay(parsed), ok: true }
+    return { text: 'Can\'t parse — try "tomorrow", "next monday", "jul 4", "2026-12-25"', ok: false }
   })()
 
   const recurrencePreview = (() => {
     if (mode !== 'editing-recurrence' || formValue.trim() === '') return undefined
     const trimmed = formValue.trim()
-    if (!isValidExpression(trimmed)) return 'not recognised'
-    const next = nextDueDate(trimmed, today)
-    return next !== null ? `next: ${next}` : undefined
+    if (!isValidExpression(trimmed)) return { text: 'Invalid expression', ok: false }
+    const dates: string[] = []
+    let cur = today
+    for (let i = 0; i < 3; i++) {
+      const next = nextDueDate(trimmed, cur)
+      if (next === null) break
+      dates.push(formatDateWithDay(next))
+      cur = next
+    }
+    if (dates.length === 0) return { text: 'No future dates for this expression', ok: false }
+    return { text: dates.join(' · '), ok: true }
   })()
 
   return (
