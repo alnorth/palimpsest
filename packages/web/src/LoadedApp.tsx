@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { AppShell, Group, Text, ScrollArea, Badge, Burger, Button, Stack } from '@mantine/core'
+import { AppShell, Group, Text, ScrollArea, Badge, Burger, Button, Stack, Modal, TextInput } from '@mantine/core'
 import type { PalimpsestStore, ProjectionState, Task } from 'palimpsest'
 import { CLEAR, isValidExpression } from 'palimpsest'
 import { useAppState, parseDueDate } from 'palimpsest-ui-core'
@@ -72,8 +72,14 @@ export function LoadedApp({ store, initialState }: Props) {
     const parsed = parseDueDate(value, today)
     if (parsed !== null && currentTask !== undefined) {
       dispatch({ type: 'set-task-due-date', taskId: currentTask.id, dueDate: parsed })
+      dispatch({ type: 'set-mode', mode: 'list' })
       setFormValue('')
     }
+  }
+
+  function closeDueDateModal() {
+    dispatch({ type: 'set-mode', mode: 'list' })
+    setFormValue('')
   }
 
   function handleRecurrenceSubmit(value: string) {
@@ -241,7 +247,7 @@ export function LoadedApp({ store, initialState }: Props) {
   return (
     <AppShell
       header={{ height: 50 }}
-      footer={{ height: mode !== 'list' ? 70 : { base: 0, sm: 44 } }}
+      footer={{ height: mode !== 'list' && mode !== 'editing-due-date' ? 70 : { base: 0, sm: 44 } }}
       padding="md"
       styles={{
         main: { fontFamily: 'monospace' },
@@ -297,6 +303,24 @@ export function LoadedApp({ store, initialState }: Props) {
           onFormSubmit={getSubmitHandler()}
         />
       </AppShell.Footer>
+
+      <Modal
+        opened={mode === 'editing-due-date'}
+        onClose={closeDueDateModal}
+        title={currentTask !== undefined ? `Due date — ${currentTask.title}` : 'Due date'}
+        size="sm"
+        styles={{ title: { fontFamily: 'monospace' } }}
+      >
+        <TextInput
+          placeholder="tomorrow · next monday · jul 4 · 2026-12-25"
+          value={formValue}
+          onChange={e => setFormValue(e.currentTarget.value)}
+          onKeyDown={e => { if (e.key === 'Enter') { handleDueDateSubmit(formValue); e.preventDefault() } }}
+          autoFocus
+          size="sm"
+          styles={{ input: { fontFamily: 'monospace' } }}
+        />
+      </Modal>
     </AppShell>
   )
 }

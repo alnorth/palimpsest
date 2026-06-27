@@ -49,20 +49,7 @@ export function CommandBar({ mode, commands, canGoBack, formValue, onFormChange,
       />
     )
   }
-  if (mode === 'editing-due-date') {
-    return (
-      <TextInput
-        label="Due date"
-        placeholder="tomorrow · next monday · jul 4 · 2026-12-25"
-        value={formValue}
-        onChange={e => onFormChange(e.currentTarget.value)}
-        onKeyDown={e => { if (e.key === 'Enter') { onFormSubmit(formValue); e.preventDefault() } }}
-        autoFocus
-        size="sm"
-      />
-    )
-  }
-  if (mode === 'editing-recurrence') {
+if (mode === 'editing-recurrence') {
     return (
       <TextInput
         label="Recurrence"
