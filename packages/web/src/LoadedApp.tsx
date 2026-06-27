@@ -274,7 +274,7 @@ export function LoadedApp({ store, initialState }: Props) {
       />
     )
   } else if (listItems.view === 'project') {
-    const stateCommands = Object.values(commands).filter((c): c is Command => c !== undefined && c.group === 'state')
+    const stateCommands = (Object.values(commands) as Command[]).filter(c => c.group === 'state')
     content = (
       <Stack gap="sm">
         {stateCommands.length > 0 && (

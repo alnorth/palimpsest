@@ -9,7 +9,7 @@ interface Props {
 }
 
 export function MobileFooter({ commands, dispatch }: Props) {
-  const createCommands = (Object.values(commands) as (Command | undefined)[]).filter((c): c is Command => c !== undefined && c.group === 'create')
+  const createCommands = (Object.values(commands) as Command[]).filter(c => c.group === 'create')
 
   if (createCommands.length === 0) return null
 
