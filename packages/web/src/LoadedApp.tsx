@@ -4,6 +4,7 @@ import type { PalimpsestStore, ProjectionState, Task } from 'palimpsest'
 import { CLEAR, isValidExpression } from 'palimpsest'
 import { useAppState, parseDueDate, getDueDatePreview, getRecurrencePreview } from 'palimpsest-ui-core'
 import type { Command } from 'palimpsest-ui-core'
+import { CommandButton } from './components/CommandButton.js'
 import { useKeyboard } from './useKeyboard.js'
 import { useUrlSync } from './useUrlSync.js'
 import { TaskList } from './components/TaskList.js'
@@ -279,9 +280,7 @@ export function LoadedApp({ store, initialState }: Props) {
         {stateCommands.length > 0 && (
           <Group gap="xs">
             {stateCommands.map(c => (
-              <Button key={c.id} size="xs" variant="light" onClick={() => dispatch(c.action)} style={{ fontFamily: 'monospace' }}>
-                {c.label}
-              </Button>
+              <CommandButton key={c.id} command={c} dispatch={dispatch} />
             ))}
           </Group>
         )}
