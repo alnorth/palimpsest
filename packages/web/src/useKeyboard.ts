@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import type { AppStateResult } from 'palimpsest-ui-core'
+import type { AppStateResult, Command } from 'palimpsest-ui-core'
 
 function isInputFocused(): boolean {
   const tag = document.activeElement?.tagName.toLowerCase()
@@ -81,7 +81,7 @@ export function useKeyboard(
 
       // Letter command shortcuts
       if (input !== '') {
-        const cmd = Object.values(commands).find(c => c.key === input)
+        const cmd = Object.values(commands).filter((c): c is Command => c !== undefined).find(c => c.key === input)
         if (cmd !== undefined) {
           if (cmd.id === 'edit-task' && currentTask !== undefined) setFormValue(currentTask.title)
           if (cmd.id === 'edit-description') setFormValue(currentTask?.description ?? '')

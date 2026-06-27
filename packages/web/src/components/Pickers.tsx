@@ -5,8 +5,8 @@ import { AGENDA_PREFIX, CONTEXT_PREFIX } from 'palimpsest-ui-core'
 
 function PickerRow({ isSelected, onMouseEnter, onClick, children }: {
   isSelected: boolean
-  onMouseEnter?: () => void
-  onClick?: () => void
+  onMouseEnter?: (() => void) | undefined
+  onClick?: (() => void) | undefined
   children: React.ReactNode
 }) {
   return (
@@ -32,7 +32,7 @@ export function ViewPicker({ items, selected, onHover, onActivate }: { items: Vi
   return (
     <Stack gap={2}>
       {items.map((item, i) => (
-        <PickerRow key={item.id} isSelected={i === selected} onMouseEnter={() => onHover?.(i)} onClick={() => onActivate?.(i)}>
+        <PickerRow key={item.id} isSelected={i === selected} onMouseEnter={onHover !== undefined ? () => onHover(i) : undefined} onClick={onActivate !== undefined ? () => onActivate(i) : undefined}>
           <Text size="sm" {...(i === selected ? { c: 'blue' } : {})}>
             {i === selected ? '> ' : '  '}{item.label}
             <Text span size="xs" c="dimmed">  {item.key}</Text>
@@ -47,7 +47,7 @@ export function AgendaPicker({ items, selected, onHover, onActivate }: { items: 
   return (
     <Stack gap={2}>
       {items.map((item, i) => (
-        <PickerRow key={item.title} isSelected={i === selected} onMouseEnter={() => onHover?.(i)} onClick={() => onActivate?.(i)}>
+        <PickerRow key={item.title} isSelected={i === selected} onMouseEnter={onHover !== undefined ? () => onHover(i) : undefined} onClick={onActivate !== undefined ? () => onActivate(i) : undefined}>
           <Text size="sm" {...(i === selected ? { c: 'blue' } : {})}>
             {i === selected ? '> ' : '  '}{item.id !== null ? AGENDA_PREFIX : ''}{item.title}
             {item.key !== undefined && <Text span size="xs" c="dimmed">  {item.key}</Text>}
@@ -62,7 +62,7 @@ export function ContextPicker({ items, selected, onHover, onActivate }: { items:
   return (
     <Stack gap={2}>
       {items.map((item, i) => (
-        <PickerRow key={item.name} isSelected={i === selected} onMouseEnter={() => onHover?.(i)} onClick={() => onActivate?.(i)}>
+        <PickerRow key={item.name} isSelected={i === selected} onMouseEnter={onHover !== undefined ? () => onHover(i) : undefined} onClick={onActivate !== undefined ? () => onActivate(i) : undefined}>
           <Text size="sm" {...(i === selected ? { c: 'blue' } : {})}>
             {i === selected ? '> ' : '  '}{item.id !== null ? CONTEXT_PREFIX : ''}{item.name}
             {item.key !== undefined && <Text span size="xs" c="dimmed">  {item.key}</Text>}
@@ -79,7 +79,7 @@ export function DueDatePicker({ items, selected, onHover, onActivate }: { items:
       {items.map((opt, i) => {
         const label = opt.date !== null ? `${opt.label} — ${opt.date}` : opt.label
         return (
-          <PickerRow key={opt.key} isSelected={i === selected} onMouseEnter={() => onHover?.(i)} onClick={() => onActivate?.(i)}>
+          <PickerRow key={opt.key} isSelected={i === selected} onMouseEnter={onHover !== undefined ? () => onHover(i) : undefined} onClick={onActivate !== undefined ? () => onActivate(i) : undefined}>
             <Text size="sm" {...(i === selected ? { c: 'blue' } : {})}>
               {i === selected ? '> ' : '  '}{label}
               <Text span size="xs" c="dimmed">  {opt.key}</Text>
@@ -121,7 +121,7 @@ export function ProjectSearch({
             <Text size="sm" c="blue">{'> '}Create project "{searchQuery.trim()}"</Text>
           </PickerRow>
         ) : items.map((p, i) => (
-          <PickerRow key={p.id ?? 'null'} isSelected={i === selected} onMouseEnter={() => onHover?.(i)} onClick={() => onActivate?.(i)}>
+          <PickerRow key={p.id ?? 'null'} isSelected={i === selected} onMouseEnter={onHover !== undefined ? () => onHover(i) : undefined} onClick={onActivate !== undefined ? () => onActivate(i) : undefined}>
             <Text size="sm" {...(i === selected ? { c: 'blue' } : {})}>
               {i === selected ? '> ' : '  '}{p.name}
             </Text>
