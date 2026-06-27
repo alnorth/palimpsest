@@ -11,8 +11,8 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@mantine/core": "^7.0.0",
-    "@mantine/hooks": "^7.0.0",
+    "@mantine/core": "^9.4.0",
+    "@mantine/hooks": "^9.4.0",
     "palimpsest": "*",
     "palimpsest-ui-core": "*",
     "react": "^19.0.0",
