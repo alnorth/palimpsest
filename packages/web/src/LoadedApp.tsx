@@ -1,8 +1,8 @@
 import React, { useState } from 'react'
 import { AppShell, Group, Text, ScrollArea, Badge, Burger, Button, Stack, Modal, TextInput } from '@mantine/core'
 import type { PalimpsestStore, ProjectionState, Task } from 'palimpsest'
-import { CLEAR, isValidExpression, nextDueDate } from 'palimpsest'
-import { useAppState, parseDueDate } from 'palimpsest-ui-core'
+import { CLEAR, isValidExpression } from 'palimpsest'
+import { useAppState, parseDueDate, getDueDatePreview, getRecurrencePreview } from 'palimpsest-ui-core'
 import { useKeyboard } from './useKeyboard.js'
 import { TaskList } from './components/TaskList.js'
 import { TaskDetail } from './components/TaskDetail.js'
@@ -15,14 +15,6 @@ import { ViewPicker, AgendaPicker, ContextPicker, DueDatePicker, ProjectSearch }
 interface Props {
   store: PalimpsestStore
   initialState: ProjectionState
-}
-
-const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
-const DAYS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']
-
-function formatDateWithDay(iso: string): string {
-  const d = new Date(iso)
-  return `${DAYS[d.getDay()]} ${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`
 }
 
 function FormModal({ opened, onClose, title, placeholder, preview, value, onChange, onSubmit }: {
@@ -271,28 +263,8 @@ export function LoadedApp({ store, initialState }: Props) {
 
   const taskTitle = currentTask?.title
 
-  const dueDatePreview = (() => {
-    if (mode !== 'editing-due-date' || formValue.trim() === '') return undefined
-    const parsed = parseDueDate(formValue, today)
-    if (parsed !== null) return { text: formatDateWithDay(parsed), ok: true }
-    return { text: 'Can\'t parse — try "tomorrow", "next monday", "jul 4", "2026-12-25"', ok: false }
-  })()
-
-  const recurrencePreview = (() => {
-    if (mode !== 'editing-recurrence' || formValue.trim() === '') return undefined
-    const trimmed = formValue.trim()
-    if (!isValidExpression(trimmed)) return { text: 'Invalid expression', ok: false }
-    const dates: string[] = []
-    let cur = today
-    for (let i = 0; i < 3; i++) {
-      const next = nextDueDate(trimmed, cur)
-      if (next === null) break
-      dates.push(formatDateWithDay(next))
-      cur = next
-    }
-    if (dates.length === 0) return { text: 'No future dates for this expression', ok: false }
-    return { text: dates.join(' · '), ok: true }
-  })()
+  const dueDatePreview = mode === 'editing-due-date' ? getDueDatePreview(formValue, today) : undefined
+  const recurrencePreview = mode === 'editing-recurrence' ? getRecurrencePreview(formValue, today) : undefined
 
   return (
     <AppShell

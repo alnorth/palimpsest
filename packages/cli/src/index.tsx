@@ -4,12 +4,12 @@ import { TaskList } from './TaskList.js'
 import { Row, Meta } from './Row.js'
 import { Title } from './Title.js'
 import TextInput from 'ink-text-input'
-import { FilePalimpsestStore, CLEAR, getProject, getAgenda, getContext, isValidExpression, nextDueDate, buildStateFromConfig, PALIMPSEST_CONFIG, createEmptyState } from 'palimpsest'
+import { FilePalimpsestStore, CLEAR, getProject, getAgenda, getContext, buildStateFromConfig, PALIMPSEST_CONFIG, createEmptyState } from 'palimpsest'
 import type { PalimpsestStore, ProjectionState } from 'palimpsest'
-import { useAppState, ClientPalimpsestStore, parseDueDate, AGENDA_PREFIX, PROJECT_PREFIX, CONTEXT_PREFIX, RECURRENCE_PREFIX } from 'palimpsest-ui-core'
+import { useAppState, ClientPalimpsestStore, parseDueDate, getDueDatePreview, getRecurrencePreview, AGENDA_PREFIX, PROJECT_PREFIX, CONTEXT_PREFIX, RECURRENCE_PREFIX } from 'palimpsest-ui-core'
 import { FilePendingEventStore } from './FilePendingEventStore.js'
 import type { View } from 'palimpsest-ui-core'
-import { formatDate, formatDateWithDay, formatDateTime } from './format.js'
+import { formatDate, formatDateTime } from './format.js'
 import { homedir } from 'node:os'
 import { join, dirname } from 'node:path'
 import { mkdirSync } from 'node:fs'
@@ -285,28 +285,15 @@ function LoadedApp({ initialState }: { initialState: ProjectionState }) {
   const _d = new Date()
   const today = `${_d.getFullYear()}-${String(_d.getMonth() + 1).padStart(2, '0')}-${String(_d.getDate()).padStart(2, '0')}`
 
-  const dueDatePreviewHint: React.ReactNode = (() => {
-    const parsed = formValue.trim().length > 0 ? parseDueDate(formValue, today) : null
-    if (formValue.trim().length === 0) return <Text dimColor>  tomorrow · next monday · jul 4 · 2026-12-25</Text>
-    if (parsed !== null) return <Text color="green">  → {formatDateWithDay(parsed)}</Text>
-    return <Text color="red">  Can't parse — try "tomorrow", "next monday", "jul 4", "2026-12-25"</Text>
-  })()
+  const _dueDatePreview = getDueDatePreview(formValue, today)
+  const dueDatePreviewHint: React.ReactNode = _dueDatePreview !== undefined
+    ? <Text color={_dueDatePreview.ok ? 'green' : 'red'}>  → {_dueDatePreview.text}</Text>
+    : <Text dimColor>  tomorrow · next monday · jul 4 · 2026-12-25</Text>
 
-  const recurrencePreviewHint: React.ReactNode = (() => {
-    const trimmed = formValue.trim()
-    if (trimmed === '') return <Text dimColor>  daily · every monday · every 2 weeks · monthly  (empty to clear)</Text>
-    if (!isValidExpression(trimmed)) return <Text color="red">  Invalid expression</Text>
-    const dates: string[] = []
-    let cur = today
-    for (let i = 0; i < 3; i++) {
-      const next = nextDueDate(trimmed, cur)
-      if (next === null) break
-      dates.push(formatDateWithDay(next))
-      cur = next
-    }
-    if (dates.length === 0) return <Text color="red">  No future dates for this expression</Text>
-    return <Text color="green">  → {dates.join(' · ')}</Text>
-  })()
+  const _recurrencePreview = getRecurrencePreview(formValue, today)
+  const recurrencePreviewHint: React.ReactNode = _recurrencePreview !== undefined
+    ? <Text color={_recurrencePreview.ok ? 'green' : 'red'}>  → {_recurrencePreview.text}</Text>
+    : <Text dimColor>  daily · every monday · every 2 weeks · monthly  (empty to clear)</Text>
 
   let title: React.ReactNode
   let content: React.ReactNode
