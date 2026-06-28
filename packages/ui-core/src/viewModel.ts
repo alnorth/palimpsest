@@ -212,7 +212,7 @@ export function deriveViewModel(projState: ProjectionState, uiState: UIState): V
         .filter(t => {
           if (t.waitingFor?.kind !== 'project') return false
           const p = projState.projects.get(t.waitingFor.projectId)
-          return p !== undefined && p.isArchived === true
+          return p === undefined || p.isArchived === true
         })
     : []
 
