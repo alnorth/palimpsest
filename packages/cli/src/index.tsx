@@ -2,13 +2,14 @@ import React, { useState, useEffect } from 'react'
 import { render, Box, Text, useInput, useWindowSize } from 'ink'
 import { ItemList } from './ItemList.js'
 import { Title } from './Title.js'
+import { PickerList, DueDatePicker, ProjectSearch } from './Pickers.js'
 import TextInput from 'ink-text-input'
 import { FilePalimpsestStore, CLEAR, getProject, getAgenda, getContext, buildStateFromConfig, PALIMPSEST_CONFIG, createEmptyState, isValidExpression } from 'palimpsest'
 import type { PalimpsestStore, ProjectionState } from 'palimpsest'
 import { useAppState, ClientPalimpsestStore, parseDueDate, getDueDatePreview, getRecurrencePreview, resolveKeyAction, AGENDA_PREFIX, PROJECT_PREFIX, CONTEXT_PREFIX, RECURRENCE_PREFIX } from 'palimpsest-ui-core'
 import { FilePendingEventStore } from './FilePendingEventStore.js'
 import type { View } from 'palimpsest-ui-core'
-import { formatDate, formatDateTime } from './format.js'
+import { formatDateTime } from './format.js'
 import { homedir } from 'node:os'
 import { join, dirname } from 'node:path'
 import { mkdirSync } from 'node:fs'
@@ -294,128 +295,43 @@ function LoadedApp({ initialState }: { initialState: ProjectionState }) {
       )
       footer = <Text dimColor>enter to set  esc cancel</Text>
     } else {
-      content = listItems.items.map(item => {
-        const isSelected = item === listItems.selectedItem
-        const label = item.value !== null && item.value !== 'custom' ? `${item.label} — ${formatDate(item.value)}` : item.label
-        return (
-          <Text key={item.key} {...(isSelected ? { color: 'blue' as const } : {})}>
-            {isSelected ? '> ' : '  '}{label}<Text dimColor>  {item.key}</Text>
-          </Text>
-        )
-      })
+      content = <DueDatePicker items={listItems.items} selectedItem={listItems.selectedItem} />
       footer = <Text dimColor>↑↓ navigate  enter/key select  esc back</Text>
     }
-  } else if (listItems.view === 'picking-agenda-for-task') {
+  } else if (
+    listItems.view === 'picking-agenda-for-task' ||
+    listItems.view === 'picking-context-for-task' ||
+    listItems.view === 'picking-waiting-for-task' ||
+    listItems.view === 'picking-waiting-agenda' ||
+    listItems.view === 'picking-view'
+  ) {
     title = <Text bold color="cyan">{subtitle}</Text>
-    content = listItems.items.map((item, i) => {
-      const isSelected = item === listItems.selectedItem
-      return (
-        <Text key={i} {...(isSelected ? { color: 'blue' as const } : {})}>
-          {isSelected ? '> ' : '  '}{item.prefix ?? ''}{item.label}
-          {item.key !== undefined ? <Text dimColor>  {item.key}</Text> : null}
-        </Text>
-      )
-    })
-    footer = <Text dimColor>↑↓ navigate  enter/key select  esc back</Text>
-  } else if (listItems.view === 'picking-context-for-task') {
-    title = <Text bold color="cyan">{subtitle}</Text>
-    content = listItems.items.map((item, i) => {
-      const isSelected = item === listItems.selectedItem
-      return (
-        <Text key={i} {...(isSelected ? { color: 'blue' as const } : {})}>
-          {isSelected ? '> ' : '  '}{item.prefix ?? ''}{item.label}
-          {item.key !== undefined ? <Text dimColor>  {item.key}</Text> : null}
-        </Text>
-      )
-    })
-    footer = <Text dimColor>↑↓ navigate  enter/key select  esc back</Text>
-  } else if (listItems.view === 'picking-waiting-for-task') {
-    title = <Text bold color="cyan">{subtitle}</Text>
-    content = listItems.items.map((item, i) => {
-      const isSelected = item === listItems.selectedItem
-      return (
-        <Text key={i} {...(isSelected ? { color: 'blue' as const } : {})}>
-          {isSelected ? '> ' : '  '}{item.label}
-          {item.key !== undefined ? <Text dimColor>  {item.key}</Text> : null}
-        </Text>
-      )
-    })
-    footer = <Text dimColor>↑↓ navigate  enter/key select  esc back</Text>
-  } else if (listItems.view === 'picking-waiting-agenda') {
-    title = <Text bold color="cyan">{subtitle}</Text>
-    content = listItems.items.map((item, i) => {
-      const isSelected = item === listItems.selectedItem
-      return (
-        <Text key={i} {...(isSelected ? { color: 'blue' as const } : {})}>
-          {isSelected ? '> ' : '  '}{item.prefix ?? ''}{item.label}
-          {item.key !== undefined ? <Text dimColor>  {item.key}</Text> : null}
-        </Text>
-      )
-    })
+    content = <PickerList items={listItems.items} selectedItem={listItems.selectedItem} />
     footer = <Text dimColor>↑↓ navigate  enter/key select  esc back</Text>
   } else if (listItems.view === 'picking-waiting-project') {
     title = <Text bold color="cyan">{subtitle}</Text>
     content = (
-      <Box flexDirection="column">
-        <Box>
-          <Text dimColor>Search: </Text>
-          <TextInput
-            value={searchQuery}
-            onChange={(v) => dispatch({ type: 'update-nav', patch: { searchQuery: v, selected: 0 } })}
-            onSubmit={() => {}}
-          />
-        </Box>
-        <Box flexDirection="column" marginTop={1}>
-          {listItems.items.map((item, i) => {
-            const isSelected = item === listItems.selectedItem
-            return (
-              <Text key={i} {...(isSelected ? { color: 'blue' as const } : {})}>
-                {isSelected ? '> ' : '  '}{item.label}
-              </Text>
-            )
-          })}
-        </Box>
-      </Box>
+      <ProjectSearch
+        items={listItems.items}
+        selectedItem={listItems.selectedItem}
+        searchQuery={searchQuery}
+        onSearchChange={v => dispatch({ type: 'update-nav', patch: { searchQuery: v, selected: 0 } })}
+      />
     )
     footer = <Text dimColor>type to search  ↑↓ navigate  enter select  esc back</Text>
   } else if (listItems.view === 'picking-project-for-task') {
     title = <Text bold color="cyan">{subtitle}</Text>
+    const createLabel = listItems.items.length === 0 && searchQuery.trim() !== '' ? searchQuery.trim() : undefined
     content = (
-      <Box flexDirection="column">
-        <Box>
-          <Text dimColor>Search: </Text>
-          <TextInput
-            value={searchQuery}
-            onChange={(v) => dispatch({ type: 'update-nav', patch: { searchQuery: v, selected: 0 } })}
-            onSubmit={() => {}}
-          />
-        </Box>
-        <Box flexDirection="column" marginTop={1}>
-          {listItems.items.length === 0 && searchQuery.trim() !== '' ? (
-            <Text color="blue">{'> '}Create project "{searchQuery.trim()}"</Text>
-          ) : listItems.items.map((item, i) => {
-            const isSelected = item === listItems.selectedItem
-            return (
-              <Text key={i} {...(isSelected ? { color: 'blue' as const } : {})}>
-                {isSelected ? '> ' : '  '}{item.label}
-              </Text>
-            )
-          })}
-        </Box>
-      </Box>
+      <ProjectSearch
+        items={listItems.items}
+        selectedItem={listItems.selectedItem}
+        searchQuery={searchQuery}
+        onSearchChange={v => dispatch({ type: 'update-nav', patch: { searchQuery: v, selected: 0 } })}
+        createLabel={createLabel}
+      />
     )
     footer = <Text dimColor>type to search  ↑↓ navigate  enter select  esc back</Text>
-  } else if (listItems.view === 'picking-view') {
-    title = <Text bold color="cyan">{subtitle}</Text>
-    content = listItems.items.map(item => {
-      const isSelected = item === listItems.selectedItem
-      return (
-        <Text key={item.value} {...(isSelected ? { color: 'blue' as const } : {})}>
-          {isSelected ? '> ' : '  '}{item.label}<Text dimColor>  {item.key}</Text>
-        </Text>
-      )
-    })
-    footer = <Text dimColor>↑↓ navigate  enter select  esc back</Text>
   } else {
     const completedTag = showCompleted && view !== 'projects' ? <Text color="yellow"> completed</Text> : null
     const archivedTag = showArchived && view === 'projects' ? <Text color="yellow"> archived</Text> : null
