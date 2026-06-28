@@ -57,7 +57,11 @@ export type ListItem =
   | { kind: 'task'; task: Task }
   | { kind: 'project'; project: Project }
 
-type MainListItems = { view: 'dashboard' | 'tasks' | 'project' | 'projects' | 'processing' | 'waiting'; groups: ListGroup<ListItem>[]; items: ListItem[]; emptyMessage: string; selectedItem: ListItem | undefined }
+export type MainListItems = { view: 'dashboard' | 'tasks' | 'project' | 'projects' | 'processing' | 'waiting'; groups: ListGroup<ListItem>[]; items: ListItem[]; emptyMessage: string; selectedItem: ListItem | undefined }
+
+export function isMainListItems(items: ListItems): items is MainListItems {
+  return 'emptyMessage' in items
+}
 
 type PickerListItems<V extends View, Item> = {
   view: V
@@ -323,10 +327,7 @@ export function deriveViewModel(projState: ProjectionState, uiState: UIState): V
     }
   })()
 
-  const selectedItem: ListItem | undefined = (
-    listItems.view === 'dashboard' || listItems.view === 'tasks' || listItems.view === 'project' ||
-    listItems.view === 'projects' || listItems.view === 'processing' || listItems.view === 'waiting'
-  ) ? listItems.selectedItem : undefined
+  const selectedItem: ListItem | undefined = isMainListItems(listItems) ? listItems.selectedItem : undefined
 
   const selectedProject: Project | undefined = selectedItem?.kind === 'project' ? selectedItem.project : undefined
 

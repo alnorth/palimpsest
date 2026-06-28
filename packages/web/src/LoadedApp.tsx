@@ -2,7 +2,7 @@ import React, { useState } from 'react'
 import { AppShell, Group, Text, ScrollArea, Badge, Burger, Button, Stack, Modal, TextInput, Textarea } from '@mantine/core'
 import type { PalimpsestStore, ProjectionState, Task } from 'palimpsest'
 import { CLEAR, isValidExpression } from 'palimpsest'
-import { useAppState, parseDueDate, getDueDatePreview, getRecurrencePreview } from 'palimpsest-ui-core'
+import { useAppState, parseDueDate, getDueDatePreview, getRecurrencePreview, isMainListItems } from 'palimpsest-ui-core'
 import type { Command } from 'palimpsest-ui-core'
 import { CommandButton } from './components/CommandButton.js'
 import { useKeyboard } from './useKeyboard.js'
@@ -165,7 +165,7 @@ export function LoadedApp({ store, initialState }: Props) {
         />
       </Stack>
     )
-  } else if (listItems.view === 'dashboard' || listItems.view === 'tasks' || listItems.view === 'projects' || listItems.view === 'processing' || listItems.view === 'waiting') {
+  } else if (isMainListItems(listItems)) {
     content = (
       <ItemList
         groups={listItems.groups}

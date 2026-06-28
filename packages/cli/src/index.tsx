@@ -6,7 +6,7 @@ import { PickerList, DueDatePicker, ProjectSearch } from './Pickers.js'
 import TextInput from 'ink-text-input'
 import { FilePalimpsestStore, CLEAR, buildStateFromConfig, PALIMPSEST_CONFIG, createEmptyState, isValidExpression } from 'palimpsest'
 import type { PalimpsestStore, ProjectionState } from 'palimpsest'
-import { useAppState, ClientPalimpsestStore, parseDueDate, getDueDatePreview, getRecurrencePreview, handleKey, getTaskDetailFields } from 'palimpsest-ui-core'
+import { useAppState, ClientPalimpsestStore, parseDueDate, getDueDatePreview, getRecurrencePreview, handleKey, getTaskDetailFields, isMainListItems } from 'palimpsest-ui-core'
 import { FilePendingEventStore } from './FilePendingEventStore.js'
 import type { View } from 'palimpsest-ui-core'
 import { homedir } from 'node:os'
@@ -286,7 +286,7 @@ function LoadedApp({ initialState }: { initialState: ProjectionState }) {
           </Box>
         </Box>
       )
-    })() : (listItems.view === 'dashboard' || listItems.view === 'tasks' || listItems.view === 'project' || listItems.view === 'projects' || listItems.view === 'processing' || listItems.view === 'waiting') ? (
+    })() : isMainListItems(listItems) ? (
       <ItemList
         groups={listItems.groups}
         selectedItem={selectedItem}
