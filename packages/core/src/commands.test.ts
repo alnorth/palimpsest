@@ -7,7 +7,8 @@ import {
 } from './commands.js'
 import { validateBatch } from './validation.js'
 import type { PalimpsestEvent } from './events.js'
-import type { SphereId, ProjectId, TaskId } from './ids.js'
+import { CLEAR } from './events.js'
+import type { SphereId, ProjectId, TaskId, AgendaId } from './ids.js'
 
 const sphereId = 'sph1' as SphereId
 const baseState = { ...createEmptyState(), ...buildStateFromConfig([{ id: sphereId, name: 'Work', agendas: [], contexts: [] }]) }
@@ -248,21 +249,29 @@ describe('toggleWaiting via updateTask', () => {
     return { taskEvts, tid, task }
   }
 
-  it('sets isWaiting to true', () => {
+  it('sets waitingFor to review', () => {
     const { taskEvts, tid, task } = setup()
-    const events = updateTask(task, { isWaiting: true })
+    const events = updateTask(task, { waitingFor: { kind: 'review' } })
     const s2 = buildState([...taskEvts, ...events])
-    expect(s2.tasks.get(tid)?.isWaiting).toBe(true)
+    expect(s2.tasks.get(tid)?.waitingFor).toEqual({ kind: 'review' })
   })
 
-  it('clears isWaiting when set to false', () => {
+  it('sets waitingFor to agenda', () => {
     const { taskEvts, tid, task } = setup()
-    const setEvts = updateTask(task, { isWaiting: true })
+    const agendaId = 'agenda1' as AgendaId
+    const events = updateTask(task, { waitingFor: { kind: 'agenda', agendaId } })
+    const s2 = buildState([...taskEvts, ...events])
+    expect(s2.tasks.get(tid)?.waitingFor).toEqual({ kind: 'agenda', agendaId })
+  })
+
+  it('clears waitingFor with CLEAR', () => {
+    const { taskEvts, tid, task } = setup()
+    const setEvts = updateTask(task, { waitingFor: { kind: 'review' } })
     const s2 = buildState([...taskEvts, ...setEvts])
     const waitingTask = s2.tasks.get(tid)!
-    const clearEvts = updateTask(waitingTask, { isWaiting: false })
+    const clearEvts = updateTask(waitingTask, { waitingFor: CLEAR })
     const s3 = buildState([...taskEvts, ...setEvts, ...clearEvts])
-    expect(s3.tasks.get(tid)?.isWaiting).toBeUndefined()
+    expect(s3.tasks.get(tid)?.waitingFor).toBeUndefined()
   })
 })
 

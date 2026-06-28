@@ -82,7 +82,7 @@ export function applyEvent(state: ProjectionState, event: PalimpsestEvent): Proj
         ...(event.contextId         !== undefined && { contextId:         event.contextId }),
         ...(event.isNext            !== undefined && { isNext:            event.isNext }),
         ...(event.isStarred         !== undefined && { isStarred:         event.isStarred }),
-        ...(event.isWaiting         !== undefined && { isWaiting:         event.isWaiting }),
+        ...(event.waitingFor        !== undefined && { waitingFor:        event.waitingFor }),
         ...(event.dueDate           !== undefined && { dueDate:           event.dueDate }),
         ...(event.dueDateExpression !== undefined && { dueDateExpression: event.dueDateExpression }),
       }
@@ -120,9 +120,9 @@ export function applyEvent(state: ProjectionState, event: PalimpsestEvent): Proj
         if (patch.isStarred === false) delete task.isStarred
         else task.isStarred = true
       }
-      if (patch.isWaiting !== undefined) {
-        if (patch.isWaiting === false) delete task.isWaiting
-        else task.isWaiting = true
+      if (patch.waitingFor !== undefined) {
+        if (patch.waitingFor === CLEAR) delete task.waitingFor
+        else task.waitingFor = patch.waitingFor
       }
       if (patch.dueDate !== undefined) {
         if (patch.dueDate === CLEAR) delete task.dueDate

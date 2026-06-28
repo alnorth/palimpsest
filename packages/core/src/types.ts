@@ -2,6 +2,11 @@ import type { TaskId, ProjectId, SphereId, AgendaId, ContextId } from './ids.js'
 
 export type TaskStatus = 'open' | 'completed' | 'deleted'
 
+export type WaitingFor =
+  | { kind: 'review' }
+  | { kind: 'agenda'; agendaId: AgendaId }
+  | { kind: 'project'; projectId: ProjectId }
+
 export interface Task {
   id: TaskId
   title: string
@@ -17,7 +22,7 @@ export interface Task {
   contextId?: ContextId
   isNext?: boolean
   isStarred?: boolean
-  isWaiting?: boolean
+  waitingFor?: WaitingFor
   completedAt?: string
   lastRecurredAt?: string
 }

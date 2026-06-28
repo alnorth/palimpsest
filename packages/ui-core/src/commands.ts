@@ -113,12 +113,16 @@ export function getCommands(vm: ViewModel): Partial<Record<CommandId, Command>> 
 
   // ── Toggle waiting ────────────────────────────────────────────────────────────
   if (currentTask?.status === 'open') {
-    commands['toggle-waiting'] = {
-      id: 'toggle-waiting',
+    commands['set-waiting'] = {
+      id: 'set-waiting',
       label: 'waiting',
       group: 'state',
       key: 'w',
-      action: { type: 'toggle-waiting', taskId: currentTask.id },
+      action: {
+        type: 'set-waiting',
+        taskId: currentTask.id,
+        waitingFor: currentTask.waitingFor !== undefined ? CLEAR : { kind: 'review' },
+      },
     }
   }
 

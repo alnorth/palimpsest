@@ -1,4 +1,4 @@
-import type { TaskId, ProjectId, SphereId, AgendaId, ContextId } from 'palimpsest'
+import type { TaskId, ProjectId, SphereId, AgendaId, ContextId, WaitingFor } from 'palimpsest'
 import type { CLEAR } from 'palimpsest'
 
 export type TopLevelView = 'dashboard' | 'tasks' | 'projects' | 'processing'
@@ -75,7 +75,7 @@ export type DataAction =
   | { type: 'uncomplete-task'; taskId: TaskId }
   | { type: 'toggle-next'; taskId: TaskId }
   | { type: 'toggle-starred'; taskId: TaskId }
-  | { type: 'toggle-waiting'; taskId: TaskId }
+  | { type: 'set-waiting'; taskId: TaskId; waitingFor: WaitingFor | typeof CLEAR }
   | { type: 'set-task-agenda'; taskId: TaskId; agendaId: AgendaId | typeof CLEAR }
   | { type: 'set-task-context'; taskId: TaskId; contextId: ContextId | typeof CLEAR }
   | { type: 'create-project'; name: string; sphereId: SphereId }
@@ -96,7 +96,7 @@ export type CommandId =
   | 'uncomplete-task'
   | 'toggle-next'
   | 'star'
-  | 'toggle-waiting'
+  | 'set-waiting'
   | 'pick-due-date'
   | 'set-recurrence'
   | 'pick-project'

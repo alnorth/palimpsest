@@ -42,7 +42,7 @@ function isDataAction(action: Action): action is DataAction {
     action.type === 'uncomplete-task' ||
     action.type === 'toggle-next' ||
     action.type === 'toggle-starred' ||
-    action.type === 'toggle-waiting' ||
+    action.type === 'set-waiting' ||
     action.type === 'set-task-project' ||
     action.type === 'set-task-agenda' ||
     action.type === 'set-task-context' ||
@@ -173,10 +173,10 @@ export function useAppState(store: PalimpsestStore, initialState: ProjectionStat
           break
         }
 
-        case 'toggle-waiting': {
+        case 'set-waiting': {
           const task = projState.tasks.get(action.taskId)
           if (task !== undefined) {
-            await store.appendEvents(updateTask(task, { isWaiting: task.isWaiting !== true }))
+            await store.appendEvents(updateTask(task, { waitingFor: action.waitingFor }))
           }
           break
         }
