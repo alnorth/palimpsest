@@ -1,14 +1,10 @@
 import React from 'react'
 import { Stack, Group, Text, TextInput } from '@mantine/core'
 import { useMediaQuery } from '@mantine/hooks'
-import type { ViewPickerItem, AgendaPickerItem, ContextPickerItem, DueDateOption, ProjectPickerItem, WaitingKindOption } from 'palimpsest-ui-core'
-import { AGENDA_PREFIX, CONTEXT_PREFIX } from 'palimpsest-ui-core'
-
-interface PickerItem {
-  label: string
-  prefix?: string | undefined
-  key?: string | undefined
-}
+import type { PickerItem } from 'palimpsest-ui-core'
+import type { TopLevelView } from 'palimpsest-ui-core'
+import type { AgendaId, ContextId, ProjectId } from 'palimpsest'
+import type { WaitingKind } from 'palimpsest-ui-core'
 
 function PickerRow({ isSelected, onMouseEnter, onClick, children }: {
   isSelected: boolean
@@ -36,7 +32,7 @@ function PickerRow({ isSelected, onMouseEnter, onClick, children }: {
 }
 
 function PickerList({ items, selectedIndex, onHover, onActivate }: {
-  items: PickerItem[]
+  items: PickerItem<unknown>[]
   selectedIndex: number
   onHover?: ((i: number) => void) | undefined
   onActivate?: ((i: number) => void) | undefined
@@ -65,10 +61,10 @@ function PickerList({ items, selectedIndex, onHover, onActivate }: {
   )
 }
 
-export function ViewPicker({ items, selectedItem, onHover, onActivate }: { items: ViewPickerItem[]; selectedItem: ViewPickerItem | undefined; onHover?: (i: number) => void; onActivate?: (i: number) => void }) {
+export function ViewPicker({ items, selectedItem, onHover, onActivate }: { items: PickerItem<TopLevelView>[]; selectedItem: PickerItem<TopLevelView> | undefined; onHover?: (i: number) => void; onActivate?: (i: number) => void }) {
   return (
     <PickerList
-      items={items.map(item => ({ label: item.label, key: item.key }))}
+      items={items}
       selectedIndex={selectedItem !== undefined ? items.indexOf(selectedItem) : -1}
       onHover={onHover}
       onActivate={onActivate}
@@ -76,10 +72,10 @@ export function ViewPicker({ items, selectedItem, onHover, onActivate }: { items
   )
 }
 
-export function AgendaPicker({ items, selectedItem, onHover, onActivate }: { items: AgendaPickerItem[]; selectedItem: AgendaPickerItem | undefined; onHover?: (i: number) => void; onActivate?: (i: number) => void }) {
+export function AgendaPicker({ items, selectedItem, onHover, onActivate }: { items: PickerItem<AgendaId | null>[]; selectedItem: PickerItem<AgendaId | null> | undefined; onHover?: (i: number) => void; onActivate?: (i: number) => void }) {
   return (
     <PickerList
-      items={items.map(item => ({ label: item.title, prefix: item.id !== null ? AGENDA_PREFIX : undefined, key: item.key }))}
+      items={items}
       selectedIndex={selectedItem !== undefined ? items.indexOf(selectedItem) : -1}
       onHover={onHover}
       onActivate={onActivate}
@@ -87,10 +83,10 @@ export function AgendaPicker({ items, selectedItem, onHover, onActivate }: { ite
   )
 }
 
-export function ContextPicker({ items, selectedItem, onHover, onActivate }: { items: ContextPickerItem[]; selectedItem: ContextPickerItem | undefined; onHover?: (i: number) => void; onActivate?: (i: number) => void }) {
+export function WaitingAgendaPicker({ items, selectedItem, onHover, onActivate }: { items: PickerItem<AgendaId>[]; selectedItem: PickerItem<AgendaId> | undefined; onHover?: (i: number) => void; onActivate?: (i: number) => void }) {
   return (
     <PickerList
-      items={items.map(item => ({ label: item.name, prefix: item.id !== null ? CONTEXT_PREFIX : undefined, key: item.key }))}
+      items={items}
       selectedIndex={selectedItem !== undefined ? items.indexOf(selectedItem) : -1}
       onHover={onHover}
       onActivate={onActivate}
@@ -98,10 +94,10 @@ export function ContextPicker({ items, selectedItem, onHover, onActivate }: { it
   )
 }
 
-export function DueDatePicker({ items, selectedItem, onHover, onActivate }: { items: DueDateOption[]; selectedItem: DueDateOption | undefined; onHover?: (i: number) => void; onActivate?: (i: number) => void }) {
+export function ContextPicker({ items, selectedItem, onHover, onActivate }: { items: PickerItem<ContextId | null>[]; selectedItem: PickerItem<ContextId | null> | undefined; onHover?: (i: number) => void; onActivate?: (i: number) => void }) {
   return (
     <PickerList
-      items={items.map(opt => ({ label: opt.date !== null ? `${opt.label} — ${opt.date}` : opt.label, key: opt.key }))}
+      items={items}
       selectedIndex={selectedItem !== undefined ? items.indexOf(selectedItem) : -1}
       onHover={onHover}
       onActivate={onActivate}
@@ -109,10 +105,24 @@ export function DueDatePicker({ items, selectedItem, onHover, onActivate }: { it
   )
 }
 
-export function WaitingKindPicker({ items, selectedItem, onHover, onActivate }: { items: WaitingKindOption[]; selectedItem: WaitingKindOption | undefined; onHover?: (i: number) => void; onActivate?: (i: number) => void }) {
+export function DueDatePicker({ items, selectedItem, onHover, onActivate }: { items: PickerItem<string | null>[]; selectedItem: PickerItem<string | null> | undefined; onHover?: (i: number) => void; onActivate?: (i: number) => void }) {
   return (
     <PickerList
-      items={items.map(item => ({ label: item.label, key: item.key }))}
+      items={items.map(item => ({
+        ...item,
+        label: item.value !== null && item.value !== 'custom' ? `${item.label} — ${item.value}` : item.label,
+      }))}
+      selectedIndex={selectedItem !== undefined ? items.indexOf(selectedItem) : -1}
+      onHover={onHover}
+      onActivate={onActivate}
+    />
+  )
+}
+
+export function WaitingKindPicker({ items, selectedItem, onHover, onActivate }: { items: PickerItem<WaitingKind>[]; selectedItem: PickerItem<WaitingKind> | undefined; onHover?: (i: number) => void; onActivate?: (i: number) => void }) {
+  return (
+    <PickerList
+      items={items}
       selectedIndex={selectedItem !== undefined ? items.indexOf(selectedItem) : -1}
       onHover={onHover}
       onActivate={onActivate}
@@ -128,8 +138,8 @@ export function ProjectSearch({
   onHover,
   onActivate,
 }: {
-  items: ProjectPickerItem[]
-  selectedItem: ProjectPickerItem | undefined
+  items: PickerItem<ProjectId | null>[]
+  selectedItem: PickerItem<ProjectId | null> | undefined
   searchQuery: string
   onSearchChange: (v: string) => void
   onHover?: (i: number) => void
@@ -150,12 +160,46 @@ export function ProjectSearch({
         </PickerRow>
       ) : (
         <PickerList
-          items={items.map(p => ({ label: p.name }))}
+          items={items}
           selectedIndex={selectedItem !== undefined ? items.indexOf(selectedItem) : -1}
           onHover={onHover}
           onActivate={onActivate}
         />
       )}
+    </Stack>
+  )
+}
+
+export function WaitingProjectSearch({
+  items,
+  selectedItem,
+  searchQuery,
+  onSearchChange,
+  onHover,
+  onActivate,
+}: {
+  items: PickerItem<ProjectId>[]
+  selectedItem: PickerItem<ProjectId> | undefined
+  searchQuery: string
+  onSearchChange: (v: string) => void
+  onHover?: (i: number) => void
+  onActivate?: (i: number) => void
+}) {
+  return (
+    <Stack gap="sm">
+      <TextInput
+        placeholder="Search projects…"
+        value={searchQuery}
+        onChange={e => onSearchChange(e.currentTarget.value)}
+        autoFocus
+        size="sm"
+      />
+      <PickerList
+        items={items}
+        selectedIndex={selectedItem !== undefined ? items.indexOf(selectedItem) : -1}
+        onHover={onHover}
+        onActivate={onActivate}
+      />
     </Stack>
   )
 }

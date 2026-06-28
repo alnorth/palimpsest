@@ -104,10 +104,10 @@ function LoadedApp({ initialState }: { initialState: ProjectionState }) {
       const chosen = listItems.items.find(item => item.key === input) ?? (key.return ? listItems.selectedItem : undefined)
       if (chosen !== undefined) {
         const navState =
-          chosen.id === 'tasks'      ? { view: 'tasks' as const,      selected: 0, showCompleted: false } :
-          chosen.id === 'projects'   ? { view: 'projects' as const,   selected: 0, showArchived: false } :
-          chosen.id === 'processing' ? { view: 'processing' as const, selected: 0 } :
-                                       { view: 'dashboard' as const,  selected: 0 }
+          chosen.value === 'tasks'      ? { view: 'tasks' as const,      selected: 0, showCompleted: false } :
+          chosen.value === 'projects'   ? { view: 'projects' as const,   selected: 0, showArchived: false } :
+          chosen.value === 'processing' ? { view: 'processing' as const, selected: 0 } :
+                                          { view: 'dashboard' as const,  selected: 0 }
         dispatch({ type: 'set-nav', navState })
       }
       return
@@ -115,26 +115,26 @@ function LoadedApp({ initialState }: { initialState: ProjectionState }) {
     if (listItems.view === 'picking-agenda-for-task') {
       if (currentTask !== undefined) {
         const item = listItems.items.find(a => a.key === input) ?? (key.return ? listItems.selectedItem : undefined)
-        if (item !== undefined) dispatch({ type: 'set-task-agenda', taskId: currentTask.id, agendaId: item.id ?? CLEAR })
+        if (item !== undefined) dispatch({ type: 'set-task-agenda', taskId: currentTask.id, agendaId: item.value ?? CLEAR })
       }
       return
     }
     if (listItems.view === 'picking-context-for-task') {
       if (currentTask !== undefined) {
         const item = listItems.items.find(c => c.key === input) ?? (key.return ? listItems.selectedItem : undefined)
-        if (item !== undefined) dispatch({ type: 'set-task-context', taskId: currentTask.id, contextId: item.id ?? CLEAR })
+        if (item !== undefined) dispatch({ type: 'set-task-context', taskId: currentTask.id, contextId: item.value ?? CLEAR })
       }
       return
     }
     if (listItems.view === 'picking-due-date') {
-      const opt = listItems.items.find(o => o.key === input) ?? (key.return ? listItems.selectedItem : undefined)
-      if (opt !== undefined && currentTask !== undefined) {
-        if (opt.date !== null) {
-          dispatch({ type: 'set-task-due-date', taskId: currentTask.id, dueDate: opt.date })
-        } else if (opt.key === 'c') {
+      const item = listItems.items.find(o => o.key === input) ?? (key.return ? listItems.selectedItem : undefined)
+      if (item !== undefined && currentTask !== undefined) {
+        if (item.value === null) {
+          dispatch({ type: 'set-task-due-date', taskId: currentTask.id, dueDate: CLEAR })
+        } else if (item.value === 'custom') {
           dispatch({ type: 'set-mode', mode: { type: 'editing-due-date', formValue: '' } })
         } else {
-          dispatch({ type: 'set-task-due-date', taskId: currentTask.id, dueDate: CLEAR })
+          dispatch({ type: 'set-task-due-date', taskId: currentTask.id, dueDate: item.value })
         }
       }
       return
@@ -143,7 +143,7 @@ function LoadedApp({ initialState }: { initialState: ProjectionState }) {
       if (key.return && currentTask !== undefined) {
         const item = listItems.selectedItem
         if (item !== undefined) {
-          dispatch({ type: 'set-task-project', taskId: currentTask.id, projectId: item.id ?? CLEAR })
+          dispatch({ type: 'set-task-project', taskId: currentTask.id, projectId: item.value ?? CLEAR })
         } else if (listItems.items.length === 0 && searchQuery.trim() !== '' && activeSphere !== undefined) {
           dispatch({ type: 'create-and-assign-project', name: searchQuery.trim(), sphereId: activeSphere.id, taskId: currentTask.id })
         }
@@ -152,12 +152,12 @@ function LoadedApp({ initialState }: { initialState: ProjectionState }) {
     }
     if (listItems.view === 'picking-waiting-for-task') {
       if (currentTask !== undefined) {
-        const opt = listItems.items.find(i => i.key === input) ?? (key.return ? listItems.selectedItem : undefined)
-        if (opt !== undefined) {
-          if (opt.kind === 'clear') dispatch({ type: 'set-waiting', taskId: currentTask.id, waitingFor: CLEAR })
-          else if (opt.kind === 'review') dispatch({ type: 'set-waiting', taskId: currentTask.id, waitingFor: { kind: 'review' } })
-          else if (opt.kind === 'agenda') dispatch({ type: 'navigate', navState: { view: 'picking-waiting-agenda', selected: 0, activeTaskId: currentTask.id } })
-          else if (opt.kind === 'project') dispatch({ type: 'navigate', navState: { view: 'picking-waiting-project', selected: 0, activeTaskId: currentTask.id, searchQuery: '' } })
+        const item = listItems.items.find(i => i.key === input) ?? (key.return ? listItems.selectedItem : undefined)
+        if (item !== undefined) {
+          if (item.value === 'clear') dispatch({ type: 'set-waiting', taskId: currentTask.id, waitingFor: CLEAR })
+          else if (item.value === 'review') dispatch({ type: 'set-waiting', taskId: currentTask.id, waitingFor: { kind: 'review' } })
+          else if (item.value === 'agenda') dispatch({ type: 'navigate', navState: { view: 'picking-waiting-agenda', selected: 0, activeTaskId: currentTask.id } })
+          else if (item.value === 'project') dispatch({ type: 'navigate', navState: { view: 'picking-waiting-project', selected: 0, activeTaskId: currentTask.id, searchQuery: '' } })
         }
       }
       return
@@ -165,15 +165,15 @@ function LoadedApp({ initialState }: { initialState: ProjectionState }) {
     if (listItems.view === 'picking-waiting-agenda') {
       if (currentTask !== undefined) {
         const item = listItems.items.find(a => a.key === input) ?? (key.return ? listItems.selectedItem : undefined)
-        if (item !== undefined) dispatch({ type: 'set-waiting', taskId: currentTask.id, waitingFor: { kind: 'agenda', agendaId: item.id! } })
+        if (item !== undefined) dispatch({ type: 'set-waiting', taskId: currentTask.id, waitingFor: { kind: 'agenda', agendaId: item.value } })
       }
       return
     }
     if (listItems.view === 'picking-waiting-project') {
       if (key.return && currentTask !== undefined) {
         const item = listItems.selectedItem
-        if (item !== undefined && item.id !== null) {
-          dispatch({ type: 'set-waiting', taskId: currentTask.id, waitingFor: { kind: 'project', projectId: item.id } })
+        if (item !== undefined) {
+          dispatch({ type: 'set-waiting', taskId: currentTask.id, waitingFor: { kind: 'project', projectId: item.value } })
         }
       }
       return
@@ -294,12 +294,12 @@ function LoadedApp({ initialState }: { initialState: ProjectionState }) {
       )
       footer = <Text dimColor>enter to set  esc cancel</Text>
     } else {
-      content = listItems.items.map(opt => {
-        const isSelected = opt === listItems.selectedItem
-        const label = opt.date !== null ? `${opt.label} — ${formatDate(opt.date)}` : opt.label
+      content = listItems.items.map(item => {
+        const isSelected = item === listItems.selectedItem
+        const label = item.value !== null && item.value !== 'custom' ? `${item.label} — ${formatDate(item.value)}` : item.label
         return (
-          <Text key={opt.key} {...(isSelected ? { color: 'blue' as const } : {})}>
-            {isSelected ? '> ' : '  '}{label}<Text dimColor>  {opt.key}</Text>
+          <Text key={item.key} {...(isSelected ? { color: 'blue' as const } : {})}>
+            {isSelected ? '> ' : '  '}{label}<Text dimColor>  {item.key}</Text>
           </Text>
         )
       })
@@ -307,48 +307,48 @@ function LoadedApp({ initialState }: { initialState: ProjectionState }) {
     }
   } else if (listItems.view === 'picking-agenda-for-task') {
     title = <Text bold color="cyan">{subtitle}</Text>
-    content = listItems.items.map(opt => {
-      const isSelected = opt === listItems.selectedItem
+    content = listItems.items.map((item, i) => {
+      const isSelected = item === listItems.selectedItem
       return (
-        <Text key={opt.title} {...(isSelected ? { color: 'blue' as const } : {})}>
-          {isSelected ? '> ' : '  '}{opt.id !== null ? AGENDA_PREFIX : ''}{opt.title}
-          {opt.key !== undefined ? <Text dimColor>  {opt.key}</Text> : null}
+        <Text key={i} {...(isSelected ? { color: 'blue' as const } : {})}>
+          {isSelected ? '> ' : '  '}{item.prefix ?? ''}{item.label}
+          {item.key !== undefined ? <Text dimColor>  {item.key}</Text> : null}
         </Text>
       )
     })
     footer = <Text dimColor>↑↓ navigate  enter/key select  esc back</Text>
   } else if (listItems.view === 'picking-context-for-task') {
     title = <Text bold color="cyan">{subtitle}</Text>
-    content = listItems.items.map(opt => {
-      const isSelected = opt === listItems.selectedItem
+    content = listItems.items.map((item, i) => {
+      const isSelected = item === listItems.selectedItem
       return (
-        <Text key={opt.name} {...(isSelected ? { color: 'blue' as const } : {})}>
-          {isSelected ? '> ' : '  '}{opt.id !== null ? CONTEXT_PREFIX : ''}{opt.name}
-          {opt.key !== undefined ? <Text dimColor>  {opt.key}</Text> : null}
+        <Text key={i} {...(isSelected ? { color: 'blue' as const } : {})}>
+          {isSelected ? '> ' : '  '}{item.prefix ?? ''}{item.label}
+          {item.key !== undefined ? <Text dimColor>  {item.key}</Text> : null}
         </Text>
       )
     })
     footer = <Text dimColor>↑↓ navigate  enter/key select  esc back</Text>
   } else if (listItems.view === 'picking-waiting-for-task') {
     title = <Text bold color="cyan">{subtitle}</Text>
-    content = listItems.items.map((opt, i) => {
-      const isSelected = opt === listItems.selectedItem
+    content = listItems.items.map((item, i) => {
+      const isSelected = item === listItems.selectedItem
       return (
         <Text key={i} {...(isSelected ? { color: 'blue' as const } : {})}>
-          {isSelected ? '> ' : '  '}{opt.label}
-          {opt.key !== undefined ? <Text dimColor>  {opt.key}</Text> : null}
+          {isSelected ? '> ' : '  '}{item.label}
+          {item.key !== undefined ? <Text dimColor>  {item.key}</Text> : null}
         </Text>
       )
     })
     footer = <Text dimColor>↑↓ navigate  enter/key select  esc back</Text>
   } else if (listItems.view === 'picking-waiting-agenda') {
     title = <Text bold color="cyan">{subtitle}</Text>
-    content = listItems.items.map(opt => {
-      const isSelected = opt === listItems.selectedItem
+    content = listItems.items.map((item, i) => {
+      const isSelected = item === listItems.selectedItem
       return (
-        <Text key={opt.title} {...(isSelected ? { color: 'blue' as const } : {})}>
-          {isSelected ? '> ' : '  '}{AGENDA_PREFIX}{opt.title}
-          {opt.key !== undefined ? <Text dimColor>  {opt.key}</Text> : null}
+        <Text key={i} {...(isSelected ? { color: 'blue' as const } : {})}>
+          {isSelected ? '> ' : '  '}{item.prefix ?? ''}{item.label}
+          {item.key !== undefined ? <Text dimColor>  {item.key}</Text> : null}
         </Text>
       )
     })
@@ -366,11 +366,11 @@ function LoadedApp({ initialState }: { initialState: ProjectionState }) {
           />
         </Box>
         <Box flexDirection="column" marginTop={1}>
-          {listItems.items.map(p => {
-            const isSelected = p === listItems.selectedItem
+          {listItems.items.map((item, i) => {
+            const isSelected = item === listItems.selectedItem
             return (
-              <Text key={p.id} {...(isSelected ? { color: 'blue' as const } : {})}>
-                {isSelected ? '> ' : '  '}{p.name}
+              <Text key={i} {...(isSelected ? { color: 'blue' as const } : {})}>
+                {isSelected ? '> ' : '  '}{item.label}
               </Text>
             )
           })}
@@ -393,11 +393,11 @@ function LoadedApp({ initialState }: { initialState: ProjectionState }) {
         <Box flexDirection="column" marginTop={1}>
           {listItems.items.length === 0 && searchQuery.trim() !== '' ? (
             <Text color="blue">{'> '}Create project "{searchQuery.trim()}"</Text>
-          ) : listItems.items.map(p => {
-            const isSelected = p === listItems.selectedItem
+          ) : listItems.items.map((item, i) => {
+            const isSelected = item === listItems.selectedItem
             return (
-              <Text key={p.id ?? 'null'} {...(isSelected ? { color: 'blue' as const } : {})}>
-                {isSelected ? '> ' : '  '}{p.name}
+              <Text key={i} {...(isSelected ? { color: 'blue' as const } : {})}>
+                {isSelected ? '> ' : '  '}{item.label}
               </Text>
             )
           })}
@@ -410,7 +410,7 @@ function LoadedApp({ initialState }: { initialState: ProjectionState }) {
     content = listItems.items.map(item => {
       const isSelected = item === listItems.selectedItem
       return (
-        <Text key={item.id} {...(isSelected ? { color: 'blue' as const } : {})}>
+        <Text key={item.value} {...(isSelected ? { color: 'blue' as const } : {})}>
           {isSelected ? '> ' : '  '}{item.label}<Text dimColor>  {item.key}</Text>
         </Text>
       )

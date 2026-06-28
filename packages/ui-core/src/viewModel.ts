@@ -5,53 +5,28 @@ import {
 import type { Task, Project, Sphere, Agenda, Context, ProjectionState, ProjectId, AgendaId, ContextId } from 'palimpsest'
 import { INITIAL_NAV } from './types.js'
 import type { UIState, View, Mode, TopLevelView } from './types.js'
+import { AGENDA_PREFIX, CONTEXT_PREFIX } from './prefixes.js'
 
 export interface ProjectStats {
   hasNext: Set<ProjectId>
   taskCount: Map<ProjectId, number>
 }
 
-export interface ViewPickerItem {
-  id: TopLevelView
+export interface PickerItem<T> {
   label: string
-  key: string
+  prefix?: string | undefined
+  key?: string | undefined
+  value: T
 }
 
-export const VIEW_CONFIG: ViewPickerItem[] = [
-  { id: 'dashboard',  label: 'Dashboard',  key: 'd' },
-  { id: 'tasks',      label: 'Tasks',      key: 't' },
-  { id: 'projects',   label: 'Projects',   key: 'p' },
-  { id: 'processing', label: 'Processing', key: 'r' },
+export type WaitingKind = 'clear' | 'review' | 'agenda' | 'project'
+
+export const VIEW_CONFIG: PickerItem<TopLevelView>[] = [
+  { value: 'dashboard',  label: 'Dashboard',  key: 'd' },
+  { value: 'tasks',      label: 'Tasks',      key: 't' },
+  { value: 'projects',   label: 'Projects',   key: 'p' },
+  { value: 'processing', label: 'Processing', key: 'r' },
 ]
-
-export interface AgendaPickerItem {
-  id: AgendaId | null
-  title: string
-  key?: string
-}
-
-export interface ContextPickerItem {
-  id: ContextId | null
-  name: string
-  key?: string
-}
-
-export interface DueDateOption {
-  label: string
-  date: string | null
-  key: string
-}
-
-export interface ProjectPickerItem {
-  id: ProjectId | null
-  name: string
-}
-
-export interface WaitingKindOption {
-  kind: 'clear' | 'review' | 'agenda' | 'project'
-  label: string
-  key?: string
-}
 
 export interface ListGroup<T> {
   title: string
@@ -68,17 +43,24 @@ export type ListItem =
 
 type MainListItems = { view: 'dashboard' | 'tasks' | 'project' | 'projects' | 'processing'; groups: ListGroup<ListItem>[]; items: ListItem[]; emptyMessage: string; selectedItem: ListItem | undefined }
 
+type PickerListItems<V extends View, T> = {
+  view: V
+  groups: ListGroup<PickerItem<T>>[]
+  items: PickerItem<T>[]
+  selectedItem: PickerItem<T> | undefined
+}
+
 export type ListItems =
   | MainListItems
   | { view: 'task'; groups: ListGroup<never>[]; items: never[] }
-  | { view: 'picking-view'; groups: ListGroup<ViewPickerItem>[]; items: ViewPickerItem[]; selectedItem: ViewPickerItem | undefined }
-  | { view: 'picking-agenda-for-task'; groups: ListGroup<AgendaPickerItem>[]; items: AgendaPickerItem[]; selectedItem: AgendaPickerItem | undefined }
-  | { view: 'picking-context-for-task'; groups: ListGroup<ContextPickerItem>[]; items: ContextPickerItem[]; selectedItem: ContextPickerItem | undefined }
-  | { view: 'picking-due-date'; groups: ListGroup<DueDateOption>[]; items: DueDateOption[]; selectedItem: DueDateOption | undefined }
-  | { view: 'picking-project-for-task'; groups: ListGroup<ProjectPickerItem>[]; items: ProjectPickerItem[]; selectedItem: ProjectPickerItem | undefined }
-  | { view: 'picking-waiting-for-task'; groups: ListGroup<WaitingKindOption>[]; items: WaitingKindOption[]; selectedItem: WaitingKindOption | undefined }
-  | { view: 'picking-waiting-agenda'; groups: ListGroup<AgendaPickerItem>[]; items: AgendaPickerItem[]; selectedItem: AgendaPickerItem | undefined }
-  | { view: 'picking-waiting-project'; groups: ListGroup<ProjectPickerItem>[]; items: ProjectPickerItem[]; selectedItem: ProjectPickerItem | undefined }
+  | PickerListItems<'picking-view', TopLevelView>
+  | PickerListItems<'picking-agenda-for-task', AgendaId | null>
+  | PickerListItems<'picking-context-for-task', ContextId | null>
+  | PickerListItems<'picking-due-date', string | null>
+  | PickerListItems<'picking-project-for-task', ProjectId | null>
+  | PickerListItems<'picking-waiting-for-task', WaitingKind>
+  | PickerListItems<'picking-waiting-agenda', AgendaId>
+  | PickerListItems<'picking-waiting-project', ProjectId>
 
 export interface ViewModel {
   spheres: Sphere[]
@@ -212,14 +194,6 @@ export function deriveViewModel(projState: ProjectionState, uiState: UIState): V
 
   const isPickerView = view === 'picking-view' || view === 'picking-agenda-for-task' || view === 'picking-context-for-task' || view === 'picking-due-date' || view === 'picking-project-for-task' || view === 'picking-waiting-for-task' || view === 'picking-waiting-agenda' || view === 'picking-waiting-project'
 
-  const dueDateOptions: DueDateOption[] = [
-    { label: 'Today',         date: today,                  key: 'd' },
-    { label: 'Tomorrow',      date: addDays(today, 1),      key: 't' },
-    { label: 'Next Saturday', date: nextWeekday(today, 6),  key: 's' },
-    { label: 'Next Monday',   date: nextWeekday(today, 1),  key: 'm' },
-    { label: 'Custom…',       date: null,                   key: 'c' },
-    { label: 'No due date',   date: null,                   key: 'x' },
-  ]
 
   const listItems: ListItems = (() => {
     switch (view) {
@@ -250,24 +224,30 @@ export function deriveViewModel(projState: ProjectionState, uiState: UIState): V
       case 'task': return { view, groups: [], items: [] }
       case 'picking-view': return { view, groups: [{ title: '', items: VIEW_CONFIG }], items: VIEW_CONFIG, selectedItem: VIEW_CONFIG[selected] }
       case 'picking-agenda-for-task': {
-        const items: AgendaPickerItem[] = [
-          { id: null, title: 'No agenda' },
-          ...agendas.map((a): AgendaPickerItem =>
-            a.key !== undefined ? { id: a.id, title: a.title, key: a.key } : { id: a.id, title: a.title }
-          ),
+        const items: PickerItem<AgendaId | null>[] = [
+          { label: 'No agenda', value: null },
+          ...agendas.map((a): PickerItem<AgendaId | null> => ({ label: a.title, prefix: AGENDA_PREFIX, value: a.id, ...(a.key !== undefined && { key: a.key }) })),
         ]
         return { view, groups: [{ title: '', items }], items, selectedItem: items[selected] }
       }
       case 'picking-context-for-task': {
-        const items: ContextPickerItem[] = [
-          { id: null, name: 'No context' },
-          ...contexts.map((c): ContextPickerItem =>
-            c.key !== undefined ? { id: c.id, name: c.name, key: c.key } : { id: c.id, name: c.name }
-          ),
+        const items: PickerItem<ContextId | null>[] = [
+          { label: 'No context', value: null },
+          ...contexts.map((c): PickerItem<ContextId | null> => ({ label: c.name, prefix: CONTEXT_PREFIX, value: c.id, ...(c.key !== undefined && { key: c.key }) })),
         ]
         return { view, groups: [{ title: '', items }], items, selectedItem: items[selected] }
       }
-      case 'picking-due-date': return { view, groups: [{ title: '', items: dueDateOptions }], items: dueDateOptions, selectedItem: dueDateOptions[selected] }
+      case 'picking-due-date': {
+        const items: PickerItem<string | null>[] = [
+          { label: 'Today',         value: today,                 key: 'd' },
+          { label: 'Tomorrow',      value: addDays(today, 1),     key: 't' },
+          { label: 'Next Saturday', value: nextWeekday(today, 6), key: 's' },
+          { label: 'Next Monday',   value: nextWeekday(today, 1), key: 'm' },
+          { label: 'Custom…',       value: 'custom',              key: 'c' },
+          { label: 'No due date',   value: null,                  key: 'x' },
+        ]
+        return { view, groups: [{ title: '', items }], items, selectedItem: items[selected] }
+      }
       case 'picking-project-for-task': {
         const query = searchQuery.toLowerCase().trim()
         const allProjects = activeSphere !== undefined
@@ -276,25 +256,25 @@ export function deriveViewModel(projState: ProjectionState, uiState: UIState): V
         const filtered = query === ''
           ? allProjects
           : allProjects.filter(p => p.name.toLowerCase().includes(query))
-        const items: ProjectPickerItem[] = [
-          ...(query === '' ? [{ id: null as null, name: 'No project' }] : []),
-          ...filtered.map(p => ({ id: p.id, name: p.name })),
+        const items: PickerItem<ProjectId | null>[] = [
+          ...(query === '' ? [{ label: 'No project', value: null as null }] : []),
+          ...filtered.map(p => ({ label: p.name, value: p.id })),
         ]
         return { view, groups: [{ title: '', items }], items, selectedItem: items[selected] }
       }
       case 'picking-waiting-for-task': {
-        const items: WaitingKindOption[] = [
-          { kind: 'clear',   label: 'Not waiting', key: 'x' },
-          { kind: 'review',  label: 'Review',      key: 'r' },
-          { kind: 'agenda',  label: 'Agenda…',  key: 'a' },
-          { kind: 'project', label: 'Project…', key: 'p' },
+        const items: PickerItem<WaitingKind>[] = [
+          { value: 'clear',   label: 'Not waiting', key: 'x' },
+          { value: 'review',  label: 'Review',      key: 'r' },
+          { value: 'agenda',  label: 'Agenda…',     key: 'a' },
+          { value: 'project', label: 'Project…',    key: 'p' },
         ]
         return { view, groups: [{ title: '', items }], items, selectedItem: items[selected] }
       }
       case 'picking-waiting-agenda': {
-        const items: AgendaPickerItem[] = agendas.map((a): AgendaPickerItem =>
-          a.key !== undefined ? { id: a.id, title: a.title, key: a.key } : { id: a.id, title: a.title }
-        )
+        const items: PickerItem<AgendaId>[] = agendas.map((a): PickerItem<AgendaId> => ({
+          label: a.title, prefix: AGENDA_PREFIX, value: a.id, ...(a.key !== undefined && { key: a.key }),
+        }))
         return { view, groups: [{ title: '', items }], items, selectedItem: items[selected] }
       }
       case 'picking-waiting-project': {
@@ -305,7 +285,7 @@ export function deriveViewModel(projState: ProjectionState, uiState: UIState): V
         const filtered = query === ''
           ? allProjects
           : allProjects.filter(p => p.name.toLowerCase().includes(query))
-        const items: ProjectPickerItem[] = filtered.map(p => ({ id: p.id, name: p.name }))
+        const items: PickerItem<ProjectId>[] = filtered.map(p => ({ label: p.name, value: p.id }))
         return { view, groups: [{ title: '', items }], items, selectedItem: items[selected] }
       }
     }

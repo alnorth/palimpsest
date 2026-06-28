@@ -271,53 +271,53 @@ export function useAppState(store: PalimpsestStore, initialState: ProjectionStat
     if (vm.listItems.view === 'picking-view') {
       const item = vm.listItems.items[i]
       if (item !== undefined) {
-        dispatch({ type: 'set-nav', navState: navStateForTopLevelView(item.id) })
+        dispatch({ type: 'set-nav', navState: navStateForTopLevelView(item.value) })
       }
     } else if (vm.listItems.view === 'picking-agenda-for-task') {
       const item = vm.listItems.items[i]
-      if (item !== undefined && vm.currentTask !== undefined) dispatch({ type: 'set-task-agenda', taskId: vm.currentTask.id, agendaId: item.id ?? CLEAR })
+      if (item !== undefined && vm.currentTask !== undefined) dispatch({ type: 'set-task-agenda', taskId: vm.currentTask.id, agendaId: item.value ?? CLEAR })
     } else if (vm.listItems.view === 'picking-context-for-task') {
       const item = vm.listItems.items[i]
-      if (item !== undefined && vm.currentTask !== undefined) dispatch({ type: 'set-task-context', taskId: vm.currentTask.id, contextId: item.id ?? CLEAR })
+      if (item !== undefined && vm.currentTask !== undefined) dispatch({ type: 'set-task-context', taskId: vm.currentTask.id, contextId: item.value ?? CLEAR })
     } else if (vm.listItems.view === 'picking-due-date') {
-      const opt = vm.listItems.items[i]
-      if (opt !== undefined && vm.currentTask !== undefined) {
-        if (opt.date !== null) dispatch({ type: 'set-task-due-date', taskId: vm.currentTask.id, dueDate: opt.date })
-        else if (opt.key === 'c') dispatch({ type: 'set-mode', mode: { type: 'editing-due-date', formValue: '' } })
-        else dispatch({ type: 'set-task-due-date', taskId: vm.currentTask.id, dueDate: CLEAR })
+      const item = vm.listItems.items[i]
+      if (item !== undefined && vm.currentTask !== undefined) {
+        if (item.value === null) dispatch({ type: 'set-task-due-date', taskId: vm.currentTask.id, dueDate: CLEAR })
+        else if (item.value === 'custom') dispatch({ type: 'set-mode', mode: { type: 'editing-due-date', formValue: '' } })
+        else dispatch({ type: 'set-task-due-date', taskId: vm.currentTask.id, dueDate: item.value })
       }
     } else if (vm.listItems.view === 'picking-project-for-task') {
       const { items } = vm.listItems
       const item = items[i]
       if (vm.currentTask !== undefined) {
         if (item !== undefined) {
-          dispatch({ type: 'set-task-project', taskId: vm.currentTask.id, projectId: item.id ?? CLEAR })
+          dispatch({ type: 'set-task-project', taskId: vm.currentTask.id, projectId: item.value ?? CLEAR })
         } else if (items.length === 0 && vm.searchQuery.trim() !== '' && vm.activeSphere !== undefined) {
           dispatch({ type: 'create-and-assign-project', name: vm.searchQuery.trim(), sphereId: vm.activeSphere.id, taskId: vm.currentTask.id })
         }
       }
     } else if (vm.listItems.view === 'picking-waiting-for-task') {
-      const opt = vm.listItems.items[i]
-      if (opt !== undefined && vm.currentTask !== undefined) {
-        if (opt.kind === 'clear') {
+      const item = vm.listItems.items[i]
+      if (item !== undefined && vm.currentTask !== undefined) {
+        if (item.value === 'clear') {
           dispatch({ type: 'set-waiting', taskId: vm.currentTask.id, waitingFor: CLEAR })
-        } else if (opt.kind === 'review') {
+        } else if (item.value === 'review') {
           dispatch({ type: 'set-waiting', taskId: vm.currentTask.id, waitingFor: { kind: 'review' } })
-        } else if (opt.kind === 'agenda') {
+        } else if (item.value === 'agenda') {
           dispatch({ type: 'navigate', navState: { view: 'picking-waiting-agenda', selected: 0, activeTaskId: vm.currentTask.id } })
-        } else if (opt.kind === 'project') {
+        } else if (item.value === 'project') {
           dispatch({ type: 'navigate', navState: { view: 'picking-waiting-project', selected: 0, activeTaskId: vm.currentTask.id, searchQuery: '' } })
         }
       }
     } else if (vm.listItems.view === 'picking-waiting-agenda') {
       const item = vm.listItems.items[i]
       if (item !== undefined && vm.currentTask !== undefined) {
-        dispatch({ type: 'set-waiting', taskId: vm.currentTask.id, waitingFor: { kind: 'agenda', agendaId: item.id! } })
+        dispatch({ type: 'set-waiting', taskId: vm.currentTask.id, waitingFor: { kind: 'agenda', agendaId: item.value } })
       }
     } else if (vm.listItems.view === 'picking-waiting-project') {
       const item = vm.listItems.items[i]
-      if (item !== undefined && item.id !== null && vm.currentTask !== undefined) {
-        dispatch({ type: 'set-waiting', taskId: vm.currentTask.id, waitingFor: { kind: 'project', projectId: item.id } })
+      if (item !== undefined && vm.currentTask !== undefined) {
+        dispatch({ type: 'set-waiting', taskId: vm.currentTask.id, waitingFor: { kind: 'project', projectId: item.value } })
       }
     } else {
       const item = vm.listItems.items[i]

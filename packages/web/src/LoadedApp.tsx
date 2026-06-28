@@ -13,7 +13,7 @@ import { CommandBar } from './components/CommandBar.js'
 import { MobileFooter } from './components/MobileFooter.js'
 import { NavDrawer } from './components/NavDrawer.js'
 import { SyncStatus } from './components/SyncStatus.js'
-import { ViewPicker, AgendaPicker, ContextPicker, DueDatePicker, ProjectSearch, WaitingKindPicker } from './components/Pickers.js'
+import { ViewPicker, AgendaPicker, WaitingAgendaPicker, ContextPicker, DueDatePicker, ProjectSearch, WaitingProjectSearch, WaitingKindPicker } from './components/Pickers.js'
 
 interface Props {
   store: PalimpsestStore
@@ -127,10 +127,10 @@ export function LoadedApp({ store, initialState }: Props) {
   } else if (listItems.view === 'picking-waiting-for-task') {
     content = <WaitingKindPicker items={listItems.items} selectedItem={listItems.selectedItem} onHover={handleHover} onActivate={activate} />
   } else if (listItems.view === 'picking-waiting-agenda') {
-    content = <AgendaPicker items={listItems.items} selectedItem={listItems.selectedItem} onHover={handleHover} onActivate={activate} />
+    content = <WaitingAgendaPicker items={listItems.items} selectedItem={listItems.selectedItem} onHover={handleHover} onActivate={activate} />
   } else if (listItems.view === 'picking-waiting-project') {
     content = (
-      <ProjectSearch
+      <WaitingProjectSearch
         items={listItems.items}
         selectedItem={listItems.selectedItem}
         searchQuery={searchQuery}

@@ -272,7 +272,7 @@ export function getCommands(vm: ViewModel): Partial<Record<CommandId, Command>> 
     key: 'v',
     action: {
       type: 'navigate',
-      navState: { view: 'picking-view', selected: Math.max(0, VIEW_CONFIG.findIndex(item => item.id === view)) },
+      navState: { view: 'picking-view', selected: Math.max(0, VIEW_CONFIG.findIndex(item => item.value === view)) },
     },
   }
 
