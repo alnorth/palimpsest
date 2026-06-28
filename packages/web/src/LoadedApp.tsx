@@ -3,7 +3,7 @@ import { AppShell, Group, Text, ScrollArea, Badge, Burger, Button, Stack, Modal,
 import { useMediaQuery } from '@mantine/hooks'
 import type { PalimpsestStore, ProjectionState, Task } from 'palimpsest'
 import { CLEAR, isValidExpression } from 'palimpsest'
-import { useAppState, parseDueDate, getDueDatePreview, getRecurrencePreview } from 'palimpsest-ui-core'
+import { useAppState, parseDueDate, getDueDatePreview, getRecurrencePreview, flatItems } from 'palimpsest-ui-core'
 import type { Command } from 'palimpsest-ui-core'
 import { CommandButton } from './components/CommandButton.js'
 import { useKeyboard } from './useKeyboard.js'
@@ -94,7 +94,7 @@ export function LoadedApp({ store, initialState }: Props) {
     } else if (mode === 'editing-recurrence') {
       setFormValue(currentTask?.dueDateExpression ?? '')
     } else if (mode === 'editing-project' && listItems.view === 'projects') {
-      setFormValue(listItems.groups.flatMap(g => g.items)[selected]?.name ?? '')
+      setFormValue(flatItems(listItems.groups)[selected]?.name ?? '')
     }
   }, [mode]) // intentionally omit other deps — we only want to run on mode transitions
 
@@ -176,7 +176,7 @@ export function LoadedApp({ store, initialState }: Props) {
 
   function handleEditProjectSubmit(name: string) {
     const trimmed = name.trim()
-    const project = listItems.view === 'projects' ? listItems.groups.flatMap(g => g.items)[selected] : undefined
+    const project = listItems.view === 'projects' ? flatItems(listItems.groups)[selected] : undefined
     if (trimmed && project !== undefined) {
       dispatch({ type: 'edit-project', projectId: project.id, name: trimmed })
     } else {
@@ -217,17 +217,17 @@ export function LoadedApp({ store, initialState }: Props) {
   let content: React.ReactNode
 
   if (listItems.view === 'picking-view') {
-    content = <ViewPicker items={listItems.groups.flatMap(g => g.items)} selected={selected} onHover={handleHover} onActivate={activate} />
+    content = <ViewPicker items={flatItems(listItems.groups)} selected={selected} onHover={handleHover} onActivate={activate} />
   } else if (listItems.view === 'picking-agenda-for-task') {
-    content = <AgendaPicker items={listItems.groups.flatMap(g => g.items)} selected={selected} onHover={handleHover} onActivate={activate} />
+    content = <AgendaPicker items={flatItems(listItems.groups)} selected={selected} onHover={handleHover} onActivate={activate} />
   } else if (listItems.view === 'picking-context-for-task') {
-    content = <ContextPicker items={listItems.groups.flatMap(g => g.items)} selected={selected} onHover={handleHover} onActivate={activate} />
+    content = <ContextPicker items={flatItems(listItems.groups)} selected={selected} onHover={handleHover} onActivate={activate} />
   } else if (listItems.view === 'picking-due-date') {
-    content = <DueDatePicker items={listItems.groups.flatMap(g => g.items)} selected={selected} onHover={handleHover} onActivate={activate} />
+    content = <DueDatePicker items={flatItems(listItems.groups)} selected={selected} onHover={handleHover} onActivate={activate} />
   } else if (listItems.view === 'picking-project-for-task') {
     content = (
       <ProjectSearch
-        items={listItems.groups.flatMap(g => g.items)}
+        items={flatItems(listItems.groups)}
         selected={selected}
         searchQuery={searchQuery}
         onSearchChange={v => dispatch({ type: 'update-nav', patch: { searchQuery: v, selected: 0 } })}

@@ -6,7 +6,7 @@ import { Title } from './Title.js'
 import TextInput from 'ink-text-input'
 import { FilePalimpsestStore, CLEAR, getProject, getAgenda, getContext, buildStateFromConfig, PALIMPSEST_CONFIG, createEmptyState, isValidExpression } from 'palimpsest'
 import type { PalimpsestStore, ProjectionState } from 'palimpsest'
-import { useAppState, ClientPalimpsestStore, parseDueDate, getDueDatePreview, getRecurrencePreview, AGENDA_PREFIX, PROJECT_PREFIX, CONTEXT_PREFIX, RECURRENCE_PREFIX } from 'palimpsest-ui-core'
+import { useAppState, ClientPalimpsestStore, parseDueDate, getDueDatePreview, getRecurrencePreview, AGENDA_PREFIX, PROJECT_PREFIX, CONTEXT_PREFIX, RECURRENCE_PREFIX, flatItems } from 'palimpsest-ui-core'
 import { FilePendingEventStore } from './FilePendingEventStore.js'
 import type { View } from 'palimpsest-ui-core'
 import { formatDate, formatDateTime } from './format.js'
@@ -106,7 +106,7 @@ function LoadedApp({ initialState }: { initialState: ProjectionState }) {
     if (key.downArrow) dispatch({ type: 'update-nav', patch: { selected: Math.min(Math.max(0, listLength - 1), selected + 1) } })
     // Picker views: handle enter/shortcut
     if (listItems.view === 'picking-view') {
-      const flat = listItems.groups.flatMap(g => g.items)
+      const flat = flatItems(listItems.groups)
       const shortcut = flat.find(item => item.key === input)
       const chosen = shortcut ?? (key.return ? flat[selected] : undefined)
       if (chosen !== undefined) {
@@ -121,7 +121,7 @@ function LoadedApp({ initialState }: { initialState: ProjectionState }) {
     }
     if (listItems.view === 'picking-agenda-for-task') {
       if (currentTask !== undefined) {
-        const flat = listItems.groups.flatMap(g => g.items)
+        const flat = flatItems(listItems.groups)
         const shortcutItem = flat.find(a => a.key === input)
         if (shortcutItem !== undefined) {
           dispatch({ type: 'set-task-agenda', taskId: currentTask.id, agendaId: shortcutItem.id ?? CLEAR })
@@ -136,7 +136,7 @@ function LoadedApp({ initialState }: { initialState: ProjectionState }) {
     }
     if (listItems.view === 'picking-context-for-task') {
       if (currentTask !== undefined) {
-        const flat = listItems.groups.flatMap(g => g.items)
+        const flat = flatItems(listItems.groups)
         const shortcutItem = flat.find(c => c.key === input)
         if (shortcutItem !== undefined) {
           dispatch({ type: 'set-task-context', taskId: currentTask.id, contextId: shortcutItem.id ?? CLEAR })
@@ -150,7 +150,7 @@ function LoadedApp({ initialState }: { initialState: ProjectionState }) {
       return
     }
     if (listItems.view === 'picking-due-date') {
-      const flat = listItems.groups.flatMap(g => g.items)
+      const flat = flatItems(listItems.groups)
       const shortcutIdx = flat.findIndex(o => o.key === input)
       const activeIdx = shortcutIdx !== -1 ? shortcutIdx : (key.return ? selected : -1)
       if (activeIdx !== -1 && currentTask !== undefined) {
@@ -168,7 +168,7 @@ function LoadedApp({ initialState }: { initialState: ProjectionState }) {
     }
     if (listItems.view === 'picking-project-for-task') {
       if (key.return && currentTask !== undefined) {
-        const flat = listItems.groups.flatMap(g => g.items)
+        const flat = flatItems(listItems.groups)
         const item = flat[selected]
         if (item !== undefined) {
           dispatch({ type: 'set-task-project', taskId: currentTask.id, projectId: item.id ?? CLEAR })
@@ -180,13 +180,13 @@ function LoadedApp({ initialState }: { initialState: ProjectionState }) {
     }
     // List mode
     if (key.return && listItems.view === 'projects') {
-      const project = listItems.groups.flatMap(g => g.items)[selected]
+      const project = flatItems(listItems.groups)[selected]
       if (project !== undefined) {
         dispatch({ type: 'navigate', navState: { view: 'project', selected: 0, activeProjectId: project.id, showCompleted: false } })
       }
     }
     if (key.return && (listItems.view === 'tasks' || listItems.view === 'project' || listItems.view === 'dashboard')) {
-      const task = listItems.groups.flatMap(g => g.items)[selected]
+      const task = flatItems(listItems.groups)[selected]
       if (task !== undefined) {
         dispatch({ type: 'navigate', navState: { view: 'task', activeTaskId: task.id } })
       }
@@ -197,7 +197,7 @@ function LoadedApp({ initialState }: { initialState: ProjectionState }) {
       if (cmd.id === 'edit-task' && currentTask !== undefined) setFormValue(currentTask.title)
       if (cmd.id === 'edit-description') setFormValue(currentTask?.description ?? '')
       if (cmd.id === 'set-recurrence') setFormValue(currentTask?.dueDateExpression ?? '')
-      if (cmd.id === 'edit-project' && listItems.view === 'projects') setFormValue(listItems.groups.flatMap(g => g.items)[selected]?.name ?? '')
+      if (cmd.id === 'edit-project' && listItems.view === 'projects') setFormValue(flatItems(listItems.groups)[selected]?.name ?? '')
       if (cmd.id === 'pick-agenda' && currentTask !== undefined) {
         const idx = currentTask.agendaId !== undefined ? agendas.findIndex(a => a.id === currentTask.agendaId) + 1 : 0
         dispatch({ type: 'navigate', navState: { view: 'picking-agenda-for-task', selected: Math.max(0, idx), activeTaskId: currentTask.id } })
@@ -279,7 +279,7 @@ function LoadedApp({ initialState }: { initialState: ProjectionState }) {
 
   function handleEditProjectSubmit(name: string) {
     const trimmed = name.trim()
-    const project = listItems.view === 'projects' ? listItems.groups.flatMap(g => g.items)[selected] : undefined
+    const project = listItems.view === 'projects' ? flatItems(listItems.groups)[selected] : undefined
     if (trimmed && project !== undefined) {
       dispatch({ type: 'edit-project', projectId: project.id, name: trimmed })
     } else {
@@ -324,7 +324,7 @@ function LoadedApp({ initialState }: { initialState: ProjectionState }) {
       )
       footer = <Text dimColor>enter to set  esc cancel</Text>
     } else {
-      content = listItems.groups.flatMap(g => g.items).map((opt, i) => {
+      content = flatItems(listItems.groups).map((opt, i) => {
         const isSelected = i === selected
         const label = opt.date !== null ? `${opt.label} — ${formatDate(opt.date)}` : opt.label
         return (
@@ -337,7 +337,7 @@ function LoadedApp({ initialState }: { initialState: ProjectionState }) {
     }
   } else if (listItems.view === 'picking-agenda-for-task') {
     title = <Text bold color="cyan">Agenda{currentTask !== undefined ? ` — ${currentTask.title}` : ''}</Text>
-    content = listItems.groups.flatMap(g => g.items).map((opt, i) => (
+    content = flatItems(listItems.groups).map((opt, i) => (
       <Text key={opt.title} {...(i === selected ? { color: 'blue' as const } : {})}>
         {i === selected ? '> ' : '  '}{opt.id !== null ? AGENDA_PREFIX : ''}{opt.title}
         {opt.key !== undefined ? <Text dimColor>  {opt.key}</Text> : null}
@@ -346,7 +346,7 @@ function LoadedApp({ initialState }: { initialState: ProjectionState }) {
     footer = <Text dimColor>↑↓ navigate  enter/key select  esc back</Text>
   } else if (listItems.view === 'picking-context-for-task') {
     title = <Text bold color="cyan">Context{currentTask !== undefined ? ` — ${currentTask.title}` : ''}</Text>
-    content = listItems.groups.flatMap(g => g.items).map((opt, i) => (
+    content = flatItems(listItems.groups).map((opt, i) => (
       <Text key={opt.name} {...(i === selected ? { color: 'blue' as const } : {})}>
         {i === selected ? '> ' : '  '}{opt.id !== null ? CONTEXT_PREFIX : ''}{opt.name}
         {opt.key !== undefined ? <Text dimColor>  {opt.key}</Text> : null}
@@ -355,7 +355,7 @@ function LoadedApp({ initialState }: { initialState: ProjectionState }) {
     footer = <Text dimColor>↑↓ navigate  enter/key select  esc back</Text>
   } else if (listItems.view === 'picking-project-for-task') {
     title = <Text bold color="cyan">Project{currentTask !== undefined ? ` — ${currentTask.title}` : ''}</Text>
-    const projectFlat = listItems.groups.flatMap(g => g.items)
+    const projectFlat = flatItems(listItems.groups)
     content = (
       <Box flexDirection="column">
         <Box>
@@ -380,7 +380,7 @@ function LoadedApp({ initialState }: { initialState: ProjectionState }) {
     footer = <Text dimColor>type to search  ↑↓ navigate  enter select  esc back</Text>
   } else if (listItems.view === 'picking-view') {
     title = <Text bold color="cyan">View</Text>
-    content = listItems.groups.flatMap(g => g.items).map((item, i) => (
+    content = flatItems(listItems.groups).map((item, i) => (
       <Text key={item.id} {...(i === selected ? { color: 'blue' as const } : {})}>
         {i === selected ? '> ' : '  '}{item.label}<Text dimColor>  {item.key}</Text>
       </Text>
@@ -450,7 +450,7 @@ function LoadedApp({ initialState }: { initialState: ProjectionState }) {
     ) : listItems.view === 'tasks' ? (
       <TaskList groups={listItems.groups} selected={selected} state={projState} showProject emptyMessage={showCompleted ? 'No completed tasks in this sphere.' : 'No open tasks in this sphere.'} />
     ) : listItems.view === 'projects' ? (() => {
-      const projectFlat = listItems.groups.flatMap(g => g.items)
+      const projectFlat = flatItems(listItems.groups)
       return projectFlat.length === 0 ? (
         <Text dimColor>No projects.</Text>
       ) : (
