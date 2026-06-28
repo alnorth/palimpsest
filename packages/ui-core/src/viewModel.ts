@@ -207,11 +207,11 @@ export function deriveViewModel(projState: ProjectionState, uiState: UIState): V
         .filter(p => !projectStats.hasNext.has(p.id))
     : []
 
-  const tasksInArchivedProjects: Task[] = activeSphere !== undefined
+  const tasksWaitingOnArchivedProjects: Task[] = activeSphere !== undefined
     ? listTasks(projState, { sphereId: activeSphere.id, status: 'open' })
         .filter(t => {
-          if (t.projectId === undefined) return false
-          const p = projState.projects.get(t.projectId)
+          if (t.waitingFor?.kind !== 'project') return false
+          const p = projState.projects.get(t.waitingFor.projectId)
           return p !== undefined && p.isArchived === true
         })
     : []
@@ -241,7 +241,7 @@ export function deriveViewModel(projState: ProjectionState, uiState: UIState): V
         const groups: ListGroup<ListItem>[] = [
           { title: 'Inbox tasks', items: inboxTasks.map((t): ListItem => ({ kind: 'task', task: t })) },
           { title: 'Projects without a next action', items: projectsWithoutNext.map((p): ListItem => ({ kind: 'project', project: p })) },
-          { title: 'Tasks in archived projects', items: tasksInArchivedProjects.map((t): ListItem => ({ kind: 'task', task: t })) },
+          { title: 'Waiting on archived projects', items: tasksWaitingOnArchivedProjects.map((t): ListItem => ({ kind: 'task', task: t })) },
         ]
         const items = flatItems(groups)
         return { view, groups, items, emptyMessage: 'Nothing to process.', selectedItem: items[selected] }
