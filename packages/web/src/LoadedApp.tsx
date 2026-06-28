@@ -74,7 +74,7 @@ export function LoadedApp({ store, initialState }: Props) {
   const {
     view, mode, selected, activeTask, activeProject,
     activeSphere, spheres, projectStats, listItems, currentTask,
-    subtitle, projState, commands, dispatch, canGoBack, showCompleted, showArchived,
+    subtitle, projState, commands, dispatch, canGoBack, showCompleted, showArchived, showProject,
     syncState, searchQuery, activate,
   } = appState
 
@@ -89,9 +89,9 @@ export function LoadedApp({ store, initialState }: Props) {
       setFormValue(currentTask?.description ?? '')
     } else if (mode === 'editing-recurrence') {
       setFormValue(currentTask?.dueDateExpression ?? '')
-    } else if (mode === 'editing-project' && listItems.view === 'projects') {
+    } else if (mode === 'editing-project') {
       const item = listItems.items[selected]
-      setFormValue(item?.kind === 'project' ? item.project.name : '')
+      setFormValue(item !== undefined && 'kind' in item && item.kind === 'project' ? item.project.name : '')
     }
   }, [mode]) // intentionally omit other deps — we only want to run on mode transitions
 
@@ -173,8 +173,8 @@ export function LoadedApp({ store, initialState }: Props) {
 
   function handleEditProjectSubmit(name: string) {
     const trimmed = name.trim()
-    const selectedItem = listItems.view === 'projects' ? listItems.items[selected] : undefined
-    const project = selectedItem?.kind === 'project' ? selectedItem.project : undefined
+    const selectedItem = listItems.items[selected]
+    const project = selectedItem !== undefined && 'kind' in selectedItem && selectedItem.kind === 'project' ? selectedItem.project : undefined
     if (trimmed && project !== undefined) {
       dispatch({ type: 'edit-project', projectId: project.id, name: trimmed })
     } else {
@@ -197,20 +197,9 @@ export function LoadedApp({ store, initialState }: Props) {
 
   const toggleCmd = commands['toggle-completed'] ?? commands['toggle-archived']
 
-  let titleText: string
-  if (listItems.view === 'picking-due-date') {
-    titleText = `Due date${currentTask !== undefined ? ` — ${currentTask.title}` : ''}`
-  } else if (listItems.view === 'picking-agenda-for-task') {
-    titleText = `Agenda${currentTask !== undefined ? ` — ${currentTask.title}` : ''}`
-  } else if (listItems.view === 'picking-context-for-task') {
-    titleText = `Context${currentTask !== undefined ? ` — ${currentTask.title}` : ''}`
-  } else if (listItems.view === 'picking-project-for-task') {
-    titleText = `Project${currentTask !== undefined ? ` — ${currentTask.title}` : ''}`
-  } else if (listItems.view === 'picking-view') {
-    titleText = 'View'
-  } else {
-    titleText = `${activeSphere?.name ?? 'Palimpsest'} — ${subtitle}`
-  }
+  const titleText = view.startsWith('picking-')
+    ? subtitle
+    : `${activeSphere?.name ?? 'Palimpsest'} — ${subtitle}`
 
   let content: React.ReactNode
 
@@ -271,7 +260,7 @@ export function LoadedApp({ store, initialState }: Props) {
         onHover={handleHover}
         onActivate={activate}
         onComplete={handleTaskComplete}
-        {...((listItems.view === 'dashboard' || listItems.view === 'tasks') ? { showProject: true } : {})}
+        {...(showProject ? { showProject } : {})}
       />
     )
   } else {

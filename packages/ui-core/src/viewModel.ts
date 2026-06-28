@@ -92,6 +92,7 @@ export interface ViewModel {
   searchQuery: string
   showCompleted: boolean
   showArchived: boolean
+  showProject: boolean
 }
 
 export function deriveViewModel(projState: ProjectionState, uiState: UIState): ViewModel {
@@ -287,6 +288,7 @@ export function deriveViewModel(projState: ProjectionState, uiState: UIState): V
     return undefined
   })()
 
+  const taskSuffix = currentTask !== undefined ? ` — ${currentTask.title}` : ''
   const subtitle =
     view === 'task' ? `Task: ${activeTask?.title ?? ''}`
     : view === 'project' ? `Project: ${activeProject?.name ?? ''}`
@@ -294,12 +296,14 @@ export function deriveViewModel(projState: ProjectionState, uiState: UIState): V
     : view === 'tasks' ? 'Tasks'
     : view === 'projects' ? 'Projects'
     : view === 'processing' ? 'Processing'
-    : view === 'picking-view' ? 'Pick view'
-    : view === 'picking-agenda-for-task' ? 'Pick agenda'
-    : view === 'picking-context-for-task' ? 'Pick context'
-    : view === 'picking-due-date' ? 'Pick due date'
-    : view === 'picking-project-for-task' ? 'Pick project'
+    : view === 'picking-view' ? 'View'
+    : view === 'picking-agenda-for-task' ? `Agenda${taskSuffix}`
+    : view === 'picking-context-for-task' ? `Context${taskSuffix}`
+    : view === 'picking-due-date' ? `Due date${taskSuffix}`
+    : view === 'picking-project-for-task' ? `Project${taskSuffix}`
     : ''
+
+  const showProject = view === 'dashboard' || view === 'tasks'
 
   const listLength = listItems.groups.reduce((sum, g) => sum + g.items.length, 0)
 
@@ -322,5 +326,6 @@ export function deriveViewModel(projState: ProjectionState, uiState: UIState): V
     searchQuery,
     showCompleted,
     showArchived,
+    showProject,
   }
 }

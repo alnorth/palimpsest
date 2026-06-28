@@ -75,7 +75,7 @@ function LoadedApp({ initialState }: { initialState: ProjectionState }) {
   const {
     view, mode, selected, activeTask, activeProject,
     activeSphere, agendas, contexts, projectStats, listItems, listLength, currentTask, spheres, subtitle,
-    searchQuery, projState, commands, dispatch, canGoBack, showCompleted, showArchived,
+    searchQuery, projState, commands, dispatch, canGoBack, showCompleted, showArchived, showProject,
     syncState,
   } = useAppState(store, initialState)
 
@@ -188,9 +188,9 @@ function LoadedApp({ initialState }: { initialState: ProjectionState }) {
       if (cmd.id === 'edit-task' && currentTask !== undefined) setFormValue(currentTask.title)
       if (cmd.id === 'edit-description') setFormValue(currentTask?.description ?? '')
       if (cmd.id === 'set-recurrence') setFormValue(currentTask?.dueDateExpression ?? '')
-      if (cmd.id === 'edit-project' && listItems.view === 'projects') {
+      if (cmd.id === 'edit-project') {
         const item = listItems.items[selected]
-        if (item?.kind === 'project') setFormValue(item.project.name)
+        if (item !== undefined && 'kind' in item && item.kind === 'project') setFormValue(item.project.name)
       }
       if (cmd.id === 'pick-agenda' && currentTask !== undefined) {
         const idx = currentTask.agendaId !== undefined ? agendas.findIndex(a => a.id === currentTask.agendaId) + 1 : 0
@@ -273,8 +273,8 @@ function LoadedApp({ initialState }: { initialState: ProjectionState }) {
 
   function handleEditProjectSubmit(name: string) {
     const trimmed = name.trim()
-    const selectedItem = listItems.view === 'projects' ? listItems.items[selected] : undefined
-    const project = selectedItem?.kind === 'project' ? selectedItem.project : undefined
+    const selectedItem = listItems.items[selected]
+    const project = selectedItem !== undefined && 'kind' in selectedItem && selectedItem.kind === 'project' ? selectedItem.project : undefined
     if (trimmed && project !== undefined) {
       dispatch({ type: 'edit-project', projectId: project.id, name: trimmed })
     } else {
@@ -306,7 +306,7 @@ function LoadedApp({ initialState }: { initialState: ProjectionState }) {
   const viewCommands = allCommands.filter(c => c.group === 'view')
 
   if (listItems.view === 'picking-due-date') {
-    title = <Text bold color="cyan">Due date{currentTask !== undefined ? ` — ${currentTask.title}` : ''}</Text>
+    title = <Text bold color="cyan">{subtitle}</Text>
     if (mode === 'editing-due-date') {
       content = (
         <Box flexDirection="column">
@@ -331,7 +331,7 @@ function LoadedApp({ initialState }: { initialState: ProjectionState }) {
       footer = <Text dimColor>↑↓ navigate  enter/key select  esc back</Text>
     }
   } else if (listItems.view === 'picking-agenda-for-task') {
-    title = <Text bold color="cyan">Agenda{currentTask !== undefined ? ` — ${currentTask.title}` : ''}</Text>
+    title = <Text bold color="cyan">{subtitle}</Text>
     content = listItems.items.map((opt, i) => (
       <Text key={opt.title} {...(i === selected ? { color: 'blue' as const } : {})}>
         {i === selected ? '> ' : '  '}{opt.id !== null ? AGENDA_PREFIX : ''}{opt.title}
@@ -340,7 +340,7 @@ function LoadedApp({ initialState }: { initialState: ProjectionState }) {
     ))
     footer = <Text dimColor>↑↓ navigate  enter/key select  esc back</Text>
   } else if (listItems.view === 'picking-context-for-task') {
-    title = <Text bold color="cyan">Context{currentTask !== undefined ? ` — ${currentTask.title}` : ''}</Text>
+    title = <Text bold color="cyan">{subtitle}</Text>
     content = listItems.items.map((opt, i) => (
       <Text key={opt.name} {...(i === selected ? { color: 'blue' as const } : {})}>
         {i === selected ? '> ' : '  '}{opt.id !== null ? CONTEXT_PREFIX : ''}{opt.name}
@@ -349,7 +349,7 @@ function LoadedApp({ initialState }: { initialState: ProjectionState }) {
     ))
     footer = <Text dimColor>↑↓ navigate  enter/key select  esc back</Text>
   } else if (listItems.view === 'picking-project-for-task') {
-    title = <Text bold color="cyan">Project{currentTask !== undefined ? ` — ${currentTask.title}` : ''}</Text>
+    title = <Text bold color="cyan">{subtitle}</Text>
     content = (
       <Box flexDirection="column">
         <Box>
@@ -373,7 +373,7 @@ function LoadedApp({ initialState }: { initialState: ProjectionState }) {
     )
     footer = <Text dimColor>type to search  ↑↓ navigate  enter select  esc back</Text>
   } else if (listItems.view === 'picking-view') {
-    title = <Text bold color="cyan">View</Text>
+    title = <Text bold color="cyan">{subtitle}</Text>
     content = listItems.items.map((item, i) => (
       <Text key={item.id} {...(i === selected ? { color: 'blue' as const } : {})}>
         {i === selected ? '> ' : '  '}{item.label}<Text dimColor>  {item.key}</Text>
@@ -445,7 +445,7 @@ function LoadedApp({ initialState }: { initialState: ProjectionState }) {
         selected={selected}
         state={projState}
         projectStats={projectStats}
-        showProject={listItems.view === 'dashboard' || listItems.view === 'tasks'}
+        showProject={showProject}
         showArchived={showArchived}
         emptyMessage={listItems.emptyMessage}
       />

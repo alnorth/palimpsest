@@ -32,6 +32,7 @@ function makeAppState(overrides: Partial<AppStateResult> = {}): AppStateResult {
     canGoBack: false,
     showCompleted: false,
     showArchived: false,
+    showProject: false,
   }
   return {
     ...base,
