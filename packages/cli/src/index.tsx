@@ -6,7 +6,7 @@ import { PickerList, DueDatePicker, ProjectSearch } from './Pickers.js'
 import TextInput from 'ink-text-input'
 import { FilePalimpsestStore, CLEAR, getProject, getAgenda, getContext, buildStateFromConfig, PALIMPSEST_CONFIG, createEmptyState, isValidExpression } from 'palimpsest'
 import type { PalimpsestStore, ProjectionState } from 'palimpsest'
-import { useAppState, ClientPalimpsestStore, parseDueDate, getDueDatePreview, getRecurrencePreview, resolveKeyAction, AGENDA_PREFIX, PROJECT_PREFIX, CONTEXT_PREFIX, RECURRENCE_PREFIX } from 'palimpsest-ui-core'
+import { useAppState, ClientPalimpsestStore, parseDueDate, getDueDatePreview, getRecurrencePreview, handleKey, AGENDA_PREFIX, PROJECT_PREFIX, CONTEXT_PREFIX, RECURRENCE_PREFIX } from 'palimpsest-ui-core'
 import { FilePendingEventStore } from './FilePendingEventStore.js'
 import type { View } from 'palimpsest-ui-core'
 import { formatDateTime } from './format.js'
@@ -90,38 +90,9 @@ function LoadedApp({ initialState }: { initialState: ProjectionState }) {
   }, [subtitle])
 
   useInput((input, key) => {
-    if (key.escape) {
-      // resolveKeyAction always returns non-null for escape
-      dispatch(resolveKeyAction('Escape', mode, commands, searchQuery)!)
-      return
-    }
-    // Text-input modes: TextInput component handles the rest
-    if (mode !== undefined) return
-    if (key.upArrow || key.downArrow) {
-      dispatch(resolveKeyAction(key.upArrow ? 'ArrowUp' : 'ArrowDown', mode, commands)!)
-      return
-    }
-    // Pickers with letter shortcuts: key selects directly, Enter activates selected
-    const pickerView = listItems.view
-    const isShortcutPicker =
-      pickerView === 'picking-view' || pickerView === 'picking-agenda-for-task' ||
-      pickerView === 'picking-context-for-task' || pickerView === 'picking-due-date' ||
-      pickerView === 'picking-waiting-for-task' || pickerView === 'picking-waiting-agenda'
-    if (isShortcutPicker) {
-      const shortcutIdx = listItems.items.findIndex(item => item.key === input)
-      if (shortcutIdx !== -1) { activate(shortcutIdx); return }
-      if (key.return) { activateSelected(); return }
-      return
-    }
-    // Search pickers: Enter only (no letter shortcuts)
-    if (pickerView === 'picking-project-for-task' || pickerView === 'picking-waiting-project') {
-      if (key.return) activateSelected()
-      return
-    }
-    // List views
-    if (key.return) activateSelected()
-    const action = resolveKeyAction(input, mode, commands)
-    if (action !== null) dispatch(action)
+    // Map Ink key flags to DOM-style key strings
+    const k = key.escape ? 'Escape' : key.upArrow ? 'ArrowUp' : key.downArrow ? 'ArrowDown' : key.return ? 'Enter' : input
+    handleKey(k, { mode, listItems, commands, searchQuery, dispatch, activate, activateSelected })
   })
 
   function handleTaskSubmit(title: string) {
