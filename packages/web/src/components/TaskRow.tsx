@@ -1,7 +1,6 @@
 import { Text } from '@mantine/core'
 import type { Task, ProjectionState } from 'palimpsest'
-import { getProject, getAgenda } from 'palimpsest'
-import { PROJECT_PREFIX, AGENDA_PREFIX } from 'palimpsest-ui-core'
+import { getTaskRowMeta } from 'palimpsest-ui-core'
 
 interface Props {
   task: Task
@@ -17,19 +16,7 @@ interface Props {
 
 export function TaskRow({ task, flatIndex, isSelected, isMobile, state, showProject, onHover, onActivate, onComplete }: Props) {
   const sel = isSelected && !isMobile
-  const project = showProject && task.projectId !== undefined ? getProject(state, task.projectId) : undefined
-  const agenda = task.agendaId !== undefined ? getAgenda(state, task.agendaId) : undefined
-  const waitingLabel = task.waitingFor !== undefined ? (
-    task.waitingFor.kind === 'review' ? 'w/ review' :
-    task.waitingFor.kind === 'agenda' ? (() => {
-      const a = getAgenda(state, task.waitingFor.agendaId)
-      return a !== undefined ? `w/ ${AGENDA_PREFIX}${a.title}` : 'w/ agenda'
-    })() :
-    (() => {
-      const p = getProject(state, task.waitingFor.projectId)
-      return p !== undefined ? `w/ ${PROJECT_PREFIX}${p.name}` : 'w/ project'
-    })()
-  ) : undefined
+  const metaItems = getTaskRowMeta(task, state, showProject === true ? { showProject } : undefined)
   return (
     <Text
       size="sm"
@@ -60,10 +47,16 @@ export function TaskRow({ task, flatIndex, isSelected, isMobile, state, showProj
       {task.isNext === true && <Text span c="yellow.6">{'→ '}</Text>}
       {task.isStarred === true && <Text span c="yellow.6">{'★ '}</Text>}
       {task.title}
-      {project !== undefined && <Text span size="xs" c="dimmed">{' · '}{PROJECT_PREFIX}{project.name}</Text>}
-      {agenda !== undefined && <Text span size="xs" c="dimmed">{' · '}{AGENDA_PREFIX}{agenda.title}</Text>}
-      {task.dueDate !== undefined && <Text span size="xs" c="dimmed">{' · '}{task.dueDate}</Text>}
-      {waitingLabel !== undefined && <Text span size="xs" c="dimmed">{' · '}{waitingLabel}</Text>}
+      {metaItems.map((item, i) => (
+        <Text
+          key={i}
+          span
+          size="xs"
+          c={item.dueStatus === 'today' ? 'green' : item.dueStatus === 'overdue' ? 'red' : 'dimmed'}
+        >
+          {' · '}{item.text}
+        </Text>
+      ))}
     </Text>
   )
 }
