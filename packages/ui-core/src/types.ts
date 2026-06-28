@@ -12,7 +12,6 @@ export type View =
   | 'picking-project-for-task'
 
 export type Mode =
-  | { type: 'list' }
   | { type: 'adding'; formValue: string }
   | { type: 'editing-task'; formValue: string }
   | { type: 'editing-description'; formValue: string }
@@ -22,8 +21,6 @@ export type Mode =
   | { type: 'editing-recurrence'; formValue: string }
 
 export type ModeType = Mode['type']
-
-export const LIST_MODE: Mode = { type: 'list' }
 
 export type NavState =
   | { view: 'dashboard'; selected: number }
@@ -46,13 +43,13 @@ export const INITIAL_NAV = {
 export interface UIState {
   currentSphereId: SphereId | undefined
   navStack: NavState[]
-  mode: Mode
+  mode: Mode | undefined
 }
 
 export const INITIAL_UI_STATE: UIState = {
   currentSphereId: undefined,
   navStack: [INITIAL_NAV],
-  mode: LIST_MODE,
+  mode: undefined,
 }
 
 export type UIAction =
@@ -61,6 +58,7 @@ export type UIAction =
   | { type: 'go-back' }
   | { type: 'update-nav'; patch: { selected?: number; searchQuery?: string } }
   | { type: 'set-mode'; mode: Mode }
+  | { type: 'exit-mode' }
   | { type: 'update-mode'; formValue: string }
   | { type: 'set-sphere'; sphereId: SphereId }
   | { type: 'move-up' }

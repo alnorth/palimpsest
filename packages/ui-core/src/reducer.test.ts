@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { uiReducer } from './reducer.js'
-import { INITIAL_UI_STATE, INITIAL_NAV, LIST_MODE } from './types.js'
+import { INITIAL_UI_STATE, INITIAL_NAV } from './types.js'
 import type { NavState } from './types.js'
 import type { SphereId } from 'palimpsest'
 
@@ -63,12 +63,20 @@ describe('update-nav', () => {
 describe('set-mode', () => {
   it('changes the mode', () => {
     const result = uiReducer(INITIAL_UI_STATE, { type: 'set-mode', mode: { type: 'adding', formValue: '' } })
-    expect(result.mode.type).toBe('adding')
+    expect(result.mode?.type).toBe('adding')
   })
 
   it('does not affect the nav stack', () => {
     const result = uiReducer(INITIAL_UI_STATE, { type: 'set-mode', mode: { type: 'adding', formValue: '' } })
     expect(result.navStack).toHaveLength(1)
+  })
+})
+
+describe('exit-mode', () => {
+  it('clears the mode', () => {
+    const withMode = uiReducer(INITIAL_UI_STATE, { type: 'set-mode', mode: { type: 'adding', formValue: '' } })
+    const result = uiReducer(withMode, { type: 'exit-mode' })
+    expect(result.mode).toBeUndefined()
   })
 })
 
@@ -79,9 +87,9 @@ describe('update-mode', () => {
     expect(result.mode).toEqual({ type: 'adding', formValue: 'hello' })
   })
 
-  it('is a no-op when mode is list', () => {
+  it('is a no-op when mode is undefined', () => {
     const result = uiReducer(INITIAL_UI_STATE, { type: 'update-mode', formValue: 'hello' })
-    expect(result.mode).toEqual(LIST_MODE)
+    expect(result.mode).toBeUndefined()
   })
 })
 

@@ -1,17 +1,17 @@
-import { INITIAL_NAV, LIST_MODE } from './types.js'
+import { INITIAL_NAV } from './types.js'
 import type { UIState, UIAction } from './types.js'
 
 export function uiReducer(state: UIState, action: UIAction): UIState {
   switch (action.type) {
     case 'navigate':
-      return { ...state, navStack: [...state.navStack, action.navState], mode: LIST_MODE }
+      return { ...state, navStack: [...state.navStack, action.navState], mode: undefined }
 
     case 'set-nav':
-      return { ...state, navStack: [action.navState], mode: LIST_MODE }
+      return { ...state, navStack: [action.navState], mode: undefined }
 
     case 'go-back':
       return state.navStack.length > 1
-        ? { ...state, navStack: state.navStack.slice(0, -1), mode: LIST_MODE }
+        ? { ...state, navStack: state.navStack.slice(0, -1), mode: undefined }
         : state
 
     case 'update-nav': {
@@ -29,9 +29,12 @@ export function uiReducer(state: UIState, action: UIAction): UIState {
     case 'set-mode':
       return { ...state, mode: action.mode }
 
+    case 'exit-mode':
+      return { ...state, mode: undefined }
+
     case 'update-mode': {
       const { mode } = state
-      if (mode.type === 'list') return state
+      if (mode === undefined) return state
       return { ...state, mode: { ...mode, formValue: action.formValue } }
     }
 
@@ -40,7 +43,7 @@ export function uiReducer(state: UIState, action: UIAction): UIState {
         ...state,
         currentSphereId: action.sphereId,
         navStack: [INITIAL_NAV],
-        mode: LIST_MODE,
+        mode: undefined,
       }
 
     case 'move-up':

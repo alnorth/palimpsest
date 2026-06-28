@@ -8,7 +8,7 @@ export function getCommands(vm: ViewModel): Partial<Record<CommandId, Command>> 
   const { view, mode, currentTask, selectedProject, activeSphere, listItems, showCompleted, showArchived, canGoBack, agendas, contexts, spheres } = vm
   const commands: Partial<Record<CommandId, Command>> = {}
 
-  if (mode.type !== 'list') return commands
+  if (mode !== undefined) return commands
 
   const isTopLevel = view === 'dashboard' || view === 'tasks' || view === 'projects' || view === 'processing'
   const isNormalView = isTopLevel || view === 'project'

@@ -5,7 +5,6 @@ import React from 'react'
 import { useKeyboard } from './useKeyboard.js'
 import type { AppStateResult } from 'palimpsest-ui-core'
 import type { ViewModel } from 'palimpsest-ui-core'
-import { LIST_MODE } from 'palimpsest-ui-core'
 import { createEmptyState, buildStateFromConfig } from 'palimpsest'
 import type { SphereId } from 'palimpsest'
 
@@ -15,7 +14,7 @@ const projState = { ...createEmptyState(), ...buildStateFromConfig([{ id: SPHERE
 function makeAppState(overrides: Partial<AppStateResult> = {}): AppStateResult {
   const base: ViewModel = {
     view: 'dashboard',
-    mode: LIST_MODE,
+    mode: undefined as ReturnType<typeof makeAppState>['mode'],
     formValue: '',
     activeTask: undefined,
     activeProject: undefined,
@@ -69,7 +68,7 @@ describe('useKeyboard', () => {
     const appState = makeAppState({ dispatch, mode: { type: 'adding', formValue: '' } })
     render(<TestHarness appState={appState} />)
     fireEvent.keyDown(document, { key: 'Escape' })
-    expect(dispatch).toHaveBeenCalledWith({ type: 'set-mode', mode: LIST_MODE })
+    expect(dispatch).toHaveBeenCalledWith({ type: 'exit-mode' })
   })
 
   it('dispatches move-up on ArrowUp', () => {
@@ -108,7 +107,7 @@ describe('useKeyboard', () => {
     document.body.appendChild(input)
     input.focus()
     fireEvent.keyDown(document, { key: 'Escape' })
-    expect(dispatch).toHaveBeenCalledWith({ type: 'set-mode', mode: LIST_MODE })
+    expect(dispatch).toHaveBeenCalledWith({ type: 'exit-mode' })
     document.body.removeChild(input)
   })
 })
