@@ -73,7 +73,7 @@ function App() {
 function LoadedApp({ initialState }: { initialState: ProjectionState }) {
   const {
     view, mode, selected, activeTask, activeProject,
-    activeSphere, agendas, contexts, projectStats, listItems, listLength, currentTask, selectedItem, spheres, subtitle,
+    activeSphere, agendas, contexts, projectStats, listItems, listLength, currentTask, selectedItem, selectedProject, spheres, subtitle,
     searchQuery, projState, commands, dispatch, canGoBack, showCompleted, showArchived, showProject,
     syncState,
   } = useAppState(store, initialState)
@@ -173,12 +173,11 @@ function LoadedApp({ initialState }: { initialState: ProjectionState }) {
       return
     }
     // List mode
-    if (key.return && (listItems.view === 'dashboard' || listItems.view === 'tasks' || listItems.view === 'project' || listItems.view === 'projects' || listItems.view === 'processing')) {
-      const item = listItems.items[selected]
-      if (item?.kind === 'task') {
-        dispatch({ type: 'navigate', navState: { view: 'task', activeTaskId: item.task.id } })
-      } else if (item?.kind === 'project') {
-        dispatch({ type: 'navigate', navState: { view: 'project', selected: 0, activeProjectId: item.project.id, showCompleted: false } })
+    if (key.return && selectedItem !== undefined) {
+      if (selectedItem.kind === 'task') {
+        dispatch({ type: 'navigate', navState: { view: 'task', activeTaskId: selectedItem.task.id } })
+      } else if (selectedItem.kind === 'project') {
+        dispatch({ type: 'navigate', navState: { view: 'project', selected: 0, activeProjectId: selectedItem.project.id, showCompleted: false } })
       }
     }
 
@@ -187,8 +186,8 @@ function LoadedApp({ initialState }: { initialState: ProjectionState }) {
       if (cmd.id === 'edit-task' && currentTask !== undefined) setFormValue(currentTask.title)
       if (cmd.id === 'edit-description') setFormValue(currentTask?.description ?? '')
       if (cmd.id === 'set-recurrence') setFormValue(currentTask?.dueDateExpression ?? '')
-      if (cmd.id === 'edit-project') {
-        if (selectedItem?.kind === 'project') setFormValue(selectedItem.project.name)
+      if (cmd.id === 'edit-project' && selectedProject !== undefined) {
+        setFormValue(selectedProject.name)
       }
       if (cmd.id === 'pick-agenda' && currentTask !== undefined) {
         const idx = currentTask.agendaId !== undefined ? agendas.findIndex(a => a.id === currentTask.agendaId) + 1 : 0
@@ -271,7 +270,7 @@ function LoadedApp({ initialState }: { initialState: ProjectionState }) {
 
   function handleEditProjectSubmit(name: string) {
     const trimmed = name.trim()
-    const project = selectedItem?.kind === 'project' ? selectedItem.project : undefined
+    const project = selectedProject
     if (trimmed && project !== undefined) {
       dispatch({ type: 'edit-project', projectId: project.id, name: trimmed })
     } else {

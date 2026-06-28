@@ -259,31 +259,30 @@ export function useAppState(store: PalimpsestStore, initialState: ProjectionStat
       if (item !== undefined) {
         dispatch({ type: 'set-nav', navState: navStateForTopLevelView(item.id) })
       }
-    } else if (vm.listItems.view === 'picking-agenda-for-task' && vm.currentTask !== undefined) {
+    } else if (vm.listItems.view === 'picking-agenda-for-task') {
       const item = vm.listItems.items[i]
-      if (item !== undefined) dispatch({ type: 'set-task-agenda', taskId: vm.currentTask.id, agendaId: item.id ?? CLEAR })
-    } else if (vm.listItems.view === 'picking-context-for-task' && vm.currentTask !== undefined) {
+      if (item !== undefined && vm.currentTask !== undefined) dispatch({ type: 'set-task-agenda', taskId: vm.currentTask.id, agendaId: item.id ?? CLEAR })
+    } else if (vm.listItems.view === 'picking-context-for-task') {
       const item = vm.listItems.items[i]
-      if (item !== undefined) dispatch({ type: 'set-task-context', taskId: vm.currentTask.id, contextId: item.id ?? CLEAR })
-    } else if (vm.listItems.view === 'picking-due-date' && vm.currentTask !== undefined) {
+      if (item !== undefined && vm.currentTask !== undefined) dispatch({ type: 'set-task-context', taskId: vm.currentTask.id, contextId: item.id ?? CLEAR })
+    } else if (vm.listItems.view === 'picking-due-date') {
       const opt = vm.listItems.items[i]
-      if (opt !== undefined) {
+      if (opt !== undefined && vm.currentTask !== undefined) {
         if (opt.date !== null) dispatch({ type: 'set-task-due-date', taskId: vm.currentTask.id, dueDate: opt.date })
         else if (opt.key === 'c') dispatch({ type: 'set-mode', mode: 'editing-due-date' })
         else dispatch({ type: 'set-task-due-date', taskId: vm.currentTask.id, dueDate: CLEAR })
       }
-    } else if (vm.listItems.view === 'picking-project-for-task' && vm.currentTask !== undefined) {
+    } else if (vm.listItems.view === 'picking-project-for-task') {
       const { items } = vm.listItems
       const item = items[i]
-      if (item !== undefined) {
-        dispatch({ type: 'set-task-project', taskId: vm.currentTask.id, projectId: item.id ?? CLEAR })
-      } else if (items.length === 0 && vm.searchQuery.trim() !== '' && vm.activeSphere !== undefined) {
-        dispatch({ type: 'create-and-assign-project', name: vm.searchQuery.trim(), sphereId: vm.activeSphere.id, taskId: vm.currentTask.id })
+      if (vm.currentTask !== undefined) {
+        if (item !== undefined) {
+          dispatch({ type: 'set-task-project', taskId: vm.currentTask.id, projectId: item.id ?? CLEAR })
+        } else if (items.length === 0 && vm.searchQuery.trim() !== '' && vm.activeSphere !== undefined) {
+          dispatch({ type: 'create-and-assign-project', name: vm.searchQuery.trim(), sphereId: vm.activeSphere.id, taskId: vm.currentTask.id })
+        }
       }
-    } else if (
-      vm.listItems.view === 'dashboard' || vm.listItems.view === 'tasks' || vm.listItems.view === 'project' ||
-      vm.listItems.view === 'projects' || vm.listItems.view === 'processing'
-    ) {
+    } else {
       const item = vm.listItems.items[i]
       if (item?.kind === 'task') {
         dispatch({ type: 'navigate', navState: { view: 'task', activeTaskId: item.task.id } })

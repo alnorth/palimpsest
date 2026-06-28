@@ -82,6 +82,7 @@ export interface ViewModel {
   activeProject: Project | undefined
   activeTask: Task | undefined
   selectedItem: ListItem | undefined
+  selectedProject: Project | undefined
   currentTask: Task | undefined
   subtitle: string
   listItems: ListItems
@@ -281,6 +282,8 @@ export function deriveViewModel(projState: ProjectionState, uiState: UIState): V
     listItems.view === 'projects' || listItems.view === 'processing'
   ) ? listItems.items[selected] : undefined
 
+  const selectedProject: Project | undefined = selectedItem?.kind === 'project' ? selectedItem.project : undefined
+
   const currentTask: Task | undefined =
     listItems.view === 'task' ? activeTask
     : selectedItem !== undefined ? (selectedItem.kind === 'task' ? selectedItem.task : undefined)
@@ -315,6 +318,7 @@ export function deriveViewModel(projState: ProjectionState, uiState: UIState): V
     activeProject,
     activeTask,
     selectedItem,
+    selectedProject,
     currentTask,
     subtitle,
     listItems,

@@ -5,8 +5,7 @@ import { VIEW_CONFIG } from './viewModel.js'
 import type { ViewModel } from './viewModel.js'
 
 export function getCommands(vm: ViewModel): Partial<Record<CommandId, Command>> {
-  const { view, mode, selected, currentTask, selectedItem, activeSphere, listItems, showCompleted, showArchived, canGoBack, agendas, contexts, spheres } = vm
-  const selectedProject = selectedItem?.kind === 'project' ? selectedItem.project : undefined
+  const { view, mode, selected, currentTask, selectedProject, activeSphere, listItems, showCompleted, showArchived, canGoBack, agendas, contexts, spheres } = vm
   const commands: Partial<Record<CommandId, Command>> = {}
 
   if (mode !== 'list') return commands

@@ -73,7 +73,7 @@ export function LoadedApp({ store, initialState }: Props) {
   const appState = useAppState(store, initialState)
   const {
     view, mode, selected, activeTask, activeProject,
-    activeSphere, spheres, projectStats, listItems, currentTask, selectedItem,
+    activeSphere, spheres, projectStats, listItems, currentTask, selectedProject,
     subtitle, projState, commands, dispatch, canGoBack, showCompleted, showArchived, showProject,
     syncState, searchQuery, activate,
   } = appState
@@ -90,7 +90,7 @@ export function LoadedApp({ store, initialState }: Props) {
     } else if (mode === 'editing-recurrence') {
       setFormValue(currentTask?.dueDateExpression ?? '')
     } else if (mode === 'editing-project') {
-      setFormValue(selectedItem?.kind === 'project' ? selectedItem.project.name : '')
+      setFormValue(selectedProject?.name ?? '')
     }
   }, [mode]) // intentionally omit other deps — we only want to run on mode transitions
 
@@ -172,7 +172,7 @@ export function LoadedApp({ store, initialState }: Props) {
 
   function handleEditProjectSubmit(name: string) {
     const trimmed = name.trim()
-    const project = selectedItem?.kind === 'project' ? selectedItem.project : undefined
+    const project = selectedProject
     if (trimmed && project !== undefined) {
       dispatch({ type: 'edit-project', projectId: project.id, name: trimmed })
     } else {
