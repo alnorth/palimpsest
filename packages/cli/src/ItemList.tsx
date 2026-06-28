@@ -2,7 +2,7 @@ import React from 'react'
 import { Text } from 'ink'
 import type { ListItem, ListGroup, ProjectStats } from 'palimpsest-ui-core'
 import type { ProjectionState } from 'palimpsest'
-import { TaskRow } from './TaskList.js'
+import { TaskRow } from './TaskRow.js'
 import { ProjectRow } from './ProjectRow.js'
 
 interface Props {

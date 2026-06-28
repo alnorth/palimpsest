@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { render, Box, Text, useInput, useWindowSize } from 'ink'
-import { TaskRow } from './TaskList.js'
+import { TaskRow } from './TaskRow.js'
 import { ItemList } from './ItemList.js'
 import { Title } from './Title.js'
 import TextInput from 'ink-text-input'
