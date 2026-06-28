@@ -28,7 +28,7 @@ export type DueDateOption = PickerItem<string | null>
 export type ProjectPickerItem = PickerItem<ProjectId | null>
 export type WaitingKindOption = PickerItem<WaitingKind>
 
-export const VIEW_CONFIG: PickerItem<TopLevelView>[] = [
+export const VIEW_CONFIG: ViewPickerItem[] = [
   { value: 'dashboard',  label: 'Dashboard',  key: 'd' },
   { value: 'tasks',      label: 'Tasks',      key: 't' },
   { value: 'projects',   label: 'Projects',   key: 'p' },
