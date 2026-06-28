@@ -1,10 +1,10 @@
 import type { TaskId, ProjectId, SphereId, AgendaId, ContextId, WaitingFor } from 'palimpsest'
 import type { CLEAR } from 'palimpsest'
 
-export type TopLevelView = 'dashboard' | 'tasks' | 'projects' | 'processing' | 'waiting'
+export type TopLevelView = 'dashboard' | 'tasks' | 'projects' | 'processing' | 'waiting' | 'pick-list'
 
 export type View =
-  | 'dashboard' | 'tasks' | 'projects' | 'project' | 'task' | 'processing' | 'waiting'
+  | 'dashboard' | 'tasks' | 'projects' | 'project' | 'task' | 'processing' | 'waiting' | 'pick-list'
   | 'picking-view'
   | 'picking-agenda-for-task'
   | 'picking-context-for-task'
@@ -31,6 +31,7 @@ export type NavState =
   | { view: 'projects'; selected: number; showArchived: boolean }
   | { view: 'processing'; selected: number }
   | { view: 'waiting'; selected: number }
+  | { view: 'pick-list'; selected: number }
   | { view: 'project'; selected: number; activeProjectId: ProjectId; showCompleted: boolean }
   | { view: 'task'; activeTaskId: TaskId }
   | { view: 'picking-view'; selected: number }
