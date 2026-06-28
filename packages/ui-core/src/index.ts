@@ -18,4 +18,5 @@ export { LocalStoragePendingEventStore } from './LocalStoragePendingEventStore.j
 export { indexAfterAppend, indexAfterRemove, navStateForTopLevelView } from './navHelpers.js'
 export { AGENDA_PREFIX, PROJECT_PREFIX, CONTEXT_PREFIX, RECURRENCE_PREFIX } from './prefixes.js'
 export { MONTHS, DAYS, formatDateWithDay, getDueDatePreview, getRecurrencePreview } from './previews.js'
-export { resolveKeyAction } from './keyHandler.js'
+export type { KeyEventContext } from './keyHandler.js'
+export { resolveKeyAction, handleKey } from './keyHandler.js'

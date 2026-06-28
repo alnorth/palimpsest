@@ -6,7 +6,7 @@ import { PickerList, DueDatePicker, ProjectSearch } from './Pickers.js'
 import TextInput from 'ink-text-input'
 import { FilePalimpsestStore, CLEAR, getProject, getAgenda, getContext, buildStateFromConfig, PALIMPSEST_CONFIG, createEmptyState, isValidExpression } from 'palimpsest'
 import type { PalimpsestStore, ProjectionState } from 'palimpsest'
-import { useAppState, ClientPalimpsestStore, parseDueDate, getDueDatePreview, getRecurrencePreview, resolveKeyAction, AGENDA_PREFIX, PROJECT_PREFIX, CONTEXT_PREFIX, RECURRENCE_PREFIX } from 'palimpsest-ui-core'
+import { useAppState, ClientPalimpsestStore, parseDueDate, getDueDatePreview, getRecurrencePreview, handleKey, AGENDA_PREFIX, PROJECT_PREFIX, CONTEXT_PREFIX, RECURRENCE_PREFIX } from 'palimpsest-ui-core'
 import { FilePendingEventStore } from './FilePendingEventStore.js'
 import type { View } from 'palimpsest-ui-core'
 import { formatDateTime } from './format.js'
@@ -76,7 +76,7 @@ function LoadedApp({ initialState }: { initialState: ProjectionState }) {
   const {
     view, mode, formValue, activeTask, activeProject,
     activeSphere, projectStats, listItems, currentTask, selectedItem, selectedProject, spheres, subtitle,
-    searchQuery, projState, commands, dispatch, canGoBack, showCompleted, showArchived, showProject,
+    searchQuery, projState, commands, dispatch, activate, activateSelected, canGoBack, showCompleted, showArchived, showProject,
     syncState,
   } = appState
 
@@ -90,106 +90,9 @@ function LoadedApp({ initialState }: { initialState: ProjectionState }) {
   }, [subtitle])
 
   useInput((input, key) => {
-    if (key.escape) {
-      // resolveKeyAction always returns non-null for escape
-      dispatch(resolveKeyAction('Escape', mode, commands, searchQuery)!)
-      return
-    }
-    // Text-input modes: TextInput component handles the rest
-    if (mode !== undefined) return
-    // Up/down navigation works the same in all views
-    if (key.upArrow) dispatch({ type: 'move-up' })
-    if (key.downArrow) dispatch({ type: 'move-down' })
-    // Picker views: handle enter/shortcut
-    if (listItems.view === 'picking-view') {
-      const chosen = listItems.items.find(item => item.key === input) ?? (key.return ? listItems.selectedItem : undefined)
-      if (chosen !== undefined) {
-        const navState =
-          chosen.value === 'tasks'      ? { view: 'tasks' as const,      selected: 0, showCompleted: false } :
-          chosen.value === 'projects'   ? { view: 'projects' as const,   selected: 0, showArchived: false } :
-          chosen.value === 'processing' ? { view: 'processing' as const, selected: 0 } :
-                                          { view: 'dashboard' as const,  selected: 0 }
-        dispatch({ type: 'set-nav', navState })
-      }
-      return
-    }
-    if (listItems.view === 'picking-agenda-for-task') {
-      if (currentTask !== undefined) {
-        const item = listItems.items.find(a => a.key === input) ?? (key.return ? listItems.selectedItem : undefined)
-        if (item !== undefined) dispatch({ type: 'set-task-agenda', taskId: currentTask.id, agendaId: item.value ?? CLEAR })
-      }
-      return
-    }
-    if (listItems.view === 'picking-context-for-task') {
-      if (currentTask !== undefined) {
-        const item = listItems.items.find(c => c.key === input) ?? (key.return ? listItems.selectedItem : undefined)
-        if (item !== undefined) dispatch({ type: 'set-task-context', taskId: currentTask.id, contextId: item.value ?? CLEAR })
-      }
-      return
-    }
-    if (listItems.view === 'picking-due-date') {
-      const item = listItems.items.find(o => o.key === input) ?? (key.return ? listItems.selectedItem : undefined)
-      if (item !== undefined && currentTask !== undefined) {
-        if (item.value === null) {
-          dispatch({ type: 'set-task-due-date', taskId: currentTask.id, dueDate: CLEAR })
-        } else if (item.value === 'custom') {
-          dispatch({ type: 'set-mode', mode: { type: 'editing-due-date', formValue: '' } })
-        } else {
-          dispatch({ type: 'set-task-due-date', taskId: currentTask.id, dueDate: item.value })
-        }
-      }
-      return
-    }
-    if (listItems.view === 'picking-project-for-task') {
-      if (key.return && currentTask !== undefined) {
-        const item = listItems.selectedItem
-        if (item !== undefined) {
-          dispatch({ type: 'set-task-project', taskId: currentTask.id, projectId: item.value ?? CLEAR })
-        } else if (listItems.items.length === 0 && searchQuery.trim() !== '' && activeSphere !== undefined) {
-          dispatch({ type: 'create-and-assign-project', name: searchQuery.trim(), sphereId: activeSphere.id, taskId: currentTask.id })
-        }
-      }
-      return
-    }
-    if (listItems.view === 'picking-waiting-for-task') {
-      if (currentTask !== undefined) {
-        const item = listItems.items.find(i => i.key === input) ?? (key.return ? listItems.selectedItem : undefined)
-        if (item !== undefined) {
-          if (item.value === 'clear') dispatch({ type: 'set-waiting', taskId: currentTask.id, waitingFor: CLEAR })
-          else if (item.value === 'review') dispatch({ type: 'set-waiting', taskId: currentTask.id, waitingFor: { kind: 'review' } })
-          else if (item.value === 'agenda') dispatch({ type: 'navigate', navState: { view: 'picking-waiting-agenda', selected: 0, activeTaskId: currentTask.id } })
-          else if (item.value === 'project') dispatch({ type: 'navigate', navState: { view: 'picking-waiting-project', selected: 0, activeTaskId: currentTask.id, searchQuery: '' } })
-        }
-      }
-      return
-    }
-    if (listItems.view === 'picking-waiting-agenda') {
-      if (currentTask !== undefined) {
-        const item = listItems.items.find(a => a.key === input) ?? (key.return ? listItems.selectedItem : undefined)
-        if (item !== undefined) dispatch({ type: 'set-waiting', taskId: currentTask.id, waitingFor: { kind: 'agenda', agendaId: item.value } })
-      }
-      return
-    }
-    if (listItems.view === 'picking-waiting-project') {
-      if (key.return && currentTask !== undefined) {
-        const item = listItems.selectedItem
-        if (item !== undefined) {
-          dispatch({ type: 'set-waiting', taskId: currentTask.id, waitingFor: { kind: 'project', projectId: item.value } })
-        }
-      }
-      return
-    }
-    // List mode
-    if (key.return && selectedItem !== undefined) {
-      if (selectedItem.kind === 'task') {
-        dispatch({ type: 'navigate', navState: { view: 'task', activeTaskId: selectedItem.task.id } })
-      } else if (selectedItem.kind === 'project') {
-        dispatch({ type: 'navigate', navState: { view: 'project', selected: 0, activeProjectId: selectedItem.project.id, showCompleted: false } })
-      }
-    }
-
-    const action = resolveKeyAction(input, mode, commands)
-    if (action !== null) dispatch(action)
+    // Map Ink key flags to DOM-style key strings
+    const k = key.escape ? 'Escape' : key.upArrow ? 'ArrowUp' : key.downArrow ? 'ArrowDown' : key.return ? 'Enter' : input
+    handleKey(k, { mode, listItems, commands, searchQuery, dispatch, activate, activateSelected })
   })
 
   function handleTaskSubmit(title: string) {
