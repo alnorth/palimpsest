@@ -27,36 +27,21 @@ export function useKeyboard(
 
       const input = e.key.length === 1 ? e.key : ''
 
-      // Picker views: letter shortcuts select by key, Enter activates selected
-      if (listItems.view === 'picking-view') {
+      // Pickers with letter shortcuts: key selects directly, Enter activates selected
+      const pickerView = listItems.view
+      const isShortcutPicker =
+        pickerView === 'picking-view' || pickerView === 'picking-agenda-for-task' ||
+        pickerView === 'picking-context-for-task' || pickerView === 'picking-due-date' ||
+        pickerView === 'picking-waiting-for-task' || pickerView === 'picking-waiting-agenda'
+      if (isShortcutPicker) {
         const shortcutIdx = listItems.items.findIndex(item => item.key === input)
         if (shortcutIdx !== -1) { activate(shortcutIdx); return }
         if (e.key === 'Enter') { activateSelected(); return }
         return
       }
 
-      if (listItems.view === 'picking-agenda-for-task') {
-        const shortcutIdx = listItems.items.findIndex(a => a.key === input)
-        if (shortcutIdx !== -1) { activate(shortcutIdx); return }
-        if (e.key === 'Enter') { activateSelected(); return }
-        return
-      }
-
-      if (listItems.view === 'picking-context-for-task') {
-        const shortcutIdx = listItems.items.findIndex(c => c.key === input)
-        if (shortcutIdx !== -1) { activate(shortcutIdx); return }
-        if (e.key === 'Enter') { activateSelected(); return }
-        return
-      }
-
-      if (listItems.view === 'picking-due-date') {
-        const shortcutIdx = listItems.items.findIndex(o => o.key === input)
-        if (shortcutIdx !== -1) { activate(shortcutIdx); return }
-        if (e.key === 'Enter') { activateSelected(); return }
-        return
-      }
-
-      if (listItems.view === 'picking-project-for-task') {
+      // Search pickers: Enter only (no letter shortcuts)
+      if (pickerView === 'picking-project-for-task' || pickerView === 'picking-waiting-project') {
         if (e.key === 'Enter') { activateSelected(); return }
         return
       }
