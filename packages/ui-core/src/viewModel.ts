@@ -2,7 +2,7 @@ import {
   listTasks, listProjects, listSpheres, listAgendas, listContexts, getProject,
   addDays, nextWeekday,
 } from 'palimpsest'
-import type { Task, Project, Sphere, Agenda, Context, ProjectionState, ProjectId, AgendaId, ContextId } from 'palimpsest'
+import type { Task, Project, Sphere, Agenda, Context, ProjectionState, ProjectId, AgendaId, ContextId, WaitingFor } from 'palimpsest'
 import { INITIAL_NAV } from './types.js'
 import type { UIState, View, Mode, TopLevelView } from './types.js'
 import { AGENDA_PREFIX, CONTEXT_PREFIX } from './prefixes.js'
@@ -30,11 +30,18 @@ export type WaitingKindOption = PickerItem<WaitingKind>
 export type WaitingAgendaPickerItem = PickerItem<AgendaId>
 export type WaitingProjectPickerItem = PickerItem<ProjectId>
 
+const WAITING_KIND_LABELS: Record<WaitingFor['kind'], string> = {
+  review: 'Review',
+  agenda: 'Agenda',
+  project: 'Project',
+}
+
 export const VIEW_CONFIG: ViewPickerItem[] = [
   { value: 'dashboard',  label: 'Dashboard',  key: 'd' },
   { value: 'tasks',      label: 'Tasks',      key: 't' },
   { value: 'projects',   label: 'Projects',   key: 'p' },
   { value: 'processing', label: 'Processing', key: 'r' },
+  { value: 'waiting',    label: 'Waiting',    key: 'w' },
 ]
 
 export interface ListGroup<T> {
@@ -50,7 +57,11 @@ export type ListItem =
   | { kind: 'task'; task: Task }
   | { kind: 'project'; project: Project }
 
-type MainListItems = { view: 'dashboard' | 'tasks' | 'project' | 'projects' | 'processing'; groups: ListGroup<ListItem>[]; items: ListItem[]; emptyMessage: string; selectedItem: ListItem | undefined }
+export type MainListItems = { view: 'dashboard' | 'tasks' | 'project' | 'projects' | 'processing' | 'waiting'; groups: ListGroup<ListItem>[]; items: ListItem[]; emptyMessage: string; selectedItem: ListItem | undefined }
+
+export function isMainListItems(items: ListItems): items is MainListItems {
+  return 'emptyMessage' in items
+}
 
 type PickerListItems<V extends View, Item> = {
   view: V
@@ -246,6 +257,19 @@ export function deriveViewModel(projState: ProjectionState, uiState: UIState): V
         const items = flatItems(groups)
         return { view, groups, items, emptyMessage: 'Nothing to process.', selectedItem: items[selected] }
       }
+      case 'waiting': {
+        const waitingTasks: Task[] = activeSphere !== undefined
+          ? listTasks(projState, { sphereId: activeSphere.id, status: 'open', isWaiting: true })
+          : []
+
+        const groups: ListGroup<ListItem>[] = (Object.keys(WAITING_KIND_LABELS) as Array<WaitingFor['kind']>).flatMap(kind => {
+          const kindTasks = waitingTasks.filter(t => t.waitingFor?.kind === kind)
+          if (kindTasks.length === 0) return []
+          return [{ title: WAITING_KIND_LABELS[kind], items: kindTasks.map((t): ListItem => ({ kind: 'task', task: t })) }]
+        })
+        const items = flatItems(groups)
+        return { view, groups, items, emptyMessage: 'No waiting tasks.', selectedItem: items[selected] }
+      }
       case 'task': return { view, groups: [], items: [] }
       case 'picking-view': return { view, groups: [{ title: '', items: VIEW_CONFIG }], items: VIEW_CONFIG, selectedItem: VIEW_CONFIG[selected] }
       case 'picking-agenda-for-task': {
@@ -303,10 +327,7 @@ export function deriveViewModel(projState: ProjectionState, uiState: UIState): V
     }
   })()
 
-  const selectedItem: ListItem | undefined = (
-    listItems.view === 'dashboard' || listItems.view === 'tasks' || listItems.view === 'project' ||
-    listItems.view === 'projects' || listItems.view === 'processing'
-  ) ? listItems.selectedItem : undefined
+  const selectedItem: ListItem | undefined = isMainListItems(listItems) ? listItems.selectedItem : undefined
 
   const selectedProject: Project | undefined = selectedItem?.kind === 'project' ? selectedItem.project : undefined
 
@@ -324,6 +345,7 @@ export function deriveViewModel(projState: ProjectionState, uiState: UIState): V
     : view === 'tasks' ? 'Tasks'
     : view === 'projects' ? 'Projects'
     : view === 'processing' ? 'Processing'
+    : view === 'waiting' ? 'Waiting'
     : view === 'picking-view' ? 'View'
     : view === 'picking-agenda-for-task' ? `Agenda${taskSuffix}`
     : view === 'picking-context-for-task' ? `Context${taskSuffix}`
@@ -334,7 +356,7 @@ export function deriveViewModel(projState: ProjectionState, uiState: UIState): V
     : view === 'picking-waiting-project' ? `Waiting for project${taskSuffix}`
     : ''
 
-  const showProject = view === 'dashboard' || view === 'tasks'
+  const showProject = view === 'dashboard' || view === 'tasks' || view === 'waiting'
 
   return {
     spheres,
