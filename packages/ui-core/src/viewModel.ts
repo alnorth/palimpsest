@@ -94,6 +94,12 @@ export interface ViewModel {
   showProject: boolean
 }
 
+function searchProjects(projState: ProjectionState, activeSphere: Sphere | undefined, searchQuery: string): Project[] {
+  const query = searchQuery.toLowerCase().trim()
+  const all = activeSphere !== undefined ? listProjects(projState, { sphereId: activeSphere.id, isArchived: false }) : []
+  return query === '' ? all : all.filter(p => p.name.toLowerCase().includes(query))
+}
+
 export function deriveViewModel(projState: ProjectionState, uiState: UIState): ViewModel {
   const currentNav = uiState.navStack[uiState.navStack.length - 1] ?? INITIAL_NAV
   const { view } = currentNav
@@ -258,15 +264,9 @@ export function deriveViewModel(projState: ProjectionState, uiState: UIState): V
         return { view, groups: [{ title: '', items }], items, selectedItem: items[selected] }
       }
       case 'picking-project-for-task': {
-        const query = searchQuery.toLowerCase().trim()
-        const allProjects = activeSphere !== undefined
-          ? listProjects(projState, { sphereId: activeSphere.id, isArchived: false })
-          : []
-        const filtered = query === ''
-          ? allProjects
-          : allProjects.filter(p => p.name.toLowerCase().includes(query))
+        const filtered = searchProjects(projState, activeSphere, searchQuery)
         const items: ProjectPickerItem[] = [
-          ...(query === '' ? [{ label: 'No project', value: null as null }] : []),
+          ...(searchQuery.trim() === '' ? [{ label: 'No project', value: null as null }] : []),
           ...filtered.map(p => ({ label: p.name, value: p.id })),
         ]
         return { view, groups: [{ title: '', items }], items, selectedItem: items[selected] }
@@ -287,14 +287,7 @@ export function deriveViewModel(projState: ProjectionState, uiState: UIState): V
         return { view, groups: [{ title: '', items }], items, selectedItem: items[selected] }
       }
       case 'picking-waiting-project': {
-        const query = searchQuery.toLowerCase().trim()
-        const allProjects = activeSphere !== undefined
-          ? listProjects(projState, { sphereId: activeSphere.id, isArchived: false })
-          : []
-        const filtered = query === ''
-          ? allProjects
-          : allProjects.filter(p => p.name.toLowerCase().includes(query))
-        const items: WaitingProjectPickerItem[] = filtered.map(p => ({ label: p.name, value: p.id }))
+        const items: WaitingProjectPickerItem[] = searchProjects(projState, activeSphere, searchQuery).map(p => ({ label: p.name, value: p.id }))
         return { view, groups: [{ title: '', items }], items, selectedItem: items[selected] }
       }
     }
