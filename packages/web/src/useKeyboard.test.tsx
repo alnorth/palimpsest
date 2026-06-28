@@ -32,10 +32,6 @@ function makeAppState(overrides: Partial<AppStateResult> = {}): AppStateResult {
     canGoBack: false,
     showCompleted: false,
     showArchived: false,
-    tasks: [],
-    dashboardTasks: [],
-    projects: [],
-    projectTasks: [],
   }
   return {
     ...base,

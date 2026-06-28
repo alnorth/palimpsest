@@ -76,14 +76,10 @@ export type ListItems =
 export interface ViewModel {
   spheres: Sphere[]
   activeSphere: Sphere | undefined
-  tasks: Task[]
-  dashboardTasks: Task[]
-  projects: Project[]
   agendas: Agenda[]
   contexts: Context[]
   projectStats: ProjectStats
   activeProject: Project | undefined
-  projectTasks: Task[]
   activeTask: Task | undefined
   currentTask: Task | undefined
   subtitle: string
@@ -310,14 +306,10 @@ export function deriveViewModel(projState: ProjectionState, uiState: UIState): V
   return {
     spheres,
     activeSphere,
-    tasks,
-    dashboardTasks,
-    projects,
     agendas,
     contexts,
     projectStats,
     activeProject,
-    projectTasks,
     activeTask,
     currentTask,
     subtitle,

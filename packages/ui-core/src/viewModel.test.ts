@@ -41,23 +41,25 @@ describe('deriveViewModel — tasks view', () => {
 
   it('lists open tasks for the active sphere', () => {
     const { projState, sphere, task1 } = buildTestState()
-    const uiState = makeUIState({ currentSphereId: sphere.id })
+    const uiState = makeUIState({ currentSphereId: sphere.id, navStack: [{ view: 'tasks' as const, selected: 0, showCompleted: false }] })
     const vm = deriveViewModel(projState, uiState)
-    expect(vm.tasks.some(t => t.id === task1.id)).toBe(true)
+    if (vm.listItems.view !== 'tasks') throw new Error('expected tasks view')
+    expect(vm.listItems.items.some(i => i.kind === 'task' && i.task.id === task1.id)).toBe(true)
   })
 
   it('includes project tasks in the sphere task list', () => {
     const { projState, sphere, task2 } = buildTestState()
-    const uiState = makeUIState({ currentSphereId: sphere.id })
+    const uiState = makeUIState({ currentSphereId: sphere.id, navStack: [{ view: 'tasks' as const, selected: 0, showCompleted: false }] })
     const vm = deriveViewModel(projState, uiState)
-    expect(vm.tasks.some(t => t.id === task2.id)).toBe(true)
+    if (vm.listItems.view !== 'tasks') throw new Error('expected tasks view')
+    expect(vm.listItems.items.some(i => i.kind === 'task' && i.task.id === task2.id)).toBe(true)
   })
 
   it('returns empty tasks when there are no spheres at all', () => {
     const projState = createEmptyState()
     const uiState = makeUIState({ currentSphereId: undefined })
     const vm = deriveViewModel(projState, uiState)
-    expect(vm.tasks).toHaveLength(0)
+    expect(vm.listItems.items).toHaveLength(0)
     expect(vm.activeSphere).toBeUndefined()
   })
 
@@ -77,7 +79,7 @@ describe('deriveViewModel — tasks view', () => {
     })
     const vm = deriveViewModel(projState, uiState)
     // no completed tasks in our test state, so empty is fine
-    expect(vm.tasks).toHaveLength(0)
+    expect(vm.listItems.items).toHaveLength(0)
   })
 })
 
@@ -89,7 +91,8 @@ describe('deriveViewModel — projects view', () => {
       navStack: [{ view: 'projects' as const, selected: 0, showArchived: false }],
     })
     const vm = deriveViewModel(projState, uiState)
-    expect(vm.projects.some(p => p.id === proj.id)).toBe(true)
+    if (vm.listItems.view !== 'projects') throw new Error('expected projects view')
+    expect(vm.listItems.items.some(i => i.kind === 'project' && i.project.id === proj.id)).toBe(true)
   })
 })
 
@@ -101,7 +104,8 @@ describe('deriveViewModel — project view', () => {
       navStack: [{ view: 'project' as const, selected: 0, activeProjectId: proj.id, showCompleted: false }],
     })
     const vm = deriveViewModel(projState, uiState)
-    expect(vm.projectTasks.some(t => t.id === task2.id)).toBe(true)
+    if (vm.listItems.view !== 'project') throw new Error('expected project view')
+    expect(vm.listItems.items.some(i => i.kind === 'task' && i.task.id === task2.id)).toBe(true)
     expect(vm.activeProject?.id).toBe(proj.id)
   })
 })
@@ -155,7 +159,7 @@ describe('deriveViewModel — navigation helpers', () => {
     const { projState, sphere } = buildTestState()
     const uiState = makeUIState({ currentSphereId: sphere.id, navStack: [{ view: 'tasks' as const, selected: 0, showCompleted: false }] })
     const vm = deriveViewModel(projState, uiState)
-    expect(vm.listLength).toBe(vm.tasks.length)
+    expect(vm.listLength).toBe(vm.listItems.items.length)
   })
 
   it('listLength equals projects.length in projects view', () => {
@@ -165,7 +169,7 @@ describe('deriveViewModel — navigation helpers', () => {
       navStack: [{ view: 'projects' as const, selected: 0, showArchived: false }],
     })
     const vm = deriveViewModel(projState, uiState)
-    expect(vm.listLength).toBe(vm.projects.length)
+    expect(vm.listLength).toBe(vm.listItems.items.length)
   })
 })
 

@@ -5,7 +5,10 @@ import { VIEW_CONFIG } from './viewModel.js'
 import type { ViewModel } from './viewModel.js'
 
 export function getCommands(vm: ViewModel): Partial<Record<CommandId, Command>> {
-  const { view, mode, selected, currentTask, activeSphere, projects, showCompleted, showArchived, canGoBack, agendas, contexts, spheres } = vm
+  const { view, mode, selected, currentTask, activeSphere, listItems, showCompleted, showArchived, canGoBack, agendas, contexts, spheres } = vm
+  const selectedProject = listItems.view === 'projects'
+    ? (listItems.items[selected]?.kind === 'project' ? listItems.items[selected]!.project : undefined)
+    : undefined
   const commands: Partial<Record<CommandId, Command>> = {}
 
   if (mode !== 'list') return commands
@@ -58,7 +61,7 @@ export function getCommands(vm: ViewModel): Partial<Record<CommandId, Command>> 
   }
 
   // ── Edit project name ────────────────────────────────────────────────────────
-  if (view === 'projects' && !showArchived && projects[selected] !== undefined) {
+  if (view === 'projects' && !showArchived && selectedProject !== undefined) {
     commands['edit-project'] = {
       id: 'edit-project',
       label: 'edit',
@@ -190,8 +193,8 @@ export function getCommands(vm: ViewModel): Partial<Record<CommandId, Command>> 
   }
 
   // ── Archive / unarchive project ──────────────────────────────────────────────
-  if (view === 'projects' && projects[selected] !== undefined) {
-    const proj = projects[selected]!
+  if (view === 'projects' && selectedProject !== undefined) {
+    const proj = selectedProject
     if (proj.isArchived) {
       commands['unarchive-project'] = {
         id: 'unarchive-project',

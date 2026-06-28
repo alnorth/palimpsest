@@ -1,6 +1,6 @@
 import { useMemo, useCallback, useReducer } from 'react'
 import {
-  listTasks, listProjects,
+  listTasks,
   createTask, updateTask, completeTask, uncompleteTask,
   createProject, updateProject, archiveProject, unarchiveProject,
   CLEAR,
@@ -122,26 +122,12 @@ export function useAppState(store: PalimpsestStore, initialState: ProjectionStat
         case 'complete-task': {
           const task = projState.tasks.get(action.taskId)
           if (!task) break
+          await store.appendEvents(completeTask(task))
           if (vm.view !== 'task') {
-            let tasks: typeof vm.dashboardTasks
-            if (vm.view === 'dashboard') {
-              tasks = vm.dashboardTasks
-            } else {
-              const activeProjectId = vm.activeProject?.id
-              const activeSphereId = vm.activeSphere?.id
-              tasks = activeProjectId !== undefined
-                ? listTasks(projState, { projectId: activeProjectId, status: 'open' })
-                : activeSphereId !== undefined
-                  ? listTasks(projState, { sphereId: activeSphereId, status: 'open' })
-                  : []
-            }
-            await store.appendEvents(completeTask(task))
             dispatchUI({
               type: 'update-nav',
-              patch: { selected: indexAfterRemove(tasks, navSelected(uiState.navStack[uiState.navStack.length - 1])) },
+              patch: { selected: indexAfterRemove(vm.listItems.items, navSelected(uiState.navStack[uiState.navStack.length - 1])) },
             })
-          } else {
-            await store.appendEvents(completeTask(task))
           }
           break
         }
@@ -149,21 +135,12 @@ export function useAppState(store: PalimpsestStore, initialState: ProjectionStat
         case 'uncomplete-task': {
           const task = projState.tasks.get(action.taskId)
           if (!task) break
+          await store.appendEvents(uncompleteTask(task))
           if (vm.view !== 'task') {
-            const activeProjectId = vm.activeProject?.id
-            const activeSphereId = vm.activeSphere?.id
-            const tasks = activeProjectId !== undefined
-              ? listTasks(projState, { projectId: activeProjectId, status: 'completed' })
-              : activeSphereId !== undefined
-                ? listTasks(projState, { sphereId: activeSphereId, status: 'completed' })
-                : []
-            await store.appendEvents(uncompleteTask(task))
             dispatchUI({
               type: 'update-nav',
-              patch: { selected: indexAfterRemove(tasks, navSelected(uiState.navStack[uiState.navStack.length - 1])) },
+              patch: { selected: indexAfterRemove(vm.listItems.items, navSelected(uiState.navStack[uiState.navStack.length - 1])) },
             })
-          } else {
-            await store.appendEvents(uncompleteTask(task))
           }
           break
         }
@@ -253,14 +230,10 @@ export function useAppState(store: PalimpsestStore, initialState: ProjectionStat
         case 'archive-project': {
           const project = projState.projects.get(action.projectId)
           if (!project) break
-          const activeSphereId = vm.activeSphere?.id
-          const projects = activeSphereId !== undefined
-            ? listProjects(projState, { sphereId: activeSphereId, isArchived: false })
-            : []
           await store.appendEvents(archiveProject(project))
           dispatchUI({
             type: 'update-nav',
-            patch: { selected: indexAfterRemove(projects, navSelected(uiState.navStack[uiState.navStack.length - 1])) },
+            patch: { selected: indexAfterRemove(vm.listItems.items, navSelected(uiState.navStack[uiState.navStack.length - 1])) },
           })
           break
         }
@@ -268,14 +241,10 @@ export function useAppState(store: PalimpsestStore, initialState: ProjectionStat
         case 'unarchive-project': {
           const project = projState.projects.get(action.projectId)
           if (!project) break
-          const activeSphereId = vm.activeSphere?.id
-          const projects = activeSphereId !== undefined
-            ? listProjects(projState, { sphereId: activeSphereId, isArchived: true })
-            : []
           await store.appendEvents(unarchiveProject(project))
           dispatchUI({
             type: 'update-nav',
-            patch: { selected: indexAfterRemove(projects, navSelected(uiState.navStack[uiState.navStack.length - 1])) },
+            patch: { selected: indexAfterRemove(vm.listItems.items, navSelected(uiState.navStack[uiState.navStack.length - 1])) },
           })
           break
         }
