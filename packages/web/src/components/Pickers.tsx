@@ -1,10 +1,8 @@
 import React from 'react'
 import { Stack, Group, Text, TextInput } from '@mantine/core'
 import { useMediaQuery } from '@mantine/hooks'
-import type { PickerItem } from 'palimpsest-ui-core'
-import type { TopLevelView } from 'palimpsest-ui-core'
-import type { AgendaId, ContextId, ProjectId } from 'palimpsest'
-import type { WaitingKind } from 'palimpsest-ui-core'
+import type { PickerItem, ViewPickerItem, AgendaPickerItem, ContextPickerItem, DueDateOption, ProjectPickerItem, WaitingKindOption } from 'palimpsest-ui-core'
+import type { AgendaId, ProjectId } from 'palimpsest'
 
 function PickerRow({ isSelected, onMouseEnter, onClick, children }: {
   isSelected: boolean
@@ -61,7 +59,7 @@ function PickerList({ items, selectedIndex, onHover, onActivate }: {
   )
 }
 
-export function ViewPicker({ items, selectedItem, onHover, onActivate }: { items: PickerItem<TopLevelView>[]; selectedItem: PickerItem<TopLevelView> | undefined; onHover?: (i: number) => void; onActivate?: (i: number) => void }) {
+export function ViewPicker({ items, selectedItem, onHover, onActivate }: { items: ViewPickerItem[]; selectedItem: ViewPickerItem | undefined; onHover?: (i: number) => void; onActivate?: (i: number) => void }) {
   return (
     <PickerList
       items={items}
@@ -72,7 +70,7 @@ export function ViewPicker({ items, selectedItem, onHover, onActivate }: { items
   )
 }
 
-export function AgendaPicker({ items, selectedItem, onHover, onActivate }: { items: PickerItem<AgendaId | null>[]; selectedItem: PickerItem<AgendaId | null> | undefined; onHover?: (i: number) => void; onActivate?: (i: number) => void }) {
+export function AgendaPicker({ items, selectedItem, onHover, onActivate }: { items: AgendaPickerItem[]; selectedItem: AgendaPickerItem | undefined; onHover?: (i: number) => void; onActivate?: (i: number) => void }) {
   return (
     <PickerList
       items={items}
@@ -94,7 +92,7 @@ export function WaitingAgendaPicker({ items, selectedItem, onHover, onActivate }
   )
 }
 
-export function ContextPicker({ items, selectedItem, onHover, onActivate }: { items: PickerItem<ContextId | null>[]; selectedItem: PickerItem<ContextId | null> | undefined; onHover?: (i: number) => void; onActivate?: (i: number) => void }) {
+export function ContextPicker({ items, selectedItem, onHover, onActivate }: { items: ContextPickerItem[]; selectedItem: ContextPickerItem | undefined; onHover?: (i: number) => void; onActivate?: (i: number) => void }) {
   return (
     <PickerList
       items={items}
@@ -105,7 +103,7 @@ export function ContextPicker({ items, selectedItem, onHover, onActivate }: { it
   )
 }
 
-export function DueDatePicker({ items, selectedItem, onHover, onActivate }: { items: PickerItem<string | null>[]; selectedItem: PickerItem<string | null> | undefined; onHover?: (i: number) => void; onActivate?: (i: number) => void }) {
+export function DueDatePicker({ items, selectedItem, onHover, onActivate }: { items: DueDateOption[]; selectedItem: DueDateOption | undefined; onHover?: (i: number) => void; onActivate?: (i: number) => void }) {
   return (
     <PickerList
       items={items.map(item => ({
@@ -119,7 +117,7 @@ export function DueDatePicker({ items, selectedItem, onHover, onActivate }: { it
   )
 }
 
-export function WaitingKindPicker({ items, selectedItem, onHover, onActivate }: { items: PickerItem<WaitingKind>[]; selectedItem: PickerItem<WaitingKind> | undefined; onHover?: (i: number) => void; onActivate?: (i: number) => void }) {
+export function WaitingKindPicker({ items, selectedItem, onHover, onActivate }: { items: WaitingKindOption[]; selectedItem: WaitingKindOption | undefined; onHover?: (i: number) => void; onActivate?: (i: number) => void }) {
   return (
     <PickerList
       items={items}
@@ -138,8 +136,8 @@ export function ProjectSearch({
   onHover,
   onActivate,
 }: {
-  items: PickerItem<ProjectId | null>[]
-  selectedItem: PickerItem<ProjectId | null> | undefined
+  items: ProjectPickerItem[]
+  selectedItem: ProjectPickerItem | undefined
   searchQuery: string
   onSearchChange: (v: string) => void
   onHover?: (i: number) => void

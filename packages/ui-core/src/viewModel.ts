@@ -21,6 +21,13 @@ export interface PickerItem<T> {
 
 export type WaitingKind = 'clear' | 'review' | 'agenda' | 'project'
 
+export type ViewPickerItem = PickerItem<TopLevelView>
+export type AgendaPickerItem = PickerItem<AgendaId | null>
+export type ContextPickerItem = PickerItem<ContextId | null>
+export type DueDateOption = PickerItem<string | null>
+export type ProjectPickerItem = PickerItem<ProjectId | null>
+export type WaitingKindOption = PickerItem<WaitingKind>
+
 export const VIEW_CONFIG: PickerItem<TopLevelView>[] = [
   { value: 'dashboard',  label: 'Dashboard',  key: 'd' },
   { value: 'tasks',      label: 'Tasks',      key: 't' },
