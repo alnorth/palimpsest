@@ -92,7 +92,7 @@ function LoadedApp({ initialState }: { initialState: ProjectionState }) {
     if (key.escape) {
       setFormValue('')
       // resolveKeyAction always returns non-null for escape
-      dispatch(resolveKeyAction('', true, false, false, mode, commands)!)
+      dispatch(resolveKeyAction('Escape', mode, commands)!)
       return
     }
     // Text-input modes: TextInput component handles the rest
@@ -161,7 +161,7 @@ function LoadedApp({ initialState }: { initialState: ProjectionState }) {
       }
     }
 
-    const action = resolveKeyAction(input, false, false, false, mode, commands)
+    const action = resolveKeyAction(input, mode, commands)
     if (action !== null) {
       if (action.type === 'set-mode') {
         if (action.mode === 'editing-task') setFormValue(currentTask?.title ?? '')

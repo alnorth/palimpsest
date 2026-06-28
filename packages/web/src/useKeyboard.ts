@@ -18,7 +18,7 @@ export function useKeyboard(
       if (e.key === 'Escape') {
         setFormValue('')
         // resolveKeyAction always returns non-null for escape
-        dispatch(resolveKeyAction('', true, false, false, mode, commands)!)
+        dispatch(resolveKeyAction(e.key, mode, commands)!)
         return
       }
 
@@ -68,7 +68,7 @@ export function useKeyboard(
 
       // Letter command shortcuts
       if (input !== '') {
-        const action = resolveKeyAction(e.key, false, false, false, mode, commands)
+        const action = resolveKeyAction(e.key, mode, commands)
         if (action !== null) { e.preventDefault(); dispatch(action) }
       }
     }
