@@ -8,7 +8,7 @@ export function getCommands(vm: ViewModel): Partial<Record<CommandId, Command>> 
   const { view, mode, currentTask, selectedProject, activeSphere, listItems, showCompleted, showArchived, canGoBack, agendas, contexts, spheres } = vm
   const commands: Partial<Record<CommandId, Command>> = {}
 
-  if (mode !== 'list') return commands
+  if (mode !== undefined) return commands
 
   const isTopLevel = view === 'dashboard' || view === 'tasks' || view === 'projects' || view === 'processing'
   const isNormalView = isTopLevel || view === 'project'
@@ -20,7 +20,7 @@ export function getCommands(vm: ViewModel): Partial<Record<CommandId, Command>> 
       label: 'task',
       group: 'create',
       key: 'q',
-      action: { type: 'set-mode', mode: 'adding' },
+      action: { type: 'set-mode', mode: { type: 'adding', formValue: '' } },
     }
   }
 
@@ -31,7 +31,7 @@ export function getCommands(vm: ViewModel): Partial<Record<CommandId, Command>> 
       label: 'project',
       group: 'create',
       key: 'j',
-      action: { type: 'set-mode', mode: 'adding-project' },
+      action: { type: 'set-mode', mode: { type: 'adding-project', formValue: '' } },
     }
   }
 
@@ -42,7 +42,7 @@ export function getCommands(vm: ViewModel): Partial<Record<CommandId, Command>> 
       label: 'edit',
       group: 'state',
       key: 'e',
-      action: { type: 'set-mode', mode: 'editing-task' },
+      action: { type: 'set-mode', mode: { type: 'editing-task', formValue: currentTask.title } },
     }
   }
 
@@ -53,7 +53,7 @@ export function getCommands(vm: ViewModel): Partial<Record<CommandId, Command>> 
       label: 'description',
       group: 'state',
       key: 'd',
-      action: { type: 'set-mode', mode: 'editing-description' },
+      action: { type: 'set-mode', mode: { type: 'editing-description', formValue: currentTask.description ?? '' } },
     }
   }
 
@@ -64,7 +64,7 @@ export function getCommands(vm: ViewModel): Partial<Record<CommandId, Command>> 
       label: 'edit',
       group: 'state',
       key: 'e',
-      action: { type: 'set-mode', mode: 'editing-project' },
+      action: { type: 'set-mode', mode: { type: 'editing-project', formValue: selectedProject.name } },
     }
   }
 
@@ -143,7 +143,7 @@ export function getCommands(vm: ViewModel): Partial<Record<CommandId, Command>> 
       label: 'recurring',
       group: 'state',
       key: 'r',
-      action: { type: 'set-mode', mode: 'editing-recurrence' },
+      action: { type: 'set-mode', mode: { type: 'editing-recurrence', formValue: currentTask.dueDateExpression ?? '' } },
     }
   }
 

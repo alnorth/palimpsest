@@ -71,16 +71,16 @@ function App() {
 }
 
 function LoadedApp({ initialState }: { initialState: ProjectionState }) {
+  const appState = useAppState(store, initialState)
   const {
-    view, mode, activeTask, activeProject,
+    view, mode, formValue, activeTask, activeProject,
     activeSphere, projectStats, listItems, currentTask, selectedItem, selectedProject, spheres, subtitle,
     searchQuery, projState, commands, dispatch, canGoBack, showCompleted, showArchived, showProject,
     syncState,
-  } = useAppState(store, initialState)
+  } = appState
 
   const { health: syncHealth, unsyncedCount, pendingConflicts, lastError: lastSyncError } = syncState
 
-  const [formValue, setFormValue] = useState('')
   const { rows: termRows } = useWindowSize()
 
   useEffect(() => {
@@ -90,13 +90,12 @@ function LoadedApp({ initialState }: { initialState: ProjectionState }) {
 
   useInput((input, key) => {
     if (key.escape) {
-      setFormValue('')
       // resolveKeyAction always returns non-null for escape
       dispatch(resolveKeyAction('Escape', mode, commands)!)
       return
     }
     // Text-input modes: TextInput component handles the rest
-    if (mode !== 'list') return
+    if (mode !== undefined) return
     // Up/down navigation works the same in all views
     if (key.upArrow) dispatch({ type: 'move-up' })
     if (key.downArrow) dispatch({ type: 'move-down' })
@@ -133,8 +132,7 @@ function LoadedApp({ initialState }: { initialState: ProjectionState }) {
         if (opt.date !== null) {
           dispatch({ type: 'set-task-due-date', taskId: currentTask.id, dueDate: opt.date })
         } else if (opt.key === 'c') {
-          setFormValue('')
-          dispatch({ type: 'set-mode', mode: 'editing-due-date' })
+          dispatch({ type: 'set-mode', mode: { type: 'editing-due-date', formValue: '' } })
         } else {
           dispatch({ type: 'set-task-due-date', taskId: currentTask.id, dueDate: CLEAR })
         }
@@ -162,16 +160,7 @@ function LoadedApp({ initialState }: { initialState: ProjectionState }) {
     }
 
     const action = resolveKeyAction(input, mode, commands)
-    if (action !== null) {
-      if (action.type === 'set-mode') {
-        if (action.mode === 'editing-task') setFormValue(currentTask?.title ?? '')
-        else if (action.mode === 'editing-description') setFormValue(currentTask?.description ?? '')
-        else if (action.mode === 'editing-recurrence') setFormValue(currentTask?.dueDateExpression ?? '')
-        else if (action.mode === 'editing-project') setFormValue(selectedProject?.name ?? '')
-        else setFormValue('')
-      }
-      dispatch(action)
-    }
+    if (action !== null) dispatch(action)
   })
 
   function handleTaskSubmit(title: string) {
@@ -185,9 +174,8 @@ function LoadedApp({ initialState }: { initialState: ProjectionState }) {
         ...(activeSphere !== undefined && { sphereId: activeSphere.id }),
       })
     } else {
-      dispatch({ type: 'set-mode', mode: 'list' })
+      dispatch({ type: 'exit-mode' })
     }
-    setFormValue('')
   }
 
   function handleEditSubmit(title: string) {
@@ -195,25 +183,22 @@ function LoadedApp({ initialState }: { initialState: ProjectionState }) {
     if (trimmed && currentTask !== undefined) {
       dispatch({ type: 'edit-task', taskId: currentTask.id, title: trimmed })
     } else {
-      dispatch({ type: 'set-mode', mode: 'list' })
+      dispatch({ type: 'exit-mode' })
     }
-    setFormValue('')
   }
 
   function handleEditDescriptionSubmit(description: string) {
     if (currentTask !== undefined) {
       dispatch({ type: 'edit-task-description', taskId: currentTask.id, description: description.trim() })
     } else {
-      dispatch({ type: 'set-mode', mode: 'list' })
+      dispatch({ type: 'exit-mode' })
     }
-    setFormValue('')
   }
 
   function handleDueDateSubmit(value: string) {
     const parsed = parseDueDate(value, today)
     if (parsed !== null && currentTask !== undefined) {
       dispatch({ type: 'set-task-due-date', taskId: currentTask.id, dueDate: parsed })
-      setFormValue('')
     }
   }
 
@@ -222,10 +207,8 @@ function LoadedApp({ initialState }: { initialState: ProjectionState }) {
     if (currentTask === undefined) return
     if (trimmed === '') {
       dispatch({ type: 'set-task-due-date-expression', taskId: currentTask.id, dueDateExpression: CLEAR })
-      setFormValue('')
     } else if (isValidExpression(trimmed)) {
       dispatch({ type: 'set-task-due-date-expression', taskId: currentTask.id, dueDateExpression: trimmed })
-      setFormValue('')
     }
   }
 
@@ -234,9 +217,8 @@ function LoadedApp({ initialState }: { initialState: ProjectionState }) {
     if (trimmed && activeSphere !== undefined) {
       dispatch({ type: 'create-project', name: trimmed, sphereId: activeSphere.id })
     } else {
-      dispatch({ type: 'set-mode', mode: 'list' })
+      dispatch({ type: 'exit-mode' })
     }
-    setFormValue('')
   }
 
   function handleEditProjectSubmit(name: string) {
@@ -244,9 +226,8 @@ function LoadedApp({ initialState }: { initialState: ProjectionState }) {
     if (trimmed && selectedProject !== undefined) {
       dispatch({ type: 'edit-project', projectId: selectedProject.id, name: trimmed })
     } else {
-      dispatch({ type: 'set-mode', mode: 'list' })
+      dispatch({ type: 'exit-mode' })
     }
-    setFormValue('')
   }
 
   const _d = new Date()
@@ -273,12 +254,12 @@ function LoadedApp({ initialState }: { initialState: ProjectionState }) {
 
   if (listItems.view === 'picking-due-date') {
     title = <Text bold color="cyan">{subtitle}</Text>
-    if (mode === 'editing-due-date') {
+    if (mode?.type === 'editing-due-date') {
       content = (
         <Box flexDirection="column">
           <Box>
             <Text>Due date: </Text>
-            <TextInput value={formValue} onChange={setFormValue} onSubmit={handleDueDateSubmit} />
+            <TextInput value={formValue} onChange={v => dispatch({ type: 'update-mode', formValue: v })} onSubmit={handleDueDateSubmit} />
           </Box>
           {dueDatePreviewHint}
         </Box>
@@ -428,46 +409,47 @@ function LoadedApp({ initialState }: { initialState: ProjectionState }) {
         emptyMessage={listItems.emptyMessage}
       />
     ) : null
-    footer = mode === 'adding' ? (
+    const onChangeFormValue = (v: string) => dispatch({ type: 'update-mode', formValue: v })
+    footer = mode?.type === 'adding' ? (
       activeSphere === undefined ? (
         <Text color="red">No spheres found — create a sphere first.</Text>
       ) : (
         <Box>
           <Text>New task: </Text>
-          <TextInput value={formValue} onChange={setFormValue} onSubmit={handleTaskSubmit} />
+          <TextInput value={formValue} onChange={onChangeFormValue} onSubmit={handleTaskSubmit} />
         </Box>
       )
-    ) : mode === 'editing-task' ? (
+    ) : mode?.type === 'editing-task' ? (
       <Box>
         <Text>Edit task: </Text>
-        <TextInput value={formValue} onChange={setFormValue} onSubmit={handleEditSubmit} />
+        <TextInput value={formValue} onChange={onChangeFormValue} onSubmit={handleEditSubmit} />
       </Box>
-    ) : mode === 'editing-description' ? (
+    ) : mode?.type === 'editing-description' ? (
       <Box>
         <Text>Description: </Text>
-        <TextInput value={formValue} onChange={setFormValue} onSubmit={handleEditDescriptionSubmit} />
+        <TextInput value={formValue} onChange={onChangeFormValue} onSubmit={handleEditDescriptionSubmit} />
       </Box>
-    ) : mode === 'editing-recurrence' ? (
+    ) : mode?.type === 'editing-recurrence' ? (
       <Box flexDirection="column">
         <Box>
           <Text>Recurring: </Text>
-          <TextInput value={formValue} onChange={setFormValue} onSubmit={handleRecurrenceSubmit} />
+          <TextInput value={formValue} onChange={onChangeFormValue} onSubmit={handleRecurrenceSubmit} />
         </Box>
         {recurrencePreviewHint}
       </Box>
-    ) : mode === 'adding-project' ? (
+    ) : mode?.type === 'adding-project' ? (
       activeSphere === undefined ? (
         <Text color="red">No spheres found — create a sphere first.</Text>
       ) : (
         <Box>
           <Text>New project: </Text>
-          <TextInput value={formValue} onChange={setFormValue} onSubmit={handleProjectSubmit} />
+          <TextInput value={formValue} onChange={onChangeFormValue} onSubmit={handleProjectSubmit} />
         </Box>
       )
-    ) : mode === 'editing-project' ? (
+    ) : mode?.type === 'editing-project' ? (
       <Box>
         <Text>Edit project: </Text>
-        <TextInput value={formValue} onChange={setFormValue} onSubmit={handleEditProjectSubmit} />
+        <TextInput value={formValue} onChange={onChangeFormValue} onSubmit={handleEditProjectSubmit} />
       </Box>
     ) : listHint
   }

@@ -12,14 +12,15 @@ export type View =
   | 'picking-project-for-task'
 
 export type Mode =
-  | 'list'
-  | 'adding'
-  | 'editing-task'
-  | 'editing-description'
-  | 'editing-due-date'
-  | 'adding-project'
-  | 'editing-project'
-  | 'editing-recurrence'
+  | { type: 'adding'; formValue: string }
+  | { type: 'editing-task'; formValue: string }
+  | { type: 'editing-description'; formValue: string }
+  | { type: 'editing-due-date'; formValue: string }
+  | { type: 'adding-project'; formValue: string }
+  | { type: 'editing-project'; formValue: string }
+  | { type: 'editing-recurrence'; formValue: string }
+
+export type ModeType = Mode['type']
 
 export type NavState =
   | { view: 'dashboard'; selected: number }
@@ -42,13 +43,13 @@ export const INITIAL_NAV = {
 export interface UIState {
   currentSphereId: SphereId | undefined
   navStack: NavState[]
-  mode: Mode
+  mode: Mode | undefined
 }
 
 export const INITIAL_UI_STATE: UIState = {
   currentSphereId: undefined,
   navStack: [INITIAL_NAV],
-  mode: 'list',
+  mode: undefined,
 }
 
 export type UIAction =
@@ -57,6 +58,8 @@ export type UIAction =
   | { type: 'go-back' }
   | { type: 'update-nav'; patch: { selected?: number; searchQuery?: string } }
   | { type: 'set-mode'; mode: Mode }
+  | { type: 'exit-mode' }
+  | { type: 'update-mode'; formValue: string }
   | { type: 'set-sphere'; sphereId: SphereId }
   | { type: 'move-up' }
   | { type: 'move-down' }

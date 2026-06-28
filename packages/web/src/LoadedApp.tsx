@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState } from 'react'
 import { AppShell, Group, Text, ScrollArea, Badge, Burger, Button, Stack, Modal, TextInput, Textarea } from '@mantine/core'
 import type { PalimpsestStore, ProjectionState, Task } from 'palimpsest'
 import { CLEAR, isValidExpression } from 'palimpsest'
@@ -34,7 +34,7 @@ function FormModal({ opened, onClose, title, placeholder, preview, value, onChan
   const submitDisabled = preview !== undefined && !preview.ok
   const inputStyles = { fontFamily: 'monospace', ...(preview !== undefined && { borderColor: preview.ok ? 'var(--mantine-color-green-6)' : 'var(--mantine-color-red-6)' }) }
   return (
-    <Modal opened={opened} onClose={onClose} title={title} size="sm" styles={{ title: { fontFamily: 'monospace' } }} transitionProps={{ duration: 0 }}>
+    <Modal opened={opened} onClose={onClose} closeOnEscape={false} title={title} size="sm" styles={{ title: { fontFamily: 'monospace' } }} transitionProps={{ duration: 0 }}>
       {multiline ? (
         <Textarea
           placeholder={placeholder}
@@ -72,113 +72,18 @@ function FormModal({ opened, onClose, title, placeholder, preview, value, onChan
 export function LoadedApp({ store, initialState }: Props) {
   const appState = useAppState(store, initialState)
   const {
-    view, mode, activeTask, activeProject,
+    view, mode, formValue, activeTask, activeProject,
     activeSphere, spheres, projectStats, listItems, currentTask, selectedProject,
     subtitle, projState, commands, dispatch, canGoBack, showCompleted, showArchived, showProject,
     syncState, searchQuery, activate, selectedItem,
   } = appState
 
-  const [formValue, setFormValue] = useState('')
   const [navDrawerOpen, setNavDrawerOpen] = useState(false)
-  // Prepopulate the form when entering an editing mode (e.g. via button click in TaskDetail)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => {
-    if (mode === 'editing-task') {
-      setFormValue(currentTask?.title ?? '')
-    } else if (mode === 'editing-description') {
-      setFormValue(currentTask?.description ?? '')
-    } else if (mode === 'editing-recurrence') {
-      setFormValue(currentTask?.dueDateExpression ?? '')
-    } else if (mode === 'editing-project') {
-      setFormValue(selectedProject?.name ?? '')
-    }
-  }, [mode]) // intentionally omit other deps — we only want to run on mode transitions
 
   useUrlSync({ view, sphereId: activeSphere?.id, activeTaskId: activeTask?.id, activeProjectId: activeProject?.id, dispatch })
-  useKeyboard(appState, setFormValue)
+  useKeyboard(appState)
 
   const today = new Date().toISOString().slice(0, 10)
-
-  function dismissModal() {
-    dispatch({ type: 'set-mode', mode: 'list' })
-    setFormValue('')
-  }
-
-  function handleTaskSubmit(title: string) {
-    const trimmed = title.trim()
-    if (trimmed) {
-      const projectId = view === 'project' ? activeProject?.id : undefined
-      dispatch({
-        type: 'create-task',
-        title: trimmed,
-        ...(projectId !== undefined && { projectId }),
-        ...(activeSphere !== undefined && { sphereId: activeSphere.id }),
-      })
-    } else {
-      dispatch({ type: 'set-mode', mode: 'list' })
-    }
-    setFormValue('')
-  }
-
-  function handleEditSubmit(title: string) {
-    const trimmed = title.trim()
-    if (trimmed && currentTask !== undefined) {
-      dispatch({ type: 'edit-task', taskId: currentTask.id, title: trimmed })
-    } else {
-      dispatch({ type: 'set-mode', mode: 'list' })
-    }
-    setFormValue('')
-  }
-
-  function handleEditDescriptionSubmit(description: string) {
-    if (currentTask !== undefined) {
-      dispatch({ type: 'edit-task-description', taskId: currentTask.id, description: description.trim() })
-    } else {
-      dispatch({ type: 'set-mode', mode: 'list' })
-    }
-    setFormValue('')
-  }
-
-  function handleDueDateSubmit(value: string) {
-    const parsed = parseDueDate(value, today)
-    if (parsed !== null && currentTask !== undefined) {
-      dispatch({ type: 'set-task-due-date', taskId: currentTask.id, dueDate: parsed })
-      dispatch({ type: 'set-mode', mode: 'list' })
-      setFormValue('')
-    }
-  }
-
-  function handleRecurrenceSubmit(value: string) {
-    const trimmed = value.trim()
-    if (currentTask === undefined) return
-    if (trimmed === '') {
-      dispatch({ type: 'set-task-due-date-expression', taskId: currentTask.id, dueDateExpression: CLEAR })
-      setFormValue('')
-    } else if (isValidExpression(trimmed)) {
-      dispatch({ type: 'set-task-due-date-expression', taskId: currentTask.id, dueDateExpression: trimmed })
-      setFormValue('')
-    }
-  }
-
-  function handleProjectSubmit(name: string) {
-    const trimmed = name.trim()
-    if (trimmed && activeSphere !== undefined) {
-      dispatch({ type: 'create-project', name: trimmed, sphereId: activeSphere.id })
-    } else {
-      dispatch({ type: 'set-mode', mode: 'list' })
-    }
-    setFormValue('')
-  }
-
-  function handleEditProjectSubmit(name: string) {
-    const trimmed = name.trim()
-    if (trimmed && selectedProject !== undefined) {
-      dispatch({ type: 'edit-project', projectId: selectedProject.id, name: trimmed })
-    } else {
-      dispatch({ type: 'set-mode', mode: 'list' })
-    }
-    setFormValue('')
-  }
 
   function handleHover(i: number) {
     dispatch({ type: 'update-nav', patch: { selected: i } })
@@ -267,9 +172,82 @@ export function LoadedApp({ store, initialState }: Props) {
   }
 
   const taskTitle = currentTask?.title
+  const exit = () => dispatch({ type: 'exit-mode' })
+  const onChangeFormValue = (v: string) => dispatch({ type: 'update-mode', formValue: v })
 
-  const dueDatePreview = mode === 'editing-due-date' ? getDueDatePreview(formValue, today) : undefined
-  const recurrencePreview = mode === 'editing-recurrence' ? getRecurrencePreview(formValue, today) : undefined
+  const modalProps = (() => {
+    if (mode === undefined) return undefined
+    switch (mode.type) {
+      case 'adding':
+        return {
+          title: 'New task',
+          onSubmit(v: string) {
+            const trimmed = v.trim()
+            if (!trimmed) { exit(); return }
+            const projectId = view === 'project' ? activeProject?.id : undefined
+            dispatch({ type: 'create-task', title: trimmed, ...(projectId !== undefined && { projectId }), ...(activeSphere !== undefined && { sphereId: activeSphere.id }) })
+          },
+        }
+      case 'editing-task':
+        return {
+          title: taskTitle !== undefined ? `Edit — ${taskTitle}` : 'Edit task',
+          onSubmit(v: string) {
+            const trimmed = v.trim()
+            if (trimmed && currentTask !== undefined) dispatch({ type: 'edit-task', taskId: currentTask.id, title: trimmed })
+            else exit()
+          },
+        }
+      case 'editing-description':
+        return {
+          title: taskTitle !== undefined ? `Description — ${taskTitle}` : 'Description',
+          multiline: true as const,
+          onSubmit(v: string) {
+            if (currentTask !== undefined) dispatch({ type: 'edit-task-description', taskId: currentTask.id, description: v.trim() })
+            else exit()
+          },
+        }
+      case 'editing-due-date':
+        return {
+          title: taskTitle !== undefined ? `Due date — ${taskTitle}` : 'Due date',
+          placeholder: 'tomorrow · next monday · jul 4 · 2026-12-25',
+          preview: getDueDatePreview(formValue, today),
+          onSubmit(v: string) {
+            const parsed = parseDueDate(v, today)
+            if (parsed !== null && currentTask !== undefined) dispatch({ type: 'set-task-due-date', taskId: currentTask.id, dueDate: parsed })
+          },
+        }
+      case 'editing-recurrence':
+        return {
+          title: taskTitle !== undefined ? `Recurrence — ${taskTitle}` : 'Recurrence',
+          placeholder: 'daily · every monday · every 2 weeks · monthly',
+          preview: getRecurrencePreview(formValue, today),
+          onSubmit(v: string) {
+            const trimmed = v.trim()
+            if (currentTask === undefined) return
+            if (trimmed === '') dispatch({ type: 'set-task-due-date-expression', taskId: currentTask.id, dueDateExpression: CLEAR })
+            else if (isValidExpression(trimmed)) dispatch({ type: 'set-task-due-date-expression', taskId: currentTask.id, dueDateExpression: trimmed })
+          },
+        }
+      case 'adding-project':
+        return {
+          title: 'New project',
+          onSubmit(v: string) {
+            const trimmed = v.trim()
+            if (trimmed && activeSphere !== undefined) dispatch({ type: 'create-project', name: trimmed, sphereId: activeSphere.id })
+            else exit()
+          },
+        }
+      case 'editing-project':
+        return {
+          title: 'Edit project',
+          onSubmit(v: string) {
+            const trimmed = v.trim()
+            if (trimmed && selectedProject !== undefined) dispatch({ type: 'edit-project', projectId: selectedProject.id, name: trimmed })
+            else exit()
+          },
+        }
+    }
+  })()
 
   return (
     <AppShell
@@ -325,13 +303,17 @@ export function LoadedApp({ store, initialState }: Props) {
         <MobileFooter commands={commands} dispatch={dispatch} />
       </AppShell.Footer>
 
-      <FormModal opened={mode === 'adding'} onClose={dismissModal} title="New task" value={formValue} onChange={setFormValue} onSubmit={handleTaskSubmit} />
-      <FormModal opened={mode === 'editing-task'} onClose={dismissModal} title={taskTitle !== undefined ? `Edit — ${taskTitle}` : 'Edit task'} value={formValue} onChange={setFormValue} onSubmit={handleEditSubmit} />
-      <FormModal opened={mode === 'editing-description'} onClose={dismissModal} title={taskTitle !== undefined ? `Description — ${taskTitle}` : 'Description'} value={formValue} onChange={setFormValue} onSubmit={handleEditDescriptionSubmit} multiline />
-      <FormModal opened={mode === 'editing-due-date'} onClose={dismissModal} title={taskTitle !== undefined ? `Due date — ${taskTitle}` : 'Due date'} placeholder="tomorrow · next monday · jul 4 · 2026-12-25" preview={dueDatePreview} value={formValue} onChange={setFormValue} onSubmit={handleDueDateSubmit} />
-      <FormModal opened={mode === 'editing-recurrence'} onClose={dismissModal} title={taskTitle !== undefined ? `Recurrence — ${taskTitle}` : 'Recurrence'} placeholder="daily · every monday · every 2 weeks · monthly" preview={recurrencePreview} value={formValue} onChange={setFormValue} onSubmit={handleRecurrenceSubmit} />
-      <FormModal opened={mode === 'adding-project'} onClose={dismissModal} title="New project" value={formValue} onChange={setFormValue} onSubmit={handleProjectSubmit} />
-      <FormModal opened={mode === 'editing-project'} onClose={dismissModal} title="Edit project" value={formValue} onChange={setFormValue} onSubmit={handleEditProjectSubmit} />
+      <FormModal
+        opened={modalProps !== undefined}
+        onClose={exit}
+        value={formValue}
+        onChange={onChangeFormValue}
+        title={modalProps?.title ?? ''}
+        onSubmit={modalProps?.onSubmit ?? exit}
+        {...(modalProps?.placeholder !== undefined && { placeholder: modalProps.placeholder })}
+        {...(modalProps?.preview !== undefined && { preview: modalProps.preview })}
+        {...(modalProps?.multiline === true && { multiline: true })}
+      />
     </AppShell>
   )
 }

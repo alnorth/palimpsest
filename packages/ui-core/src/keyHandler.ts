@@ -4,13 +4,13 @@ import type { Mode, Action, Command, CommandId } from './types.js'
 // Ink callers: pass 'Escape'/'ArrowUp'/'ArrowDown' directly for special keys, or the input char.
 export function resolveKeyAction(
   key: string,
-  mode: Mode,
+  mode: Mode | undefined,
   commands: Partial<Record<CommandId, Command>>,
 ): Action | null {
   if (key === 'Escape') {
-    return mode !== 'list' ? { type: 'set-mode', mode: 'list' } : { type: 'go-back' }
+    return mode !== undefined ? { type: 'exit-mode' } : { type: 'go-back' }
   }
-  if (mode !== 'list') return null
+  if (mode !== undefined) return null
   if (key === 'ArrowUp') return { type: 'move-up' }
   if (key === 'ArrowDown') return { type: 'move-down' }
   const char = key.length === 1 ? key : ''

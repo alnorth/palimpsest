@@ -86,7 +86,8 @@ export interface ViewModel {
   listItems: ListItems
   canGoBack: boolean
   view: View
-  mode: Mode
+  mode: Mode | undefined
+  formValue: string
   searchQuery: string
   showCompleted: boolean
   showArchived: boolean
@@ -103,6 +104,7 @@ export function deriveViewModel(projState: ProjectionState, uiState: UIState): V
   const showArchived = 'showArchived' in currentNav ? currentNav.showArchived : false
   const searchQuery = currentNav.view === 'picking-project-for-task' ? currentNav.searchQuery : ''
   const { mode, currentSphereId } = uiState
+  const formValue = mode?.formValue ?? ''
 
   const spheres = listSpheres(projState)
   const activeSphere =
@@ -320,6 +322,7 @@ export function deriveViewModel(projState: ProjectionState, uiState: UIState): V
     canGoBack: uiState.navStack.length > 1,
     view,
     mode,
+    formValue,
     searchQuery,
     showCompleted,
     showArchived,

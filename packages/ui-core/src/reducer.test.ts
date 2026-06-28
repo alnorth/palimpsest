@@ -62,13 +62,34 @@ describe('update-nav', () => {
 
 describe('set-mode', () => {
   it('changes the mode', () => {
-    const result = uiReducer(INITIAL_UI_STATE, { type: 'set-mode', mode: 'adding' })
-    expect(result.mode).toBe('adding')
+    const result = uiReducer(INITIAL_UI_STATE, { type: 'set-mode', mode: { type: 'adding', formValue: '' } })
+    expect(result.mode?.type).toBe('adding')
   })
 
   it('does not affect the nav stack', () => {
-    const result = uiReducer(INITIAL_UI_STATE, { type: 'set-mode', mode: 'adding' })
+    const result = uiReducer(INITIAL_UI_STATE, { type: 'set-mode', mode: { type: 'adding', formValue: '' } })
     expect(result.navStack).toHaveLength(1)
+  })
+})
+
+describe('exit-mode', () => {
+  it('clears the mode', () => {
+    const withMode = uiReducer(INITIAL_UI_STATE, { type: 'set-mode', mode: { type: 'adding', formValue: '' } })
+    const result = uiReducer(withMode, { type: 'exit-mode' })
+    expect(result.mode).toBeUndefined()
+  })
+})
+
+describe('update-mode', () => {
+  it('updates formValue in the current mode', () => {
+    const withMode = uiReducer(INITIAL_UI_STATE, { type: 'set-mode', mode: { type: 'adding', formValue: '' } })
+    const result = uiReducer(withMode, { type: 'update-mode', formValue: 'hello' })
+    expect(result.mode).toEqual({ type: 'adding', formValue: 'hello' })
+  })
+
+  it('is a no-op when mode is undefined', () => {
+    const result = uiReducer(INITIAL_UI_STATE, { type: 'update-mode', formValue: 'hello' })
+    expect(result.mode).toBeUndefined()
   })
 })
 

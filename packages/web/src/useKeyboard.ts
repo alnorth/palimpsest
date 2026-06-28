@@ -9,14 +9,12 @@ function isInputFocused(): boolean {
 
 export function useKeyboard(
   appState: AppStateResult,
-  setFormValue: (v: string) => void,
 ): void {
   const { mode, listItems, commands, dispatch, activate, activateSelected } = appState
 
   useEffect(() => {
     function handler(e: KeyboardEvent) {
       if (e.key === 'Escape') {
-        setFormValue('')
         // resolveKeyAction always returns non-null for escape
         dispatch(resolveKeyAction(e.key, mode, commands)!)
         return
@@ -75,5 +73,5 @@ export function useKeyboard(
 
     document.addEventListener('keydown', handler)
     return () => document.removeEventListener('keydown', handler)
-  }, [mode, listItems, commands, dispatch, activate, activateSelected, setFormValue])
+  }, [mode, listItems, commands, dispatch, activate, activateSelected])
 }
