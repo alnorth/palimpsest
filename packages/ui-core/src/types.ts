@@ -61,7 +61,7 @@ export const INITIAL_UI_STATE: UIState = {
 export type UIAction =
   | { type: 'navigate'; navState: NavState }
   | { type: 'set-nav'; navState: NavState }
-  | { type: 'go-back' }
+  | { type: 'go-back'; steps?: number }
   | { type: 'update-nav'; patch: { selected?: number; searchQuery?: string } }
   | { type: 'set-mode'; mode: Mode }
   | { type: 'exit-mode' }

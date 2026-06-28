@@ -177,7 +177,8 @@ export function useAppState(store: PalimpsestStore, initialState: ProjectionStat
           const task = projState.tasks.get(action.taskId)
           if (task !== undefined) {
             await store.appendEvents(updateTask(task, { waitingFor: action.waitingFor }))
-            dispatchUI({ type: 'go-back' })
+            const steps = (vm.view === 'picking-waiting-agenda' || vm.view === 'picking-waiting-project') ? 2 : 1
+            dispatchUI({ type: 'go-back', steps })
           }
           break
         }
@@ -303,9 +304,9 @@ export function useAppState(store: PalimpsestStore, initialState: ProjectionStat
         } else if (opt.subKind === 'review') {
           dispatch({ type: 'set-waiting', taskId: vm.currentTask.id, waitingFor: { kind: 'review' } })
         } else if (opt.subKind === 'agenda') {
-          dispatch({ type: 'set-nav', navState: { view: 'picking-waiting-agenda', selected: 0, activeTaskId: vm.currentTask.id } })
+          dispatch({ type: 'navigate', navState: { view: 'picking-waiting-agenda', selected: 0, activeTaskId: vm.currentTask.id } })
         } else if (opt.subKind === 'project') {
-          dispatch({ type: 'set-nav', navState: { view: 'picking-waiting-project', selected: 0, activeTaskId: vm.currentTask.id, searchQuery: '' } })
+          dispatch({ type: 'navigate', navState: { view: 'picking-waiting-project', selected: 0, activeTaskId: vm.currentTask.id, searchQuery: '' } })
         }
       }
     } else if (vm.listItems.view === 'picking-waiting-agenda') {
