@@ -31,6 +31,7 @@ function toPath(
     case 'dashboard': return `/${sphereId}/dashboard`
     case 'tasks':     return `/${sphereId}/tasks`
     case 'projects':  return `/${sphereId}/projects`
+    case 'processing': return `/${sphereId}/processing`
     case 'waiting':   return `/${sphereId}/waiting`
     case 'project':   return activeProjectId !== undefined ? `/${sphereId}/projects/${activeProjectId}` : null
     case 'task':      return activeTaskId !== undefined ? `/${sphereId}/tasks/${activeTaskId}` : null
