@@ -18,9 +18,10 @@ export interface ViewPickerItem {
 }
 
 export const VIEW_CONFIG: ViewPickerItem[] = [
-  { id: 'dashboard', label: 'Dashboard', key: 'd' },
-  { id: 'tasks',     label: 'Tasks',     key: 't' },
-  { id: 'projects',  label: 'Projects',  key: 'p' },
+  { id: 'dashboard',  label: 'Dashboard',  key: 'd' },
+  { id: 'tasks',      label: 'Tasks',      key: 't' },
+  { id: 'projects',   label: 'Projects',   key: 'p' },
+  { id: 'processing', label: 'Processing', key: 'r' },
 ]
 
 export interface AgendaPickerItem {
@@ -51,11 +52,16 @@ export interface ListGroup<T> {
   items: T[]
 }
 
+export type ProcessingItem =
+  | { kind: 'task'; task: Task }
+  | { kind: 'project'; project: Project }
+
 export type ListItems =
   | { view: 'dashboard'; groups: ListGroup<Task>[] }
   | { view: 'tasks'; groups: ListGroup<Task>[] }
   | { view: 'project'; groups: ListGroup<Task>[] }
   | { view: 'projects'; groups: ListGroup<Project>[] }
+  | { view: 'processing'; groups: ListGroup<ProcessingItem>[] }
   | { view: 'task'; groups: ListGroup<never>[] }
   | { view: 'picking-view'; groups: ListGroup<ViewPickerItem>[] }
   | { view: 'picking-agenda-for-task'; groups: ListGroup<AgendaPickerItem>[] }
@@ -179,6 +185,21 @@ export function deriveViewModel(projState: ProjectionState, uiState: UIState): V
     ? projState.tasks.get(activeTaskId)
     : undefined
 
+  const inboxTasks: Task[] = activeSphere !== undefined
+    ? listTasks(projState, { sphereId: activeSphere.id, status: 'open' })
+        .filter(t =>
+          t.dueDate === undefined &&
+          t.agendaId === undefined &&
+          t.contextId === undefined &&
+          t.projectId === undefined
+        )
+    : []
+
+  const projectsWithoutNext: Project[] = activeSphere !== undefined
+    ? listProjects(projState, { sphereId: activeSphere.id, isArchived: false })
+        .filter(p => !projectStats.hasNext.has(p.id))
+    : []
+
   const isPickerView = view === 'picking-view' || view === 'picking-agenda-for-task' || view === 'picking-context-for-task' || view === 'picking-due-date' || view === 'picking-project-for-task'
 
   const currentTask: Task | undefined =
@@ -186,6 +207,7 @@ export function deriveViewModel(projState: ProjectionState, uiState: UIState): V
     : view === 'project' ? projectTasks[selected]
     : view === 'tasks' ? tasks[selected]
     : view === 'dashboard' ? dashboardTasks[selected]
+    : view === 'processing' ? (selected < inboxTasks.length ? inboxTasks[selected] : undefined)
     : isPickerView ? activeTask
     : undefined
 
@@ -195,6 +217,7 @@ export function deriveViewModel(projState: ProjectionState, uiState: UIState): V
     : view === 'dashboard' ? 'Dashboard'
     : view === 'tasks' ? 'Tasks'
     : view === 'projects' ? 'Projects'
+    : view === 'processing' ? 'Processing'
     : view === 'picking-view' ? 'Pick view'
     : view === 'picking-agenda-for-task' ? 'Pick agenda'
     : view === 'picking-context-for-task' ? 'Pick context'
@@ -217,6 +240,19 @@ export function deriveViewModel(projState: ProjectionState, uiState: UIState): V
       case 'tasks': return { view, groups: [{ title: '', items: tasks }] }
       case 'project': return { view, groups: [{ title: '', items: projectTasks }] }
       case 'projects': return { view, groups: [{ title: '', items: projects }] }
+      case 'processing': return {
+        view,
+        groups: [
+          {
+            title: 'Inbox tasks',
+            items: inboxTasks.map((t): ProcessingItem => ({ kind: 'task', task: t })),
+          },
+          {
+            title: 'Projects without a next action',
+            items: projectsWithoutNext.map((p): ProcessingItem => ({ kind: 'project', project: p })),
+          },
+        ],
+      }
       case 'task': return { view, groups: [] }
       case 'picking-view': return { view, groups: [{ title: '', items: VIEW_CONFIG }] }
       case 'picking-agenda-for-task': return {

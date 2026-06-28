@@ -134,7 +134,7 @@ src/
 
 Auth token is stored in `localStorage` under `palimpsest_auth_token`. The API URL comes from `config.json` (injected by CDK at deploy time) or from the setup screen. All sync calls send `Authorization: Bearer <token>`.
 
-Views: `dashboard` (starred + due today), `tasks` (all/completed per sphere), `projects`, `project` (tasks in one project). Modes: `list`, `adding`, `editing-task`, `editing-description`, `editing-due-date`, `editing-recurrence`, `adding-project`, `editing-project`. Modal pickers overlay any view.
+Views: `dashboard` (starred + due today), `tasks` (all/completed per sphere), `projects`, `project` (tasks in one project), `processing` (inbox tasks + projects without a next action). Modes: `list`, `adding`, `editing-task`, `editing-description`, `editing-due-date`, `editing-recurrence`, `adding-project`, `editing-project`. Modal pickers overlay any view.
 
 ### packages/backend
 

@@ -111,9 +111,10 @@ function LoadedApp({ initialState }: { initialState: ProjectionState }) {
       const chosen = shortcut ?? (key.return ? flat[selected] : undefined)
       if (chosen !== undefined) {
         const navState =
-          chosen.id === 'tasks'    ? { view: 'tasks' as const,    selected: 0, showCompleted: false } :
-          chosen.id === 'projects' ? { view: 'projects' as const, selected: 0, showArchived: false } :
-                                     { view: 'dashboard' as const, selected: 0 }
+          chosen.id === 'tasks'      ? { view: 'tasks' as const,      selected: 0, showCompleted: false } :
+          chosen.id === 'projects'   ? { view: 'projects' as const,   selected: 0, showArchived: false } :
+          chosen.id === 'processing' ? { view: 'processing' as const, selected: 0 } :
+                                       { view: 'dashboard' as const,  selected: 0 }
         dispatch({ type: 'set-nav', navState })
       }
       return
@@ -472,6 +473,46 @@ function LoadedApp({ initialState }: { initialState: ProjectionState }) {
                     </Row>
                   )
                 })}
+              </React.Fragment>
+            )
+          })}
+        </>
+      )
+    })() : listItems.view === 'processing' ? (() => {
+      let offset = 0
+      return (
+        <>
+          {listItems.groups.map((group, gi) => {
+            const groupOffset = offset
+            offset += group.items.length
+            return (
+              <React.Fragment key={gi}>
+                <Text dimColor bold>{group.title}</Text>
+                {group.items.length === 0
+                  ? <Text dimColor>  —</Text>
+                  : group.items.map((item, i) => {
+                      const flatIndex = groupOffset + i
+                      const isSelected = flatIndex === selected
+                      if (item.kind === 'task') {
+                        return (
+                          <Row
+                            key={item.task.id}
+                            isSelected={isSelected}
+                            color={isSelected ? 'blue' : undefined}
+                            twoLine={false}
+                            title={<><Text color="yellow">{item.task.isStarred === true ? '★ ' : ''}</Text>{item.task.title}</>}
+                          />
+                        )
+                      } else {
+                        const count = projectStats.taskCount.get(item.project.id) ?? 0
+                        return (
+                          <Row key={item.project.id} isSelected={isSelected} color={isSelected ? 'blue' : 'red'} title={item.project.name}>
+                            <Meta>{count}</Meta>
+                          </Row>
+                        )
+                      }
+                    })
+                }
               </React.Fragment>
             )
           })}

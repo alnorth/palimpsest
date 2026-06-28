@@ -321,6 +321,15 @@ export function useAppState(store: PalimpsestStore, initialState: ProjectionStat
       if (task !== undefined) {
         dispatch({ type: 'navigate', navState: { view: 'task', activeTaskId: task.id } })
       }
+    } else if (vm.listItems.view === 'processing') {
+      const item = vm.listItems.groups.flatMap(g => g.items)[i]
+      if (item !== undefined) {
+        if (item.kind === 'task') {
+          dispatch({ type: 'navigate', navState: { view: 'task', activeTaskId: item.task.id } })
+        } else {
+          dispatch({ type: 'navigate', navState: { view: 'project', selected: 0, activeProjectId: item.project.id, showCompleted: false } })
+        }
+      }
     }
   }, [vm, dispatch])
 

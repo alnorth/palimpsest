@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { AppShell, Group, Text, ScrollArea, Badge, Burger, Button, Stack, Modal, TextInput, Textarea } from '@mantine/core'
+import { useMediaQuery } from '@mantine/hooks'
 import type { PalimpsestStore, ProjectionState, Task } from 'palimpsest'
 import { CLEAR, isValidExpression } from 'palimpsest'
 import { useAppState, parseDueDate, getDueDatePreview, getRecurrencePreview } from 'palimpsest-ui-core'
@@ -81,6 +82,7 @@ export function LoadedApp({ store, initialState }: Props) {
 
   const [formValue, setFormValue] = useState('')
   const [navDrawerOpen, setNavDrawerOpen] = useState(false)
+  const isMobile = useMediaQuery('(max-width: 768px)')
 
   // Prepopulate the form when entering an editing mode (e.g. via button click in TaskDetail)
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -293,6 +295,87 @@ export function LoadedApp({ store, initialState }: Props) {
           onActivate={activate}
           onComplete={handleTaskComplete}
         />
+      </Stack>
+    )
+  } else if (listItems.view === 'processing') {
+    let offset = 0
+    content = (
+      <Stack gap={2}>
+        {listItems.groups.map((group, gi) => {
+          const groupOffset = offset
+          offset += group.items.length
+          return (
+            <React.Fragment key={gi}>
+              <Text size="xs" c="dimmed" fw={600} tt="uppercase" px="xs" {...(gi > 0 ? { pt: 'xs' } : {})}>
+                {group.title}
+              </Text>
+              {group.items.length === 0
+                ? <Text c="dimmed" size="sm" px="xs">None.</Text>
+                : group.items.map((item, i) => {
+                    const flatIndex = groupOffset + i
+                    const isSelected = flatIndex === selected && !isMobile
+                    if (item.kind === 'task') {
+                      return (
+                        <Text
+                          key={item.task.id}
+                          size="sm"
+                          px="xs"
+                          py={2}
+                          {...(isSelected ? { c: 'blue' } : {})}
+                          onMouseEnter={() => handleHover(flatIndex)}
+                          onClick={() => activate(flatIndex)}
+                          style={{
+                            background: isSelected ? 'var(--mantine-color-blue-light)' : undefined,
+                            borderRadius: 4,
+                            cursor: 'pointer',
+                            fontFamily: 'monospace',
+                            userSelect: 'none',
+                          }}
+                        >
+                          <Text span visibleFrom="sm" style={{ display: 'inline-block', width: '2ch' }}>{isSelected ? '>' : ''}</Text>
+                          <Text
+                            span
+                            c="dimmed"
+                            onClick={(e) => { e.stopPropagation(); handleTaskComplete(item.task) }}
+                            style={{ cursor: 'pointer' }}
+                          >
+                            {'○ '}
+                          </Text>
+                          {item.task.isStarred === true && <Text span c="yellow.6">{'★ '}</Text>}
+                          {item.task.title}
+                        </Text>
+                      )
+                    } else {
+                      const count = projectStats.taskCount.get(item.project.id) ?? 0
+                      return (
+                        <Group
+                          key={item.project.id}
+                          justify="space-between"
+                          px="xs"
+                          py={2}
+                          onMouseEnter={() => handleHover(flatIndex)}
+                          onClick={() => activate(flatIndex)}
+                          style={{
+                            background: isSelected ? 'var(--mantine-color-blue-light)' : undefined,
+                            borderRadius: 4,
+                            cursor: 'pointer',
+                            fontFamily: 'monospace',
+                            userSelect: 'none',
+                          }}
+                        >
+                          <Text size="sm" c={isSelected ? 'blue' : 'red'}>
+                            <Text span visibleFrom="sm" style={{ display: 'inline-block', width: '2ch' }}>{isSelected ? '>' : ''}</Text>
+                            {item.project.name}
+                          </Text>
+                          <Text size="xs" c="dimmed">{count}</Text>
+                        </Group>
+                      )
+                    }
+                  })
+              }
+            </React.Fragment>
+          )
+        })}
       </Stack>
     )
   } else {
