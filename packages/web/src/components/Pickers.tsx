@@ -29,77 +29,68 @@ function PickerRow({ isSelected, onMouseEnter, onClick, children }: {
   )
 }
 
-export function ViewPicker({ items, selectedItem, onHover, onActivate }: { items: ViewPickerItem[]; selectedItem: ViewPickerItem | undefined; onHover?: (i: number) => void; onActivate?: (i: number) => void }) {
+function PickerItem({ i, isActive, prefix = '', label, shortcutKey, onHover, onActivate }: {
+  i: number
+  isActive: boolean
+  prefix?: string | undefined
+  label: string
+  shortcutKey?: string | undefined
+  onHover?: ((i: number) => void) | undefined
+  onActivate?: ((i: number) => void) | undefined
+}) {
   const isMobile = useMediaQuery('(max-width: 768px)')
+  const isSelected = isActive && !isMobile
+  return (
+    <PickerRow
+      isSelected={isSelected}
+      onMouseEnter={onHover !== undefined ? () => onHover(i) : undefined}
+      onClick={onActivate !== undefined ? () => onActivate(i) : undefined}
+    >
+      <Text size="sm" {...(isSelected ? { c: 'blue' } : {})}>
+        {isSelected ? '> ' : '  '}{prefix}{label}
+        {shortcutKey !== undefined && <Text span size="xs" c="dimmed">  {shortcutKey}</Text>}
+      </Text>
+    </PickerRow>
+  )
+}
+
+export function ViewPicker({ items, selectedItem, onHover, onActivate }: { items: ViewPickerItem[]; selectedItem: ViewPickerItem | undefined; onHover?: (i: number) => void; onActivate?: (i: number) => void }) {
   return (
     <Stack gap={2}>
-      {items.map((item, i) => {
-        const isSelected = item === selectedItem && !isMobile
-        return (
-          <PickerRow key={item.id} isSelected={isSelected} onMouseEnter={onHover !== undefined ? () => onHover(i) : undefined} onClick={onActivate !== undefined ? () => onActivate(i) : undefined}>
-            <Text size="sm" {...(isSelected ? { c: 'blue' } : {})}>
-              {isSelected ? '> ' : '  '}{item.label}
-              <Text span size="xs" c="dimmed">  {item.key}</Text>
-            </Text>
-          </PickerRow>
-        )
-      })}
+      {items.map((item, i) => (
+        <PickerItem key={item.id} i={i} isActive={item === selectedItem} label={item.label} shortcutKey={item.key} onHover={onHover} onActivate={onActivate} />
+      ))}
     </Stack>
   )
 }
 
 export function AgendaPicker({ items, selectedItem, onHover, onActivate }: { items: AgendaPickerItem[]; selectedItem: AgendaPickerItem | undefined; onHover?: (i: number) => void; onActivate?: (i: number) => void }) {
-  const isMobile = useMediaQuery('(max-width: 768px)')
   return (
     <Stack gap={2}>
-      {items.map((item, i) => {
-        const isSelected = item === selectedItem && !isMobile
-        return (
-          <PickerRow key={item.title} isSelected={isSelected} onMouseEnter={onHover !== undefined ? () => onHover(i) : undefined} onClick={onActivate !== undefined ? () => onActivate(i) : undefined}>
-            <Text size="sm" {...(isSelected ? { c: 'blue' } : {})}>
-              {isSelected ? '> ' : '  '}{item.id !== null ? AGENDA_PREFIX : ''}{item.title}
-              {item.key !== undefined && <Text span size="xs" c="dimmed">  {item.key}</Text>}
-            </Text>
-          </PickerRow>
-        )
-      })}
+      {items.map((item, i) => (
+        <PickerItem key={item.title} i={i} isActive={item === selectedItem} prefix={item.id !== null ? AGENDA_PREFIX : ''} label={item.title} shortcutKey={item.key} onHover={onHover} onActivate={onActivate} />
+      ))}
     </Stack>
   )
 }
 
 export function ContextPicker({ items, selectedItem, onHover, onActivate }: { items: ContextPickerItem[]; selectedItem: ContextPickerItem | undefined; onHover?: (i: number) => void; onActivate?: (i: number) => void }) {
-  const isMobile = useMediaQuery('(max-width: 768px)')
   return (
     <Stack gap={2}>
-      {items.map((item, i) => {
-        const isSelected = item === selectedItem && !isMobile
-        return (
-          <PickerRow key={item.name} isSelected={isSelected} onMouseEnter={onHover !== undefined ? () => onHover(i) : undefined} onClick={onActivate !== undefined ? () => onActivate(i) : undefined}>
-            <Text size="sm" {...(isSelected ? { c: 'blue' } : {})}>
-              {isSelected ? '> ' : '  '}{item.id !== null ? CONTEXT_PREFIX : ''}{item.name}
-              {item.key !== undefined && <Text span size="xs" c="dimmed">  {item.key}</Text>}
-            </Text>
-          </PickerRow>
-        )
-      })}
+      {items.map((item, i) => (
+        <PickerItem key={item.name} i={i} isActive={item === selectedItem} prefix={item.id !== null ? CONTEXT_PREFIX : ''} label={item.name} shortcutKey={item.key} onHover={onHover} onActivate={onActivate} />
+      ))}
     </Stack>
   )
 }
 
 export function DueDatePicker({ items, selectedItem, onHover, onActivate }: { items: DueDateOption[]; selectedItem: DueDateOption | undefined; onHover?: (i: number) => void; onActivate?: (i: number) => void }) {
-  const isMobile = useMediaQuery('(max-width: 768px)')
   return (
     <Stack gap={2}>
       {items.map((opt, i) => {
-        const isSelected = opt === selectedItem && !isMobile
         const label = opt.date !== null ? `${opt.label} — ${opt.date}` : opt.label
         return (
-          <PickerRow key={opt.key} isSelected={isSelected} onMouseEnter={onHover !== undefined ? () => onHover(i) : undefined} onClick={onActivate !== undefined ? () => onActivate(i) : undefined}>
-            <Text size="sm" {...(isSelected ? { c: 'blue' } : {})}>
-              {isSelected ? '> ' : '  '}{label}
-              <Text span size="xs" c="dimmed">  {opt.key}</Text>
-            </Text>
-          </PickerRow>
+          <PickerItem key={opt.key} i={i} isActive={opt === selectedItem} label={label} shortcutKey={opt.key} onHover={onHover} onActivate={onActivate} />
         )
       })}
     </Stack>
@@ -107,20 +98,11 @@ export function DueDatePicker({ items, selectedItem, onHover, onActivate }: { it
 }
 
 export function WaitingKindPicker({ items, selectedItem, onHover, onActivate }: { items: WaitingKindOption[]; selectedItem: WaitingKindOption | undefined; onHover?: (i: number) => void; onActivate?: (i: number) => void }) {
-  const isMobile = useMediaQuery('(max-width: 768px)')
   return (
     <Stack gap={2}>
-      {items.map((item, i) => {
-        const isSelected = item === selectedItem && !isMobile
-        return (
-          <PickerRow key={item.kind} isSelected={isSelected} onMouseEnter={onHover !== undefined ? () => onHover(i) : undefined} onClick={onActivate !== undefined ? () => onActivate(i) : undefined}>
-            <Text size="sm" {...(isSelected ? { c: 'blue' } : {})}>
-              {isSelected ? '> ' : '  '}{item.label}
-              {item.key !== undefined && <Text span size="xs" c="dimmed">  {item.key}</Text>}
-            </Text>
-          </PickerRow>
-        )
-      })}
+      {items.map((item, i) => (
+        <PickerItem key={item.kind} i={i} isActive={item === selectedItem} label={item.label} shortcutKey={item.key} onHover={onHover} onActivate={onActivate} />
+      ))}
     </Stack>
   )
 }
@@ -140,7 +122,6 @@ export function ProjectSearch({
   onHover?: (i: number) => void
   onActivate?: (i: number) => void
 }) {
-  const isMobile = useMediaQuery('(max-width: 768px)')
   return (
     <Stack gap="sm">
       <TextInput
@@ -155,16 +136,9 @@ export function ProjectSearch({
           <PickerRow isSelected onClick={() => onActivate?.(0)}>
             <Text size="sm" c="blue">{'> '}Create project "{searchQuery.trim()}"</Text>
           </PickerRow>
-        ) : items.map((p, i) => {
-          const isSelected = p === selectedItem && !isMobile
-          return (
-            <PickerRow key={p.id ?? 'null'} isSelected={isSelected} onMouseEnter={onHover !== undefined ? () => onHover(i) : undefined} onClick={onActivate !== undefined ? () => onActivate(i) : undefined}>
-              <Text size="sm" {...(isSelected ? { c: 'blue' } : {})}>
-                {isSelected ? '> ' : '  '}{p.name}
-              </Text>
-            </PickerRow>
-          )
-        })}
+        ) : items.map((p, i) => (
+          <PickerItem key={p.id ?? 'null'} i={i} isActive={p === selectedItem} label={p.name} onHover={onHover} onActivate={onActivate} />
+        ))}
       </Stack>
     </Stack>
   )
