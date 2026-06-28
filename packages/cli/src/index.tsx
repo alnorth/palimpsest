@@ -91,7 +91,7 @@ function LoadedApp({ initialState }: { initialState: ProjectionState }) {
   useInput((input, key) => {
     if (key.escape) {
       // resolveKeyAction always returns non-null for escape
-      dispatch(resolveKeyAction('Escape', mode, commands)!)
+      dispatch(resolveKeyAction('Escape', mode, commands, searchQuery)!)
       return
     }
     // Text-input modes: TextInput component handles the rest

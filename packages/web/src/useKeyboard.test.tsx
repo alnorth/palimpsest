@@ -110,4 +110,20 @@ describe('useKeyboard', () => {
     expect(dispatch).toHaveBeenCalledWith({ type: 'exit-mode' })
     document.body.removeChild(input)
   })
+
+  it('Escape clears formValue when non-empty instead of exiting mode', () => {
+    const dispatch = vi.fn()
+    const appState = makeAppState({ dispatch, mode: { type: 'adding', formValue: 'hello' }, formValue: 'hello' })
+    render(<TestHarness appState={appState} />)
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(dispatch).toHaveBeenCalledWith({ type: 'update-mode', formValue: '' })
+  })
+
+  it('Escape clears searchQuery when non-empty instead of going back', () => {
+    const dispatch = vi.fn()
+    const appState = makeAppState({ dispatch, searchQuery: 'my project' })
+    render(<TestHarness appState={appState} />)
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(dispatch).toHaveBeenCalledWith({ type: 'update-nav', patch: { searchQuery: '', selected: 0 } })
+  })
 })
