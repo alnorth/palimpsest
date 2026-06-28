@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import type { SphereId, TaskId, ProjectId } from 'palimpsest'
 import type { View, NavState, Action } from 'palimpsest-ui-core'
+import { VIEW_CONFIG, navStateForTopLevelView } from 'palimpsest-ui-core'
 
 // URL schema:
 //   /:sphereId/dashboard
@@ -43,19 +44,14 @@ function applyPath(pathname: string, dispatch: (action: Action) => void): void {
   const [sphereId, section, id] = parts
   if (sphereId === undefined || section === undefined) return
 
+  const topLevelView = id === undefined ? VIEW_CONFIG.find(v => v.value === section) : undefined
   let navState: NavState | null = null
-  if (section === 'dashboard' && id === undefined) {
-    navState = { view: 'dashboard', selected: 0 }
-  } else if (section === 'tasks' && id === undefined) {
-    navState = { view: 'tasks', selected: 0, showCompleted: false }
-  } else if (section === 'projects' && id === undefined) {
-    navState = { view: 'projects', selected: 0, showArchived: false }
+  if (topLevelView !== undefined) {
+    navState = navStateForTopLevelView(topLevelView.value)
   } else if (section === 'projects' && id !== undefined) {
     navState = { view: 'project', selected: 0, activeProjectId: id as ProjectId, showCompleted: false }
   } else if (section === 'tasks' && id !== undefined) {
     navState = { view: 'task', activeTaskId: id as TaskId }
-  } else if (section === 'waiting' && id === undefined) {
-    navState = { view: 'waiting', selected: 0 }
   }
 
   if (navState === null) return
