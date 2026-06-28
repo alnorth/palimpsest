@@ -1,11 +1,11 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render, fireEvent, cleanup } from '@testing-library/react'
-import React, { useState } from 'react'
+import React from 'react'
 import { useKeyboard } from './useKeyboard.js'
 import type { AppStateResult } from 'palimpsest-ui-core'
 import type { ViewModel } from 'palimpsest-ui-core'
-import { INITIAL_UI_STATE } from 'palimpsest-ui-core'
+import { LIST_MODE } from 'palimpsest-ui-core'
 import { createEmptyState, buildStateFromConfig } from 'palimpsest'
 import type { SphereId } from 'palimpsest'
 
@@ -15,7 +15,8 @@ const projState = { ...createEmptyState(), ...buildStateFromConfig([{ id: SPHERE
 function makeAppState(overrides: Partial<AppStateResult> = {}): AppStateResult {
   const base: ViewModel = {
     view: 'dashboard',
-    mode: 'list',
+    mode: LIST_MODE,
+    formValue: '',
     activeTask: undefined,
     activeProject: undefined,
     activeSphere: { id: SPHERE_ID, name: 'Work' },
@@ -47,9 +48,8 @@ function makeAppState(overrides: Partial<AppStateResult> = {}): AppStateResult {
 }
 
 function TestHarness({ appState }: { appState: AppStateResult }) {
-  const [formValue, setFormValue] = useState('')
-  useKeyboard(appState, setFormValue)
-  return <div data-testid="form-value">{formValue}</div>
+  useKeyboard(appState)
+  return <div />
 }
 
 
@@ -66,10 +66,10 @@ describe('useKeyboard', () => {
 
   it('dispatches set-mode list on Escape when not in list mode', () => {
     const dispatch = vi.fn()
-    const appState = makeAppState({ dispatch, mode: 'adding' })
+    const appState = makeAppState({ dispatch, mode: { type: 'adding', formValue: '' } })
     render(<TestHarness appState={appState} />)
     fireEvent.keyDown(document, { key: 'Escape' })
-    expect(dispatch).toHaveBeenCalledWith({ type: 'set-mode', mode: 'list' })
+    expect(dispatch).toHaveBeenCalledWith({ type: 'set-mode', mode: LIST_MODE })
   })
 
   it('dispatches move-up on ArrowUp', () => {
@@ -102,13 +102,13 @@ describe('useKeyboard', () => {
 
   it('Escape cancels mode even when an input element is focused', () => {
     const dispatch = vi.fn()
-    const appState = makeAppState({ dispatch, mode: 'adding', activate: vi.fn() })
+    const appState = makeAppState({ dispatch, mode: { type: 'adding', formValue: '' }, activate: vi.fn() })
     render(<TestHarness appState={appState} />)
     const input = document.createElement('input')
     document.body.appendChild(input)
     input.focus()
     fireEvent.keyDown(document, { key: 'Escape' })
-    expect(dispatch).toHaveBeenCalledWith({ type: 'set-mode', mode: 'list' })
+    expect(dispatch).toHaveBeenCalledWith({ type: 'set-mode', mode: LIST_MODE })
     document.body.removeChild(input)
   })
 })

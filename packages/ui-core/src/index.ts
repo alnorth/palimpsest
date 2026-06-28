@@ -1,5 +1,5 @@
-export type { View, TopLevelView, Mode, NavState, UIState, Action, UIAction, DataAction, Command, CommandId } from './types.js'
-export { INITIAL_NAV, INITIAL_UI_STATE } from './types.js'
+export type { View, TopLevelView, Mode, ModeType, NavState, UIState, Action, UIAction, DataAction, Command, CommandId } from './types.js'
+export { INITIAL_NAV, INITIAL_UI_STATE, LIST_MODE } from './types.js'
 export { addDays, nextWeekday, parseDueDate } from 'palimpsest'
 export { uiReducer } from './reducer.js'
 export type { ViewModel, ProjectStats, ListItems, ListItem, ListGroup, ViewPickerItem, AgendaPickerItem, ContextPickerItem, DueDateOption, ProjectPickerItem } from './viewModel.js'

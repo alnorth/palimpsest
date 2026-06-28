@@ -6,7 +6,7 @@ import {
   CLEAR,
 } from 'palimpsest'
 import type { PalimpsestStore, ProjectionState, ProjectCreatedEvent } from 'palimpsest'
-import { INITIAL_UI_STATE } from './types.js'
+import { INITIAL_UI_STATE, LIST_MODE } from './types.js'
 import type { UIState, Action, UIAction, DataAction, CommandId } from './types.js'
 import { uiReducer } from './reducer.js'
 import { deriveViewModel } from './viewModel.js'
@@ -95,7 +95,7 @@ export function useAppState(store: PalimpsestStore, initialState: ProjectionStat
             await store.appendEvents(createTask({ title: action.title, sphereId }))
             dispatchUI({ type: 'update-nav', patch: { selected: indexAfterAppend(tasks) } })
           }
-          dispatchUI({ type: 'set-mode', mode: 'list' })
+          dispatchUI({ type: 'set-mode', mode: LIST_MODE })
           break
         }
 
@@ -103,7 +103,7 @@ export function useAppState(store: PalimpsestStore, initialState: ProjectionStat
           const task = projState.tasks.get(action.taskId)
           if (!task) break
           await store.appendEvents(updateTask(task, { title: action.title }))
-          dispatchUI({ type: 'set-mode', mode: 'list' })
+          dispatchUI({ type: 'set-mode', mode: LIST_MODE })
           break
         }
 
@@ -111,7 +111,7 @@ export function useAppState(store: PalimpsestStore, initialState: ProjectionStat
           const task = projState.tasks.get(action.taskId)
           if (!task) break
           await store.appendEvents(updateTask(task, { description: action.description }))
-          dispatchUI({ type: 'set-mode', mode: 'list' })
+          dispatchUI({ type: 'set-mode', mode: LIST_MODE })
           break
         }
 
@@ -127,7 +127,7 @@ export function useAppState(store: PalimpsestStore, initialState: ProjectionStat
           const task = projState.tasks.get(action.taskId)
           if (!task) break
           await store.appendEvents(updateTask(task, { dueDateExpression: action.dueDateExpression }))
-          dispatchUI({ type: 'set-mode', mode: 'list' })
+          dispatchUI({ type: 'set-mode', mode: LIST_MODE })
           break
         }
 
@@ -216,7 +216,7 @@ export function useAppState(store: PalimpsestStore, initialState: ProjectionStat
 
         case 'create-project': {
           await store.appendEvents(createProject({ name: action.name, sphereId: action.sphereId }))
-          dispatchUI({ type: 'set-mode', mode: 'list' })
+          dispatchUI({ type: 'set-mode', mode: LIST_MODE })
           break
         }
 
@@ -235,7 +235,7 @@ export function useAppState(store: PalimpsestStore, initialState: ProjectionStat
           const project = projState.projects.get(action.projectId)
           if (!project) break
           await store.appendEvents(updateProject(project, { name: action.name }))
-          dispatchUI({ type: 'set-mode', mode: 'list' })
+          dispatchUI({ type: 'set-mode', mode: LIST_MODE })
           break
         }
 
@@ -281,7 +281,7 @@ export function useAppState(store: PalimpsestStore, initialState: ProjectionStat
       const opt = vm.listItems.items[i]
       if (opt !== undefined && vm.currentTask !== undefined) {
         if (opt.date !== null) dispatch({ type: 'set-task-due-date', taskId: vm.currentTask.id, dueDate: opt.date })
-        else if (opt.key === 'c') dispatch({ type: 'set-mode', mode: 'editing-due-date' })
+        else if (opt.key === 'c') dispatch({ type: 'set-mode', mode: { type: 'editing-due-date', formValue: '' } })
         else dispatch({ type: 'set-task-due-date', taskId: vm.currentTask.id, dueDate: CLEAR })
       }
     } else if (vm.listItems.view === 'picking-project-for-task') {
