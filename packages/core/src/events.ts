@@ -30,11 +30,6 @@ export interface ProjectUpdatedEvent extends EventBase {
   patch: ProjectPatch
 }
 
-export interface ProjectDeletedEvent extends EventBase {
-  type: 'project.deleted'
-  projectId: ProjectId
-}
-
 export interface ProjectArchivedEvent extends EventBase {
   type: 'project.archived'
   projectId: ProjectId
@@ -110,7 +105,6 @@ export interface TaskDeletedEvent extends EventBase {
 export type PalimpsestEvent =
   | ProjectCreatedEvent
   | ProjectUpdatedEvent
-  | ProjectDeletedEvent
   | ProjectArchivedEvent
   | ProjectUnarchivedEvent
   | TaskCreatedEvent

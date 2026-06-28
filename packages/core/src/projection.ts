@@ -45,11 +45,6 @@ export function applyEvent(state: ProjectionState, event: PalimpsestEvent): Proj
       return state
     }
 
-    case 'project.deleted': {
-      state.projects.delete(event.projectId)
-      return state
-    }
-
     case 'project.archived': {
       const project = state.projects.get(event.projectId)
       if (!project) return state
