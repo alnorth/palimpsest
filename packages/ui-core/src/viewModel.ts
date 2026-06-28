@@ -208,7 +208,7 @@ export function deriveViewModel(projState: ProjectionState, uiState: UIState): V
     : []
 
   const tasksWaitingOnArchivedProjects: Task[] = activeSphere !== undefined
-    ? listTasks(projState, { sphereId: activeSphere.id, status: 'open' })
+    ? listTasks(projState, { sphereId: activeSphere.id, status: 'open', isWaiting: true })
         .filter(t => {
           if (t.waitingFor?.kind !== 'project') return false
           const p = projState.projects.get(t.waitingFor.projectId)
