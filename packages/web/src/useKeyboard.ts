@@ -10,19 +10,13 @@ function isInputFocused(): boolean {
 export function useKeyboard(
   appState: AppStateResult,
 ): void {
-  const { mode, listItems, commands, dispatch, activate, activateSelected, formValue, searchQuery } = appState
+  const { mode, listItems, commands, dispatch, activate, activateSelected, searchQuery } = appState
 
   useEffect(() => {
     function handler(e: KeyboardEvent) {
       if (e.key === 'Escape') {
-        if (formValue !== '') {
-          dispatch({ type: 'update-mode', formValue: '' })
-        } else if (searchQuery !== '') {
-          dispatch({ type: 'update-nav', patch: { searchQuery: '', selected: 0 } })
-        } else {
-          // resolveKeyAction always returns non-null for escape
-          dispatch(resolveKeyAction(e.key, mode, commands)!)
-        }
+        // resolveKeyAction always returns non-null for escape
+        dispatch(resolveKeyAction(e.key, mode, commands, searchQuery)!)
         return
       }
 
@@ -79,5 +73,5 @@ export function useKeyboard(
 
     document.addEventListener('keydown', handler)
     return () => document.removeEventListener('keydown', handler)
-  }, [mode, listItems, commands, dispatch, activate, activateSelected, formValue, searchQuery])
+  }, [mode, listItems, commands, dispatch, activate, activateSelected, searchQuery])
 }

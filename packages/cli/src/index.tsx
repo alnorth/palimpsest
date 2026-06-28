@@ -90,14 +90,8 @@ function LoadedApp({ initialState }: { initialState: ProjectionState }) {
 
   useInput((input, key) => {
     if (key.escape) {
-      if (formValue !== '') {
-        dispatch({ type: 'update-mode', formValue: '' })
-      } else if (searchQuery !== '') {
-        dispatch({ type: 'update-nav', patch: { searchQuery: '', selected: 0 } })
-      } else {
-        // resolveKeyAction always returns non-null for escape
-        dispatch(resolveKeyAction('Escape', mode, commands)!)
-      }
+      // resolveKeyAction always returns non-null for escape
+      dispatch(resolveKeyAction('Escape', mode, commands, searchQuery)!)
       return
     }
     // Text-input modes: TextInput component handles the rest

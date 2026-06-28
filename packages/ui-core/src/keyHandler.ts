@@ -6,8 +6,11 @@ export function resolveKeyAction(
   key: string,
   mode: Mode | undefined,
   commands: Partial<Record<CommandId, Command>>,
+  searchQuery = '',
 ): Action | null {
   if (key === 'Escape') {
+    if (mode !== undefined && mode.formValue !== '') return { type: 'update-mode', formValue: '' }
+    if (searchQuery !== '') return { type: 'update-nav', patch: { searchQuery: '', selected: 0 } }
     return mode !== undefined ? { type: 'exit-mode' } : { type: 'go-back' }
   }
   if (mode !== undefined) return null
