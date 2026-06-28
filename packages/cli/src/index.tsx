@@ -97,9 +97,10 @@ function LoadedApp({ initialState }: { initialState: ProjectionState }) {
     }
     // Text-input modes: TextInput component handles the rest
     if (mode !== undefined) return
-    // Up/down navigation works the same in all views
-    if (key.upArrow) dispatch({ type: 'move-up' })
-    if (key.downArrow) dispatch({ type: 'move-down' })
+    if (key.upArrow || key.downArrow) {
+      dispatch(resolveKeyAction(key.upArrow ? 'ArrowUp' : 'ArrowDown', mode, commands)!)
+      return
+    }
     // Pickers with letter shortcuts: key selects directly, Enter activates selected
     const pickerView = listItems.view
     const isShortcutPicker =

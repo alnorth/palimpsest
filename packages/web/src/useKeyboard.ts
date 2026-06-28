@@ -22,9 +22,6 @@ export function useKeyboard(
 
       if (isInputFocused()) return
 
-      if (e.key === 'ArrowUp') { dispatch({ type: 'move-up' }); return }
-      if (e.key === 'ArrowDown') { dispatch({ type: 'move-down' }); return }
-
       const input = e.key.length === 1 ? e.key : ''
 
       // Pickers with letter shortcuts: key selects directly, Enter activates selected
@@ -49,11 +46,9 @@ export function useKeyboard(
       // List views: Enter activates selected item
       if (e.key === 'Enter') { activateSelected(); return }
 
-      // Letter command shortcuts
-      if (input !== '') {
-        const action = resolveKeyAction(e.key, mode, commands)
-        if (action !== null) { e.preventDefault(); dispatch(action) }
-      }
+      // Arrow navigation and letter shortcuts
+      const action = resolveKeyAction(e.key, mode, commands)
+      if (action !== null) { e.preventDefault(); dispatch(action) }
     }
 
     document.addEventListener('keydown', handler)
