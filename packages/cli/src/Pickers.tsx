@@ -27,22 +27,14 @@ export function DueDatePicker({ items, selectedItem }: {
   items: DueDateOption[]
   selectedItem: DueDateOption | undefined
 }) {
-  return (
-    <>
-      {items.map((item, i) => {
-        const isSelected = item === selectedItem
-        const label = item.value !== null && item.value !== 'custom'
-          ? `${item.label} — ${formatDate(item.value)}`
-          : item.label
-        return (
-          <Text key={i} {...(isSelected ? { color: 'blue' as const } : {})}>
-            {isSelected ? '> ' : '  '}{label}
-            {item.key !== undefined ? <Text dimColor>  {item.key}</Text> : null}
-          </Text>
-        )
-      })}
-    </>
-  )
+  const mappedItems = items.map(item => ({
+    ...item,
+    label: item.value !== null && item.value !== 'custom'
+      ? `${item.label} — ${formatDate(item.value)}`
+      : item.label,
+  }))
+  const selectedIndex = selectedItem !== undefined ? items.indexOf(selectedItem) : -1
+  return <PickerList items={mappedItems} selectedItem={mappedItems[selectedIndex]} />
 }
 
 export function ProjectSearch({ items, selectedItem, searchQuery, onSearchChange, createLabel }: {
