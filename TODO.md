@@ -11,9 +11,9 @@
 - [x] Toggle isWaiting on a task.
 - [x] Assign a context to a task.
 - [x] Dashboard view showing tasks due today or overdue, plus starred tasks.
-- [ ] Fix web app display of starred and next tasks.
-- [ ] Update the web app so it can be used on mobile without all the keyboard shortcuts.
-- [ ] Pick list screen for choosing work to do, separated by contexts.
+- [x] Fix web app display of starred and next tasks.
+- [x] Update the web app so it can be used on mobile without all the keyboard shortcuts.
+- [x] Pick list screen for choosing work to do, separated by contexts.
 - [ ] Agenda view listing tasks for a particular agenda, separated by isWaiting.
 - [ ] Search across tasks and projects.
 - [ ] Track what a task is waiting for.

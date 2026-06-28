@@ -10,7 +10,7 @@ export function getCommands(vm: ViewModel): Partial<Record<CommandId, Command>> 
 
   if (mode !== undefined) return commands
 
-  const isTopLevel = view === 'dashboard' || view === 'tasks' || view === 'projects' || view === 'processing'
+  const isTopLevel = view === 'dashboard' || view === 'tasks' || view === 'projects' || view === 'processing' || view === 'pick-list'
   const isNormalView = isTopLevel || view === 'project'
 
   // ── Add task ─────────────────────────────────────────────────────────────────

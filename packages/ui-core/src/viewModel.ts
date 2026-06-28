@@ -42,6 +42,7 @@ export const VIEW_CONFIG: ViewPickerItem[] = [
   { value: 'projects',   label: 'Projects',   key: 'p' },
   { value: 'processing', label: 'Processing', key: 'r' },
   { value: 'waiting',    label: 'Waiting',    key: 'w' },
+  { value: 'pick-list',  label: 'Pick list',  key: 'l' },
 ]
 
 export interface ListGroup<T> {
@@ -57,7 +58,7 @@ export type ListItem =
   | { kind: 'task'; task: Task }
   | { kind: 'project'; project: Project }
 
-export type MainListItems = { view: 'dashboard' | 'tasks' | 'project' | 'projects' | 'processing' | 'waiting'; groups: ListGroup<ListItem>[]; items: ListItem[]; emptyMessage: string; selectedItem: ListItem | undefined }
+export type MainListItems = { view: 'dashboard' | 'tasks' | 'project' | 'projects' | 'processing' | 'waiting' | 'pick-list'; groups: ListGroup<ListItem>[]; items: ListItem[]; emptyMessage: string; selectedItem: ListItem | undefined }
 
 export function isMainListItems(items: ListItems): items is MainListItems {
   return 'emptyMessage' in items
@@ -204,13 +205,7 @@ export function deriveViewModel(projState: ProjectionState, uiState: UIState): V
     : undefined
 
   const inboxTasks: Task[] = activeSphere !== undefined
-    ? listTasks(projState, { sphereId: activeSphere.id, status: 'open' })
-        .filter(t =>
-          t.dueDate === undefined &&
-          t.agendaId === undefined &&
-          t.contextId === undefined &&
-          t.projectId === undefined
-        )
+    ? listTasks(projState, { sphereId: activeSphere.id, status: 'open', hasProject: false, hasDueDate: false, hasAgenda: false, hasContext: false })
     : []
 
   const projectsWithoutNext: Project[] = activeSphere !== undefined
@@ -269,6 +264,30 @@ export function deriveViewModel(projState: ProjectionState, uiState: UIState): V
         })
         const items = flatItems(groups)
         return { view, groups, items, emptyMessage: 'No waiting tasks.', selectedItem: items[selected] }
+      }
+      case 'pick-list': {
+        const eligible = activeSphere !== undefined
+          ? listTasks(projState, { sphereId: activeSphere.id, status: 'open', isActionable: true, hasContext: true })
+          : []
+
+        const byContext = new Map<ContextId, Task[]>()
+        for (const task of eligible) {
+          const key = task.contextId!
+          const bucket = byContext.get(key)
+          if (bucket !== undefined) bucket.push(task)
+          else byContext.set(key, [task])
+        }
+
+        const groups: ListGroup<ListItem>[] = []
+        for (const context of contexts) {
+          const bucket = byContext.get(context.id)
+          if (bucket !== undefined && bucket.length > 0) {
+            groups.push({ title: context.name, items: bucket.map((t): ListItem => ({ kind: 'task', task: t })) })
+          }
+        }
+
+        const items = flatItems(groups)
+        return { view, groups, items, emptyMessage: 'No tasks available.', selectedItem: items[selected] }
       }
       case 'task': return { view, groups: [], items: [] }
       case 'picking-view': return { view, groups: [{ title: '', items: VIEW_CONFIG }], items: VIEW_CONFIG, selectedItem: VIEW_CONFIG[selected] }
@@ -346,6 +365,7 @@ export function deriveViewModel(projState: ProjectionState, uiState: UIState): V
     : view === 'projects' ? 'Projects'
     : view === 'processing' ? 'Processing'
     : view === 'waiting' ? 'Waiting'
+    : view === 'pick-list' ? 'Pick list'
     : view === 'picking-view' ? 'View'
     : view === 'picking-agenda-for-task' ? `Agenda${taskSuffix}`
     : view === 'picking-context-for-task' ? `Context${taskSuffix}`
@@ -356,7 +376,7 @@ export function deriveViewModel(projState: ProjectionState, uiState: UIState): V
     : view === 'picking-waiting-project' ? `Waiting for project${taskSuffix}`
     : ''
 
-  const showProject = view === 'dashboard' || view === 'tasks' || view === 'waiting'
+  const showProject = view === 'dashboard' || view === 'tasks' || view === 'waiting' || view === 'pick-list'
 
   return {
     spheres,

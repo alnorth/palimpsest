@@ -22,19 +22,31 @@ export interface TaskFilter {
   agendaId?: AgendaId
   contextId?: ContextId
   isWaiting?: boolean
+  isActionable?: boolean
+  isStarred?: boolean
+  hasProject?: boolean
+  hasDueDate?: boolean
+  hasAgenda?: boolean
+  hasContext?: boolean
 }
 
 export function listTasks(state: ProjectionState, filter?: TaskFilter): Task[] {
   let tasks = [...state.tasks.values()]
-  if (filter?.status    !== undefined) tasks = tasks.filter(t => t.status === filter.status)
-  if (filter?.projectId !== undefined) tasks = tasks.filter(t => t.projectId === filter.projectId)
-  if (filter?.agendaId  !== undefined) tasks = tasks.filter(t => t.agendaId  === filter.agendaId)
-  if (filter?.contextId !== undefined) tasks = tasks.filter(t => t.contextId === filter.contextId)
-  if (filter?.sphereId  !== undefined) {
+  if (filter?.status       !== undefined) tasks = tasks.filter(t => t.status === filter.status)
+  if (filter?.projectId    !== undefined) tasks = tasks.filter(t => t.projectId === filter.projectId)
+  if (filter?.agendaId     !== undefined) tasks = tasks.filter(t => t.agendaId  === filter.agendaId)
+  if (filter?.contextId    !== undefined) tasks = tasks.filter(t => t.contextId === filter.contextId)
+  if (filter?.sphereId     !== undefined) {
     const sid = filter.sphereId
     tasks = tasks.filter(t => getTaskSphereId(state, t) === sid)
   }
-  if (filter?.isWaiting !== undefined) tasks = tasks.filter(t => filter.isWaiting ? t.waitingFor !== undefined : t.waitingFor === undefined)
+  if (filter?.isWaiting    !== undefined) tasks = tasks.filter(t => filter.isWaiting ? t.waitingFor !== undefined : t.waitingFor === undefined)
+  if (filter?.isActionable === true)      tasks = tasks.filter(t => t.projectId === undefined || t.isNext === true)
+  if (filter?.isStarred   !== undefined) tasks = tasks.filter(t => filter.isStarred  ? t.isStarred  === true      : t.isStarred  !== true)
+  if (filter?.hasProject  !== undefined) tasks = tasks.filter(t => filter.hasProject  ? t.projectId  !== undefined : t.projectId  === undefined)
+  if (filter?.hasDueDate  !== undefined) tasks = tasks.filter(t => filter.hasDueDate  ? t.dueDate    !== undefined : t.dueDate    === undefined)
+  if (filter?.hasAgenda   !== undefined) tasks = tasks.filter(t => filter.hasAgenda   ? t.agendaId   !== undefined : t.agendaId   === undefined)
+  if (filter?.hasContext  !== undefined) tasks = tasks.filter(t => filter.hasContext   ? t.contextId  !== undefined : t.contextId  === undefined)
   return tasks
 }
 
