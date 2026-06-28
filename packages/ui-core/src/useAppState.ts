@@ -9,7 +9,7 @@ import type { PalimpsestStore, ProjectionState, ProjectCreatedEvent } from 'pali
 import { INITIAL_UI_STATE } from './types.js'
 import type { UIState, Action, UIAction, DataAction, CommandId } from './types.js'
 import { uiReducer } from './reducer.js'
-import { deriveViewModel, flatItems } from './viewModel.js'
+import { deriveViewModel } from './viewModel.js'
 import { getCommands } from './commands.js'
 import type { ViewModel } from './viewModel.js'
 import type { Command } from './types.js'
@@ -286,43 +286,43 @@ export function useAppState(store: PalimpsestStore, initialState: ProjectionStat
 
   const activate = useCallback((i: number) => {
     if (vm.listItems.view === 'picking-view') {
-      const item = flatItems(vm.listItems.groups)[i]
+      const item = vm.listItems.items[i]
       if (item !== undefined) {
         dispatch({ type: 'set-nav', navState: navStateForTopLevelView(item.id) })
       }
     } else if (vm.listItems.view === 'picking-agenda-for-task' && vm.currentTask !== undefined) {
-      const item = flatItems(vm.listItems.groups)[i]
+      const item = vm.listItems.items[i]
       if (item !== undefined) dispatch({ type: 'set-task-agenda', taskId: vm.currentTask.id, agendaId: item.id ?? CLEAR })
     } else if (vm.listItems.view === 'picking-context-for-task' && vm.currentTask !== undefined) {
-      const item = flatItems(vm.listItems.groups)[i]
+      const item = vm.listItems.items[i]
       if (item !== undefined) dispatch({ type: 'set-task-context', taskId: vm.currentTask.id, contextId: item.id ?? CLEAR })
     } else if (vm.listItems.view === 'picking-due-date' && vm.currentTask !== undefined) {
-      const opt = flatItems(vm.listItems.groups)[i]
+      const opt = vm.listItems.items[i]
       if (opt !== undefined) {
         if (opt.date !== null) dispatch({ type: 'set-task-due-date', taskId: vm.currentTask.id, dueDate: opt.date })
         else if (opt.key === 'c') dispatch({ type: 'set-mode', mode: 'editing-due-date' })
         else dispatch({ type: 'set-task-due-date', taskId: vm.currentTask.id, dueDate: CLEAR })
       }
     } else if (vm.listItems.view === 'picking-project-for-task' && vm.currentTask !== undefined) {
-      const flat = flatItems(vm.listItems.groups)
-      const item = flat[i]
+      const { items } = vm.listItems
+      const item = items[i]
       if (item !== undefined) {
         dispatch({ type: 'set-task-project', taskId: vm.currentTask.id, projectId: item.id ?? CLEAR })
-      } else if (flat.length === 0 && vm.searchQuery.trim() !== '' && vm.activeSphere !== undefined) {
+      } else if (items.length === 0 && vm.searchQuery.trim() !== '' && vm.activeSphere !== undefined) {
         dispatch({ type: 'create-and-assign-project', name: vm.searchQuery.trim(), sphereId: vm.activeSphere.id, taskId: vm.currentTask.id })
       }
     } else if (vm.listItems.view === 'projects') {
-      const project = flatItems(vm.listItems.groups)[i]
+      const project = vm.listItems.items[i]
       if (project !== undefined) {
         dispatch({ type: 'navigate', navState: { view: 'project', selected: 0, activeProjectId: project.id, showCompleted: false } })
       }
     } else if (vm.listItems.view === 'tasks' || vm.listItems.view === 'project' || vm.listItems.view === 'dashboard') {
-      const task = flatItems(vm.listItems.groups)[i]
+      const task = vm.listItems.items[i]
       if (task !== undefined) {
         dispatch({ type: 'navigate', navState: { view: 'task', activeTaskId: task.id } })
       }
     } else if (vm.listItems.view === 'processing') {
-      const item = flatItems(vm.listItems.groups)[i]
+      const item = vm.listItems.items[i]
       if (item !== undefined) {
         if (item.kind === 'task') {
           dispatch({ type: 'navigate', navState: { view: 'task', activeTaskId: item.task.id } })

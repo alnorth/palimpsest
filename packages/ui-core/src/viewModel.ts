@@ -61,17 +61,17 @@ export type ProcessingItem =
   | { kind: 'project'; project: Project }
 
 export type ListItems =
-  | { view: 'dashboard'; groups: ListGroup<Task>[] }
-  | { view: 'tasks'; groups: ListGroup<Task>[] }
-  | { view: 'project'; groups: ListGroup<Task>[] }
-  | { view: 'projects'; groups: ListGroup<Project>[] }
-  | { view: 'processing'; groups: ListGroup<ProcessingItem>[] }
-  | { view: 'task'; groups: ListGroup<never>[] }
-  | { view: 'picking-view'; groups: ListGroup<ViewPickerItem>[] }
-  | { view: 'picking-agenda-for-task'; groups: ListGroup<AgendaPickerItem>[] }
-  | { view: 'picking-context-for-task'; groups: ListGroup<ContextPickerItem>[] }
-  | { view: 'picking-due-date'; groups: ListGroup<DueDateOption>[] }
-  | { view: 'picking-project-for-task'; groups: ListGroup<ProjectPickerItem>[] }
+  | { view: 'dashboard'; groups: ListGroup<Task>[]; items: Task[] }
+  | { view: 'tasks'; groups: ListGroup<Task>[]; items: Task[] }
+  | { view: 'project'; groups: ListGroup<Task>[]; items: Task[] }
+  | { view: 'projects'; groups: ListGroup<Project>[]; items: Project[] }
+  | { view: 'processing'; groups: ListGroup<ProcessingItem>[]; items: ProcessingItem[] }
+  | { view: 'task'; groups: ListGroup<never>[]; items: never[] }
+  | { view: 'picking-view'; groups: ListGroup<ViewPickerItem>[]; items: ViewPickerItem[] }
+  | { view: 'picking-agenda-for-task'; groups: ListGroup<AgendaPickerItem>[]; items: AgendaPickerItem[] }
+  | { view: 'picking-context-for-task'; groups: ListGroup<ContextPickerItem>[]; items: ContextPickerItem[] }
+  | { view: 'picking-due-date'; groups: ListGroup<DueDateOption>[]; items: DueDateOption[] }
+  | { view: 'picking-project-for-task'; groups: ListGroup<ProjectPickerItem>[]; items: ProjectPickerItem[] }
 
 export interface ViewModel {
   spheres: Sphere[]
@@ -206,14 +206,84 @@ export function deriveViewModel(projState: ProjectionState, uiState: UIState): V
 
   const isPickerView = view === 'picking-view' || view === 'picking-agenda-for-task' || view === 'picking-context-for-task' || view === 'picking-due-date' || view === 'picking-project-for-task'
 
-  const currentTask: Task | undefined =
-    view === 'task' ? activeTask
-    : view === 'project' ? projectTasks[selected]
-    : view === 'tasks' ? tasks[selected]
-    : view === 'dashboard' ? dashboardTasks[selected]
-    : view === 'processing' ? (selected < inboxTasks.length ? inboxTasks[selected] : undefined)
-    : isPickerView ? activeTask
-    : undefined
+  const dueDateOptions: DueDateOption[] = [
+    { label: 'Today',         date: today,                  key: 'd' },
+    { label: 'Tomorrow',      date: addDays(today, 1),      key: 't' },
+    { label: 'Next Saturday', date: nextWeekday(today, 6),  key: 's' },
+    { label: 'Next Monday',   date: nextWeekday(today, 1),  key: 'm' },
+    { label: 'Custom…',       date: null,                   key: 'c' },
+    { label: 'No due date',   date: null,                   key: 'x' },
+  ]
+
+  const listItems: ListItems = (() => {
+    switch (view) {
+      case 'dashboard': return { view, groups: [{ title: '', items: dashboardTasks }], items: dashboardTasks }
+      case 'tasks': return { view, groups: [{ title: '', items: tasks }], items: tasks }
+      case 'project': return { view, groups: [{ title: '', items: projectTasks }], items: projectTasks }
+      case 'projects': return { view, groups: [{ title: '', items: projects }], items: projects }
+      case 'processing': {
+        const groups: ListGroup<ProcessingItem>[] = [
+          {
+            title: 'Inbox tasks',
+            items: inboxTasks.map((t): ProcessingItem => ({ kind: 'task', task: t })),
+          },
+          {
+            title: 'Projects without a next action',
+            items: projectsWithoutNext.map((p): ProcessingItem => ({ kind: 'project', project: p })),
+          },
+        ]
+        return { view, groups, items: flatItems(groups) }
+      }
+      case 'task': return { view, groups: [], items: [] }
+      case 'picking-view': return { view, groups: [{ title: '', items: VIEW_CONFIG }], items: VIEW_CONFIG }
+      case 'picking-agenda-for-task': {
+        const items: AgendaPickerItem[] = [
+          { id: null, title: 'No agenda' },
+          ...agendas.map((a): AgendaPickerItem =>
+            a.key !== undefined ? { id: a.id, title: a.title, key: a.key } : { id: a.id, title: a.title }
+          ),
+        ]
+        return { view, groups: [{ title: '', items }], items }
+      }
+      case 'picking-context-for-task': {
+        const items: ContextPickerItem[] = [
+          { id: null, name: 'No context' },
+          ...contexts.map((c): ContextPickerItem =>
+            c.key !== undefined ? { id: c.id, name: c.name, key: c.key } : { id: c.id, name: c.name }
+          ),
+        ]
+        return { view, groups: [{ title: '', items }], items }
+      }
+      case 'picking-due-date': return { view, groups: [{ title: '', items: dueDateOptions }], items: dueDateOptions }
+      case 'picking-project-for-task': {
+        const query = searchQuery.toLowerCase().trim()
+        const allProjects = activeSphere !== undefined
+          ? listProjects(projState, { sphereId: activeSphere.id, isArchived: false })
+          : []
+        const filtered = query === ''
+          ? allProjects
+          : allProjects.filter(p => p.name.toLowerCase().includes(query))
+        const items: ProjectPickerItem[] = [
+          ...(query === '' ? [{ id: null as null, name: 'No project' }] : []),
+          ...filtered.map(p => ({ id: p.id, name: p.name })),
+        ]
+        return { view, groups: [{ title: '', items }], items }
+      }
+    }
+  })()
+
+  const currentTask: Task | undefined = (() => {
+    if (listItems.view === 'task') return activeTask
+    if (listItems.view === 'project' || listItems.view === 'tasks' || listItems.view === 'dashboard') {
+      return listItems.items[selected]
+    }
+    if (listItems.view === 'processing') {
+      const item = listItems.items[selected]
+      return item?.kind === 'task' ? item.task : undefined
+    }
+    if (isPickerView) return activeTask
+    return undefined
+  })()
 
   const subtitle =
     view === 'task' ? `Task: ${activeTask?.title ?? ''}`
@@ -228,78 +298,6 @@ export function deriveViewModel(projState: ProjectionState, uiState: UIState): V
     : view === 'picking-due-date' ? 'Pick due date'
     : view === 'picking-project-for-task' ? 'Pick project'
     : ''
-
-  const dueDateOptions: DueDateOption[] = [
-    { label: 'Today',         date: today,                  key: 'd' },
-    { label: 'Tomorrow',      date: addDays(today, 1),      key: 't' },
-    { label: 'Next Saturday', date: nextWeekday(today, 6),  key: 's' },
-    { label: 'Next Monday',   date: nextWeekday(today, 1),  key: 'm' },
-    { label: 'Custom…',       date: null,                   key: 'c' },
-    { label: 'No due date',   date: null,                   key: 'x' },
-  ]
-
-  const listItems: ListItems = (() => {
-    switch (view) {
-      case 'dashboard': return { view, groups: [{ title: '', items: dashboardTasks }] }
-      case 'tasks': return { view, groups: [{ title: '', items: tasks }] }
-      case 'project': return { view, groups: [{ title: '', items: projectTasks }] }
-      case 'projects': return { view, groups: [{ title: '', items: projects }] }
-      case 'processing': return {
-        view,
-        groups: [
-          {
-            title: 'Inbox tasks',
-            items: inboxTasks.map((t): ProcessingItem => ({ kind: 'task', task: t })),
-          },
-          {
-            title: 'Projects without a next action',
-            items: projectsWithoutNext.map((p): ProcessingItem => ({ kind: 'project', project: p })),
-          },
-        ],
-      }
-      case 'task': return { view, groups: [] }
-      case 'picking-view': return { view, groups: [{ title: '', items: VIEW_CONFIG }] }
-      case 'picking-agenda-for-task': return {
-        view,
-        groups: [{
-          title: '',
-          items: [
-            { id: null, title: 'No agenda' },
-            ...agendas.map((a): AgendaPickerItem =>
-              a.key !== undefined ? { id: a.id, title: a.title, key: a.key } : { id: a.id, title: a.title }
-            ),
-          ],
-        }],
-      }
-      case 'picking-context-for-task': return {
-        view,
-        groups: [{
-          title: '',
-          items: [
-            { id: null, name: 'No context' },
-            ...contexts.map((c): ContextPickerItem =>
-              c.key !== undefined ? { id: c.id, name: c.name, key: c.key } : { id: c.id, name: c.name }
-            ),
-          ],
-        }],
-      }
-      case 'picking-due-date': return { view, groups: [{ title: '', items: dueDateOptions }] }
-      case 'picking-project-for-task': {
-        const query = searchQuery.toLowerCase().trim()
-        const allProjects = activeSphere !== undefined
-          ? listProjects(projState, { sphereId: activeSphere.id, isArchived: false })
-          : []
-        const filtered = query === ''
-          ? allProjects
-          : allProjects.filter(p => p.name.toLowerCase().includes(query))
-        const items: ProjectPickerItem[] = [
-          ...(query === '' ? [{ id: null as null, name: 'No project' }] : []),
-          ...filtered.map(p => ({ id: p.id, name: p.name })),
-        ]
-        return { view, groups: [{ title: '', items }] }
-      }
-    }
-  })()
 
   const listLength = listItems.groups.reduce((sum, g) => sum + g.items.length, 0)
 

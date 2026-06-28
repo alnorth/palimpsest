@@ -1,6 +1,5 @@
 import { useEffect } from 'react'
 import type { AppStateResult, Command } from 'palimpsest-ui-core'
-import { flatItems } from 'palimpsest-ui-core'
 
 function isInputFocused(): boolean {
   const tag = document.activeElement?.tagName.toLowerCase()
@@ -41,32 +40,28 @@ export function useKeyboard(
 
       // Picker views: letter shortcuts select by key, Enter activates selected
       if (listItems.view === 'picking-view') {
-        const flat = flatItems(listItems.groups)
-        const shortcutIdx = flat.findIndex(item => item.key === input)
+        const shortcutIdx = listItems.items.findIndex(item => item.key === input)
         if (shortcutIdx !== -1) { activate(shortcutIdx); return }
         if (e.key === 'Enter') { activate(selected); return }
         return
       }
 
       if (listItems.view === 'picking-agenda-for-task') {
-        const flat = flatItems(listItems.groups)
-        const shortcutIdx = flat.findIndex(a => a.key === input)
+        const shortcutIdx = listItems.items.findIndex(a => a.key === input)
         if (shortcutIdx !== -1) { activate(shortcutIdx); return }
         if (e.key === 'Enter') { activate(selected); return }
         return
       }
 
       if (listItems.view === 'picking-context-for-task') {
-        const flat = flatItems(listItems.groups)
-        const shortcutIdx = flat.findIndex(c => c.key === input)
+        const shortcutIdx = listItems.items.findIndex(c => c.key === input)
         if (shortcutIdx !== -1) { activate(shortcutIdx); return }
         if (e.key === 'Enter') { activate(selected); return }
         return
       }
 
       if (listItems.view === 'picking-due-date') {
-        const flat = flatItems(listItems.groups)
-        const shortcutIdx = flat.findIndex(o => o.key === input)
+        const shortcutIdx = listItems.items.findIndex(o => o.key === input)
         if (shortcutIdx !== -1) { activate(shortcutIdx); return }
         if (e.key === 'Enter') { activate(selected); return }
         return
