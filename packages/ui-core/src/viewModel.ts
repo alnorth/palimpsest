@@ -1,9 +1,8 @@
 import {
   listTasks, listProjects, listSpheres, listAgendas, listContexts, getProject,
   addDays, nextWeekday,
-  CLEAR,
 } from 'palimpsest'
-import type { Task, Project, Sphere, Agenda, Context, ProjectionState, ProjectId, AgendaId, ContextId, WaitingFor } from 'palimpsest'
+import type { Task, Project, Sphere, Agenda, Context, ProjectionState, ProjectId, AgendaId, ContextId } from 'palimpsest'
 import { INITIAL_NAV } from './types.js'
 import type { UIState, View, Mode, TopLevelView } from './types.js'
 
@@ -48,8 +47,8 @@ export interface ProjectPickerItem {
   name: string
 }
 
-export interface WaitingForPickerItem {
-  waitingFor: WaitingFor | typeof CLEAR
+export interface WaitingKindOption {
+  subKind: 'clear' | 'review' | 'agenda' | 'project'
   label: string
   key?: string
 }
@@ -77,7 +76,9 @@ export type ListItems =
   | { view: 'picking-context-for-task'; groups: ListGroup<ContextPickerItem>[]; items: ContextPickerItem[]; selectedItem: ContextPickerItem | undefined }
   | { view: 'picking-due-date'; groups: ListGroup<DueDateOption>[]; items: DueDateOption[]; selectedItem: DueDateOption | undefined }
   | { view: 'picking-project-for-task'; groups: ListGroup<ProjectPickerItem>[]; items: ProjectPickerItem[]; selectedItem: ProjectPickerItem | undefined }
-  | { view: 'picking-waiting-for-task'; groups: ListGroup<WaitingForPickerItem>[]; items: WaitingForPickerItem[]; selectedItem: WaitingForPickerItem | undefined }
+  | { view: 'picking-waiting-for-task'; groups: ListGroup<WaitingKindOption>[]; items: WaitingKindOption[]; selectedItem: WaitingKindOption | undefined }
+  | { view: 'picking-waiting-agenda'; groups: ListGroup<AgendaPickerItem>[]; items: AgendaPickerItem[]; selectedItem: AgendaPickerItem | undefined }
+  | { view: 'picking-waiting-project'; groups: ListGroup<ProjectPickerItem>[]; items: ProjectPickerItem[]; selectedItem: ProjectPickerItem | undefined }
 
 export interface ViewModel {
   spheres: Sphere[]
@@ -110,7 +111,7 @@ export function deriveViewModel(projState: ProjectionState, uiState: UIState): V
   const activeTaskId = 'activeTaskId' in currentNav ? currentNav.activeTaskId : undefined
   const showCompleted = 'showCompleted' in currentNav ? currentNav.showCompleted : false
   const showArchived = 'showArchived' in currentNav ? currentNav.showArchived : false
-  const searchQuery = currentNav.view === 'picking-project-for-task' ? currentNav.searchQuery : ''
+  const searchQuery = (currentNav.view === 'picking-project-for-task' || currentNav.view === 'picking-waiting-project') ? currentNav.searchQuery : ''
   const { mode, currentSphereId } = uiState
   const formValue = mode?.formValue ?? ''
 
@@ -209,7 +210,7 @@ export function deriveViewModel(projState: ProjectionState, uiState: UIState): V
         .filter(p => !projectStats.hasNext.has(p.id))
     : []
 
-  const isPickerView = view === 'picking-view' || view === 'picking-agenda-for-task' || view === 'picking-context-for-task' || view === 'picking-due-date' || view === 'picking-project-for-task' || view === 'picking-waiting-for-task'
+  const isPickerView = view === 'picking-view' || view === 'picking-agenda-for-task' || view === 'picking-context-for-task' || view === 'picking-due-date' || view === 'picking-project-for-task' || view === 'picking-waiting-for-task' || view === 'picking-waiting-agenda' || view === 'picking-waiting-project'
 
   const dueDateOptions: DueDateOption[] = [
     { label: 'Today',         date: today,                  key: 'd' },
@@ -282,22 +283,29 @@ export function deriveViewModel(projState: ProjectionState, uiState: UIState): V
         return { view, groups: [{ title: '', items }], items, selectedItem: items[selected] }
       }
       case 'picking-waiting-for-task': {
-        const sphereProjects = activeSphere !== undefined
+        const items: WaitingKindOption[] = [
+          { subKind: 'clear',   label: 'Not waiting', key: 'x' },
+          { subKind: 'review',  label: 'Review',      key: 'r' },
+          { subKind: 'agenda',  label: 'Agenda…' },
+          { subKind: 'project', label: 'Project…' },
+        ]
+        return { view, groups: [{ title: '', items }], items, selectedItem: items[selected] }
+      }
+      case 'picking-waiting-agenda': {
+        const items: AgendaPickerItem[] = agendas.map((a): AgendaPickerItem =>
+          a.key !== undefined ? { id: a.id, title: a.title, key: a.key } : { id: a.id, title: a.title }
+        )
+        return { view, groups: [{ title: '', items }], items, selectedItem: items[selected] }
+      }
+      case 'picking-waiting-project': {
+        const query = searchQuery.toLowerCase().trim()
+        const allProjects = activeSphere !== undefined
           ? listProjects(projState, { sphereId: activeSphere.id, isArchived: false })
           : []
-        const items: WaitingForPickerItem[] = [
-          { waitingFor: CLEAR, label: 'Not waiting', key: 'x' },
-          { waitingFor: { kind: 'review' }, label: 'Review', key: 'r' },
-          ...agendas.map((a): WaitingForPickerItem =>
-            a.key !== undefined
-              ? { waitingFor: { kind: 'agenda', agendaId: a.id }, label: a.title, key: a.key }
-              : { waitingFor: { kind: 'agenda', agendaId: a.id }, label: a.title }
-          ),
-          ...sphereProjects.map((p): WaitingForPickerItem => ({
-            waitingFor: { kind: 'project', projectId: p.id },
-            label: p.name,
-          })),
-        ]
+        const filtered = query === ''
+          ? allProjects
+          : allProjects.filter(p => p.name.toLowerCase().includes(query))
+        const items: ProjectPickerItem[] = filtered.map(p => ({ id: p.id, name: p.name }))
         return { view, groups: [{ title: '', items }], items, selectedItem: items[selected] }
       }
     }
@@ -330,6 +338,8 @@ export function deriveViewModel(projState: ProjectionState, uiState: UIState): V
     : view === 'picking-due-date' ? `Due date${taskSuffix}`
     : view === 'picking-project-for-task' ? `Project${taskSuffix}`
     : view === 'picking-waiting-for-task' ? `Waiting for${taskSuffix}`
+    : view === 'picking-waiting-agenda' ? `Waiting for agenda${taskSuffix}`
+    : view === 'picking-waiting-project' ? `Waiting for project${taskSuffix}`
     : ''
 
   const showProject = view === 'dashboard' || view === 'tasks'

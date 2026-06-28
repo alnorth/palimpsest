@@ -177,6 +177,7 @@ export function useAppState(store: PalimpsestStore, initialState: ProjectionStat
           const task = projState.tasks.get(action.taskId)
           if (task !== undefined) {
             await store.appendEvents(updateTask(task, { waitingFor: action.waitingFor }))
+            dispatchUI({ type: 'go-back' })
           }
           break
         }
@@ -295,9 +296,27 @@ export function useAppState(store: PalimpsestStore, initialState: ProjectionStat
         }
       }
     } else if (vm.listItems.view === 'picking-waiting-for-task') {
+      const opt = vm.listItems.items[i]
+      if (opt !== undefined && vm.currentTask !== undefined) {
+        if (opt.subKind === 'clear') {
+          dispatch({ type: 'set-waiting', taskId: vm.currentTask.id, waitingFor: CLEAR })
+        } else if (opt.subKind === 'review') {
+          dispatch({ type: 'set-waiting', taskId: vm.currentTask.id, waitingFor: { kind: 'review' } })
+        } else if (opt.subKind === 'agenda') {
+          dispatch({ type: 'set-nav', navState: { view: 'picking-waiting-agenda', selected: 0, activeTaskId: vm.currentTask.id } })
+        } else if (opt.subKind === 'project') {
+          dispatch({ type: 'set-nav', navState: { view: 'picking-waiting-project', selected: 0, activeTaskId: vm.currentTask.id, searchQuery: '' } })
+        }
+      }
+    } else if (vm.listItems.view === 'picking-waiting-agenda') {
       const item = vm.listItems.items[i]
       if (item !== undefined && vm.currentTask !== undefined) {
-        dispatch({ type: 'set-waiting', taskId: vm.currentTask.id, waitingFor: item.waitingFor })
+        dispatch({ type: 'set-waiting', taskId: vm.currentTask.id, waitingFor: { kind: 'agenda', agendaId: item.id! } })
+      }
+    } else if (vm.listItems.view === 'picking-waiting-project') {
+      const item = vm.listItems.items[i]
+      if (item !== undefined && item.id !== null && vm.currentTask !== undefined) {
+        dispatch({ type: 'set-waiting', taskId: vm.currentTask.id, waitingFor: { kind: 'project', projectId: item.id } })
       }
     } else {
       const item = vm.listItems.items[i]

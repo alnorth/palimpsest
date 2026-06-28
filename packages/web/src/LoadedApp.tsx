@@ -13,7 +13,7 @@ import { CommandBar } from './components/CommandBar.js'
 import { MobileFooter } from './components/MobileFooter.js'
 import { NavDrawer } from './components/NavDrawer.js'
 import { SyncStatus } from './components/SyncStatus.js'
-import { ViewPicker, AgendaPicker, ContextPicker, DueDatePicker, ProjectSearch, WaitingForPicker } from './components/Pickers.js'
+import { ViewPicker, AgendaPicker, ContextPicker, DueDatePicker, ProjectSearch, WaitingKindPicker } from './components/Pickers.js'
 
 interface Props {
   store: PalimpsestStore
@@ -125,7 +125,20 @@ export function LoadedApp({ store, initialState }: Props) {
       />
     )
   } else if (listItems.view === 'picking-waiting-for-task') {
-    content = <WaitingForPicker items={listItems.items} selectedItem={listItems.selectedItem} onHover={handleHover} onActivate={activate} />
+    content = <WaitingKindPicker items={listItems.items} selectedItem={listItems.selectedItem} onHover={handleHover} onActivate={activate} />
+  } else if (listItems.view === 'picking-waiting-agenda') {
+    content = <AgendaPicker items={listItems.items} selectedItem={listItems.selectedItem} onHover={handleHover} onActivate={activate} />
+  } else if (listItems.view === 'picking-waiting-project') {
+    content = (
+      <ProjectSearch
+        items={listItems.items}
+        selectedItem={listItems.selectedItem}
+        searchQuery={searchQuery}
+        onSearchChange={v => dispatch({ type: 'update-nav', patch: { searchQuery: v, selected: 0 } })}
+        onHover={handleHover}
+        onActivate={activate}
+      />
+    )
   } else if (listItems.view === 'task' && activeTask !== undefined) {
     content = <TaskDetail task={activeTask} state={projState} commands={commands} dispatch={dispatch} />
   } else if (listItems.view === 'project') {

@@ -2,7 +2,7 @@ export type { View, TopLevelView, Mode, ModeType, NavState, UIState, Action, UIA
 export { INITIAL_NAV, INITIAL_UI_STATE } from './types.js'
 export { addDays, nextWeekday, parseDueDate } from 'palimpsest'
 export { uiReducer } from './reducer.js'
-export type { ViewModel, ProjectStats, ListItems, ListItem, ListGroup, ViewPickerItem, AgendaPickerItem, ContextPickerItem, DueDateOption, ProjectPickerItem, WaitingForPickerItem } from './viewModel.js'
+export type { ViewModel, ProjectStats, ListItems, ListItem, ListGroup, ViewPickerItem, AgendaPickerItem, ContextPickerItem, DueDateOption, ProjectPickerItem, WaitingKindOption } from './viewModel.js'
 export { deriveViewModel, VIEW_CONFIG, flatItems } from './viewModel.js'
 export { getCommands } from './commands.js'
 export type { StoreState } from './useStore.js'

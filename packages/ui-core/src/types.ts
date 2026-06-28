@@ -11,6 +11,8 @@ export type View =
   | 'picking-due-date'
   | 'picking-project-for-task'
   | 'picking-waiting-for-task'
+  | 'picking-waiting-agenda'
+  | 'picking-waiting-project'
 
 export type Mode =
   | { type: 'adding'; formValue: string }
@@ -36,6 +38,8 @@ export type NavState =
   | { view: 'picking-due-date'; selected: number; activeTaskId: TaskId }
   | { view: 'picking-project-for-task'; selected: number; activeTaskId: TaskId; searchQuery: string }
   | { view: 'picking-waiting-for-task'; selected: number; activeTaskId: TaskId }
+  | { view: 'picking-waiting-agenda'; selected: number; activeTaskId: TaskId }
+  | { view: 'picking-waiting-project'; selected: number; activeTaskId: TaskId; searchQuery: string }
 
 export const INITIAL_NAV = {
   view: 'dashboard' as const,

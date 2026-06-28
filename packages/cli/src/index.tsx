@@ -152,8 +152,29 @@ function LoadedApp({ initialState }: { initialState: ProjectionState }) {
     }
     if (listItems.view === 'picking-waiting-for-task') {
       if (currentTask !== undefined) {
-        const item = listItems.items.find(i => i.key === input) ?? (key.return ? listItems.selectedItem : undefined)
-        if (item !== undefined) dispatch({ type: 'set-waiting', taskId: currentTask.id, waitingFor: item.waitingFor })
+        const opt = listItems.items.find(i => i.key === input) ?? (key.return ? listItems.selectedItem : undefined)
+        if (opt !== undefined) {
+          if (opt.subKind === 'clear') dispatch({ type: 'set-waiting', taskId: currentTask.id, waitingFor: CLEAR })
+          else if (opt.subKind === 'review') dispatch({ type: 'set-waiting', taskId: currentTask.id, waitingFor: { kind: 'review' } })
+          else if (opt.subKind === 'agenda') dispatch({ type: 'set-nav', navState: { view: 'picking-waiting-agenda', selected: 0, activeTaskId: currentTask.id } })
+          else if (opt.subKind === 'project') dispatch({ type: 'set-nav', navState: { view: 'picking-waiting-project', selected: 0, activeTaskId: currentTask.id, searchQuery: '' } })
+        }
+      }
+      return
+    }
+    if (listItems.view === 'picking-waiting-agenda') {
+      if (currentTask !== undefined) {
+        const item = listItems.items.find(a => a.key === input) ?? (key.return ? listItems.selectedItem : undefined)
+        if (item !== undefined) dispatch({ type: 'set-waiting', taskId: currentTask.id, waitingFor: { kind: 'agenda', agendaId: item.id! } })
+      }
+      return
+    }
+    if (listItems.view === 'picking-waiting-project') {
+      if (key.return && currentTask !== undefined) {
+        const item = listItems.selectedItem
+        if (item !== undefined && item.id !== null) {
+          dispatch({ type: 'set-waiting', taskId: currentTask.id, waitingFor: { kind: 'project', projectId: item.id } })
+        }
       }
       return
     }
@@ -312,18 +333,51 @@ function LoadedApp({ initialState }: { initialState: ProjectionState }) {
     title = <Text bold color="cyan">{subtitle}</Text>
     content = listItems.items.map((opt, i) => {
       const isSelected = opt === listItems.selectedItem
-      const wf = opt.waitingFor
-      const prefix = wf !== null && typeof wf === 'object' && wf.kind === 'agenda' ? AGENDA_PREFIX
-        : wf !== null && typeof wf === 'object' && wf.kind === 'project' ? PROJECT_PREFIX
-        : ''
       return (
         <Text key={i} {...(isSelected ? { color: 'blue' as const } : {})}>
-          {isSelected ? '> ' : '  '}{prefix}{opt.label}
+          {isSelected ? '> ' : '  '}{opt.label}
           {opt.key !== undefined ? <Text dimColor>  {opt.key}</Text> : null}
         </Text>
       )
     })
     footer = <Text dimColor>↑↓ navigate  enter/key select  esc back</Text>
+  } else if (listItems.view === 'picking-waiting-agenda') {
+    title = <Text bold color="cyan">{subtitle}</Text>
+    content = listItems.items.map(opt => {
+      const isSelected = opt === listItems.selectedItem
+      return (
+        <Text key={opt.title} {...(isSelected ? { color: 'blue' as const } : {})}>
+          {isSelected ? '> ' : '  '}{AGENDA_PREFIX}{opt.title}
+          {opt.key !== undefined ? <Text dimColor>  {opt.key}</Text> : null}
+        </Text>
+      )
+    })
+    footer = <Text dimColor>↑↓ navigate  enter/key select  esc back</Text>
+  } else if (listItems.view === 'picking-waiting-project') {
+    title = <Text bold color="cyan">{subtitle}</Text>
+    content = (
+      <Box flexDirection="column">
+        <Box>
+          <Text dimColor>Search: </Text>
+          <TextInput
+            value={searchQuery}
+            onChange={(v) => dispatch({ type: 'update-nav', patch: { searchQuery: v, selected: 0 } })}
+            onSubmit={() => {}}
+          />
+        </Box>
+        <Box flexDirection="column" marginTop={1}>
+          {listItems.items.map(p => {
+            const isSelected = p === listItems.selectedItem
+            return (
+              <Text key={p.id} {...(isSelected ? { color: 'blue' as const } : {})}>
+                {isSelected ? '> ' : '  '}{p.name}
+              </Text>
+            )
+          })}
+        </Box>
+      </Box>
+    )
+    footer = <Text dimColor>type to search  ↑↓ navigate  enter select  esc back</Text>
   } else if (listItems.view === 'picking-project-for-task') {
     title = <Text bold color="cyan">{subtitle}</Text>
     content = (
