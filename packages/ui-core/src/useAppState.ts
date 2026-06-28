@@ -299,13 +299,13 @@ export function useAppState(store: PalimpsestStore, initialState: ProjectionStat
     } else if (vm.listItems.view === 'picking-waiting-for-task') {
       const opt = vm.listItems.items[i]
       if (opt !== undefined && vm.currentTask !== undefined) {
-        if (opt.subKind === 'clear') {
+        if (opt.kind === 'clear') {
           dispatch({ type: 'set-waiting', taskId: vm.currentTask.id, waitingFor: CLEAR })
-        } else if (opt.subKind === 'review') {
+        } else if (opt.kind === 'review') {
           dispatch({ type: 'set-waiting', taskId: vm.currentTask.id, waitingFor: { kind: 'review' } })
-        } else if (opt.subKind === 'agenda') {
+        } else if (opt.kind === 'agenda') {
           dispatch({ type: 'navigate', navState: { view: 'picking-waiting-agenda', selected: 0, activeTaskId: vm.currentTask.id } })
-        } else if (opt.subKind === 'project') {
+        } else if (opt.kind === 'project') {
           dispatch({ type: 'navigate', navState: { view: 'picking-waiting-project', selected: 0, activeTaskId: vm.currentTask.id, searchQuery: '' } })
         }
       }

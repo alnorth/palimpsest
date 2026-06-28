@@ -154,10 +154,10 @@ function LoadedApp({ initialState }: { initialState: ProjectionState }) {
       if (currentTask !== undefined) {
         const opt = listItems.items.find(i => i.key === input) ?? (key.return ? listItems.selectedItem : undefined)
         if (opt !== undefined) {
-          if (opt.subKind === 'clear') dispatch({ type: 'set-waiting', taskId: currentTask.id, waitingFor: CLEAR })
-          else if (opt.subKind === 'review') dispatch({ type: 'set-waiting', taskId: currentTask.id, waitingFor: { kind: 'review' } })
-          else if (opt.subKind === 'agenda') dispatch({ type: 'navigate', navState: { view: 'picking-waiting-agenda', selected: 0, activeTaskId: currentTask.id } })
-          else if (opt.subKind === 'project') dispatch({ type: 'navigate', navState: { view: 'picking-waiting-project', selected: 0, activeTaskId: currentTask.id, searchQuery: '' } })
+          if (opt.kind === 'clear') dispatch({ type: 'set-waiting', taskId: currentTask.id, waitingFor: CLEAR })
+          else if (opt.kind === 'review') dispatch({ type: 'set-waiting', taskId: currentTask.id, waitingFor: { kind: 'review' } })
+          else if (opt.kind === 'agenda') dispatch({ type: 'navigate', navState: { view: 'picking-waiting-agenda', selected: 0, activeTaskId: currentTask.id } })
+          else if (opt.kind === 'project') dispatch({ type: 'navigate', navState: { view: 'picking-waiting-project', selected: 0, activeTaskId: currentTask.id, searchQuery: '' } })
         }
       }
       return

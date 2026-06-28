@@ -113,7 +113,7 @@ export function WaitingKindPicker({ items, selectedItem, onHover, onActivate }: 
       {items.map((item, i) => {
         const isSelected = item === selectedItem && !isMobile
         return (
-          <PickerRow key={item.subKind} isSelected={isSelected} onMouseEnter={onHover !== undefined ? () => onHover(i) : undefined} onClick={onActivate !== undefined ? () => onActivate(i) : undefined}>
+          <PickerRow key={item.kind} isSelected={isSelected} onMouseEnter={onHover !== undefined ? () => onHover(i) : undefined} onClick={onActivate !== undefined ? () => onActivate(i) : undefined}>
             <Text size="sm" {...(isSelected ? { c: 'blue' } : {})}>
               {isSelected ? '> ' : '  '}{item.label}
               {item.key !== undefined && <Text span size="xs" c="dimmed">  {item.key}</Text>}

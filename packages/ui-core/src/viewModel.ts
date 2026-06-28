@@ -48,7 +48,7 @@ export interface ProjectPickerItem {
 }
 
 export interface WaitingKindOption {
-  subKind: 'clear' | 'review' | 'agenda' | 'project'
+  kind: 'clear' | 'review' | 'agenda' | 'project'
   label: string
   key?: string
 }
@@ -284,10 +284,10 @@ export function deriveViewModel(projState: ProjectionState, uiState: UIState): V
       }
       case 'picking-waiting-for-task': {
         const items: WaitingKindOption[] = [
-          { subKind: 'clear',   label: 'Not waiting', key: 'x' },
-          { subKind: 'review',  label: 'Review',      key: 'r' },
-          { subKind: 'agenda',  label: 'Agenda…',  key: 'a' },
-          { subKind: 'project', label: 'Project…', key: 'p' },
+          { kind: 'clear',   label: 'Not waiting', key: 'x' },
+          { kind: 'review',  label: 'Review',      key: 'r' },
+          { kind: 'agenda',  label: 'Agenda…',  key: 'a' },
+          { kind: 'project', label: 'Project…', key: 'p' },
         ]
         return { view, groups: [{ title: '', items }], items, selectedItem: items[selected] }
       }
