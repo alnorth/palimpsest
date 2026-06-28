@@ -56,16 +56,16 @@ export function flatItems<T>(groups: ListGroup<T>[]): T[] {
   return groups.flatMap(g => g.items)
 }
 
-export type ProcessingItem =
+export type ListItem =
   | { kind: 'task'; task: Task }
   | { kind: 'project'; project: Project }
 
 export type ListItems =
-  | { view: 'dashboard'; groups: ListGroup<Task>[]; items: Task[]; emptyMessage: string }
-  | { view: 'tasks'; groups: ListGroup<Task>[]; items: Task[]; emptyMessage: string }
-  | { view: 'project'; groups: ListGroup<Task>[]; items: Task[]; emptyMessage: string }
-  | { view: 'projects'; groups: ListGroup<Project>[]; items: Project[]; emptyMessage: string }
-  | { view: 'processing'; groups: ListGroup<ProcessingItem>[]; items: ProcessingItem[]; emptyMessage: string }
+  | { view: 'dashboard'; groups: ListGroup<ListItem>[]; items: ListItem[]; emptyMessage: string }
+  | { view: 'tasks'; groups: ListGroup<ListItem>[]; items: ListItem[]; emptyMessage: string }
+  | { view: 'project'; groups: ListGroup<ListItem>[]; items: ListItem[]; emptyMessage: string }
+  | { view: 'projects'; groups: ListGroup<ListItem>[]; items: ListItem[]; emptyMessage: string }
+  | { view: 'processing'; groups: ListGroup<ListItem>[]; items: ListItem[]; emptyMessage: string }
   | { view: 'task'; groups: ListGroup<never>[]; items: never[] }
   | { view: 'picking-view'; groups: ListGroup<ViewPickerItem>[]; items: ViewPickerItem[] }
   | { view: 'picking-agenda-for-task'; groups: ListGroup<AgendaPickerItem>[]; items: AgendaPickerItem[] }
@@ -217,20 +217,26 @@ export function deriveViewModel(projState: ProjectionState, uiState: UIState): V
 
   const listItems: ListItems = (() => {
     switch (view) {
-      case 'dashboard': return { view, groups: [{ title: '', items: dashboardTasks }], items: dashboardTasks, emptyMessage: 'No tasks due today and no starred tasks.' }
-      case 'tasks': return { view, groups: [{ title: '', items: tasks }], items: tasks, emptyMessage: showCompleted ? 'No completed tasks in this sphere.' : 'No open tasks in this sphere.' }
-      case 'project': return { view, groups: [{ title: '', items: projectTasks }], items: projectTasks, emptyMessage: showCompleted ? 'No completed tasks in this project.' : 'No open tasks in this project.' }
-      case 'projects': return { view, groups: [{ title: '', items: projects }], items: projects, emptyMessage: showArchived ? 'No archived projects.' : 'No projects.' }
+      case 'dashboard': {
+        const items = dashboardTasks.map((t): ListItem => ({ kind: 'task', task: t }))
+        return { view, groups: [{ title: '', items }], items, emptyMessage: 'No tasks due today and no starred tasks.' }
+      }
+      case 'tasks': {
+        const items = tasks.map((t): ListItem => ({ kind: 'task', task: t }))
+        return { view, groups: [{ title: '', items }], items, emptyMessage: showCompleted ? 'No completed tasks in this sphere.' : 'No open tasks in this sphere.' }
+      }
+      case 'project': {
+        const items = projectTasks.map((t): ListItem => ({ kind: 'task', task: t }))
+        return { view, groups: [{ title: '', items }], items, emptyMessage: showCompleted ? 'No completed tasks in this project.' : 'No open tasks in this project.' }
+      }
+      case 'projects': {
+        const items = projects.map((p): ListItem => ({ kind: 'project', project: p }))
+        return { view, groups: [{ title: '', items }], items, emptyMessage: showArchived ? 'No archived projects.' : 'No projects.' }
+      }
       case 'processing': {
-        const groups: ListGroup<ProcessingItem>[] = [
-          {
-            title: 'Inbox tasks',
-            items: inboxTasks.map((t): ProcessingItem => ({ kind: 'task', task: t })),
-          },
-          {
-            title: 'Projects without a next action',
-            items: projectsWithoutNext.map((p): ProcessingItem => ({ kind: 'project', project: p })),
-          },
+        const groups: ListGroup<ListItem>[] = [
+          { title: 'Inbox tasks', items: inboxTasks.map((t): ListItem => ({ kind: 'task', task: t })) },
+          { title: 'Projects without a next action', items: projectsWithoutNext.map((p): ListItem => ({ kind: 'project', project: p })) },
         ]
         return { view, groups, items: flatItems(groups), emptyMessage: 'Nothing to process.' }
       }
@@ -274,10 +280,10 @@ export function deriveViewModel(projState: ProjectionState, uiState: UIState): V
 
   const currentTask: Task | undefined = (() => {
     if (listItems.view === 'task') return activeTask
-    if (listItems.view === 'project' || listItems.view === 'tasks' || listItems.view === 'dashboard') {
-      return listItems.items[selected]
-    }
-    if (listItems.view === 'processing') {
+    if (
+      listItems.view === 'dashboard' || listItems.view === 'tasks' || listItems.view === 'project' ||
+      listItems.view === 'projects' || listItems.view === 'processing'
+    ) {
       const item = listItems.items[selected]
       return item?.kind === 'task' ? item.task : undefined
     }

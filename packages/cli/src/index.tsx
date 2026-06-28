@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { render, Box, Text, useInput, useWindowSize } from 'ink'
-import { TaskList, TaskRow } from './TaskList.js'
-import { ProjectList } from './ProjectList.js'
-import { ProjectRow } from './ProjectRow.js'
+import { TaskRow } from './TaskList.js'
+import { ItemList } from './ItemList.js'
 import { Title } from './Title.js'
 import TextInput from 'ink-text-input'
 import { FilePalimpsestStore, CLEAR, getProject, getAgenda, getContext, buildStateFromConfig, PALIMPSEST_CONFIG, createEmptyState, isValidExpression } from 'palimpsest'
@@ -175,16 +174,12 @@ function LoadedApp({ initialState }: { initialState: ProjectionState }) {
       return
     }
     // List mode
-    if (key.return && listItems.view === 'projects') {
-      const project = listItems.items[selected]
-      if (project !== undefined) {
-        dispatch({ type: 'navigate', navState: { view: 'project', selected: 0, activeProjectId: project.id, showCompleted: false } })
-      }
-    }
-    if (key.return && (listItems.view === 'tasks' || listItems.view === 'project' || listItems.view === 'dashboard')) {
-      const task = listItems.items[selected]
-      if (task !== undefined) {
-        dispatch({ type: 'navigate', navState: { view: 'task', activeTaskId: task.id } })
+    if (key.return && (listItems.view === 'dashboard' || listItems.view === 'tasks' || listItems.view === 'project' || listItems.view === 'projects' || listItems.view === 'processing')) {
+      const item = listItems.items[selected]
+      if (item?.kind === 'task') {
+        dispatch({ type: 'navigate', navState: { view: 'task', activeTaskId: item.task.id } })
+      } else if (item?.kind === 'project') {
+        dispatch({ type: 'navigate', navState: { view: 'project', selected: 0, activeProjectId: item.project.id, showCompleted: false } })
       }
     }
 
@@ -193,7 +188,10 @@ function LoadedApp({ initialState }: { initialState: ProjectionState }) {
       if (cmd.id === 'edit-task' && currentTask !== undefined) setFormValue(currentTask.title)
       if (cmd.id === 'edit-description') setFormValue(currentTask?.description ?? '')
       if (cmd.id === 'set-recurrence') setFormValue(currentTask?.dueDateExpression ?? '')
-      if (cmd.id === 'edit-project' && listItems.view === 'projects') setFormValue(listItems.items[selected]?.name ?? '')
+      if (cmd.id === 'edit-project' && listItems.view === 'projects') {
+        const item = listItems.items[selected]
+        if (item?.kind === 'project') setFormValue(item.project.name)
+      }
       if (cmd.id === 'pick-agenda' && currentTask !== undefined) {
         const idx = currentTask.agendaId !== undefined ? agendas.findIndex(a => a.id === currentTask.agendaId) + 1 : 0
         dispatch({ type: 'navigate', navState: { view: 'picking-agenda-for-task', selected: Math.max(0, idx), activeTaskId: currentTask.id } })
@@ -275,7 +273,8 @@ function LoadedApp({ initialState }: { initialState: ProjectionState }) {
 
   function handleEditProjectSubmit(name: string) {
     const trimmed = name.trim()
-    const project = listItems.view === 'projects' ? listItems.items[selected] : undefined
+    const selectedItem = listItems.view === 'projects' ? listItems.items[selected] : undefined
+    const project = selectedItem?.kind === 'project' ? selectedItem.project : undefined
     if (trimmed && project !== undefined) {
       dispatch({ type: 'edit-project', projectId: project.id, name: trimmed })
     } else {
@@ -440,41 +439,17 @@ function LoadedApp({ initialState }: { initialState: ProjectionState }) {
           </Box>
         </Box>
       )
-    })() : listItems.view === 'dashboard' ? (
-      <TaskList groups={listItems.groups} selected={selected} state={projState} showProject emptyMessage={listItems.emptyMessage} />
-    ) : listItems.view === 'tasks' ? (
-      <TaskList groups={listItems.groups} selected={selected} state={projState} showProject emptyMessage={listItems.emptyMessage} />
-    ) : listItems.view === 'projects' ? (
-      <ProjectList groups={listItems.groups} selected={selected} projectStats={projectStats} showArchived={showArchived} emptyMessage={listItems.emptyMessage} />
-    ) : listItems.view === 'processing' ? (() => {
-      let offset = 0
-      return (
-        <>
-          {listItems.groups.map((group, gi) => {
-            const groupOffset = offset
-            offset += group.items.length
-            return (
-              <React.Fragment key={gi}>
-                <Text dimColor bold>{group.title}</Text>
-                {group.items.length === 0
-                  ? <Text dimColor>  —</Text>
-                  : group.items.map((item, i) => {
-                      const flatIndex = groupOffset + i
-                      if (item.kind === 'task') {
-                        return <TaskRow key={item.task.id} task={item.task} isSelected={flatIndex === selected} state={projState} />
-                      } else {
-                        return <ProjectRow key={item.project.id} project={item.project} isSelected={flatIndex === selected} projectStats={projectStats} />
-                      }
-                    })
-                }
-              </React.Fragment>
-            )
-          })}
-        </>
-      )
-    })() : (
-      <TaskList groups={listItems.groups} selected={selected} state={projState} emptyMessage={listItems.emptyMessage} />
-    )
+    })() : (listItems.view === 'dashboard' || listItems.view === 'tasks' || listItems.view === 'project' || listItems.view === 'projects' || listItems.view === 'processing') ? (
+      <ItemList
+        groups={listItems.groups}
+        selected={selected}
+        state={projState}
+        projectStats={projectStats}
+        showProject={listItems.view === 'dashboard' || listItems.view === 'tasks'}
+        showArchived={showArchived}
+        emptyMessage={listItems.emptyMessage}
+      />
+    ) : null
     footer = mode === 'adding' ? (
       activeSphere === undefined ? (
         <Text color="red">No spheres found — create a sphere first.</Text>

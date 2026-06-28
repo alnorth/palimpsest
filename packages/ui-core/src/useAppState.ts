@@ -311,24 +311,15 @@ export function useAppState(store: PalimpsestStore, initialState: ProjectionStat
       } else if (items.length === 0 && vm.searchQuery.trim() !== '' && vm.activeSphere !== undefined) {
         dispatch({ type: 'create-and-assign-project', name: vm.searchQuery.trim(), sphereId: vm.activeSphere.id, taskId: vm.currentTask.id })
       }
-    } else if (vm.listItems.view === 'projects') {
-      const project = vm.listItems.items[i]
-      if (project !== undefined) {
-        dispatch({ type: 'navigate', navState: { view: 'project', selected: 0, activeProjectId: project.id, showCompleted: false } })
-      }
-    } else if (vm.listItems.view === 'tasks' || vm.listItems.view === 'project' || vm.listItems.view === 'dashboard') {
-      const task = vm.listItems.items[i]
-      if (task !== undefined) {
-        dispatch({ type: 'navigate', navState: { view: 'task', activeTaskId: task.id } })
-      }
-    } else if (vm.listItems.view === 'processing') {
+    } else if (
+      vm.listItems.view === 'dashboard' || vm.listItems.view === 'tasks' || vm.listItems.view === 'project' ||
+      vm.listItems.view === 'projects' || vm.listItems.view === 'processing'
+    ) {
       const item = vm.listItems.items[i]
-      if (item !== undefined) {
-        if (item.kind === 'task') {
-          dispatch({ type: 'navigate', navState: { view: 'task', activeTaskId: item.task.id } })
-        } else {
-          dispatch({ type: 'navigate', navState: { view: 'project', selected: 0, activeProjectId: item.project.id, showCompleted: false } })
-        }
+      if (item?.kind === 'task') {
+        dispatch({ type: 'navigate', navState: { view: 'task', activeTaskId: item.task.id } })
+      } else if (item?.kind === 'project') {
+        dispatch({ type: 'navigate', navState: { view: 'project', selected: 0, activeProjectId: item.project.id, showCompleted: false } })
       }
     }
   }, [vm, dispatch])

@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react'
 import { AppShell, Group, Text, ScrollArea, Badge, Burger, Button, Stack, Modal, TextInput, Textarea } from '@mantine/core'
-import { useMediaQuery } from '@mantine/hooks'
 import type { PalimpsestStore, ProjectionState, Task } from 'palimpsest'
 import { CLEAR, isValidExpression } from 'palimpsest'
 import { useAppState, parseDueDate, getDueDatePreview, getRecurrencePreview } from 'palimpsest-ui-core'
@@ -8,11 +7,8 @@ import type { Command } from 'palimpsest-ui-core'
 import { CommandButton } from './components/CommandButton.js'
 import { useKeyboard } from './useKeyboard.js'
 import { useUrlSync } from './useUrlSync.js'
-import { TaskList } from './components/TaskList.js'
-import { TaskRow } from './components/TaskRow.js'
+import { ItemList } from './components/ItemList.js'
 import { TaskDetail } from './components/TaskDetail.js'
-import { ProjectList } from './components/ProjectList.js'
-import { ProjectRow } from './components/ProjectRow.js'
 import { CommandBar } from './components/CommandBar.js'
 import { MobileFooter } from './components/MobileFooter.js'
 import { NavDrawer } from './components/NavDrawer.js'
@@ -84,8 +80,6 @@ export function LoadedApp({ store, initialState }: Props) {
 
   const [formValue, setFormValue] = useState('')
   const [navDrawerOpen, setNavDrawerOpen] = useState(false)
-  const isMobile = useMediaQuery('(max-width: 768px)') ?? false
-
   // Prepopulate the form when entering an editing mode (e.g. via button click in TaskDetail)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
@@ -96,7 +90,8 @@ export function LoadedApp({ store, initialState }: Props) {
     } else if (mode === 'editing-recurrence') {
       setFormValue(currentTask?.dueDateExpression ?? '')
     } else if (mode === 'editing-project' && listItems.view === 'projects') {
-      setFormValue(listItems.items[selected]?.name ?? '')
+      const item = listItems.items[selected]
+      setFormValue(item?.kind === 'project' ? item.project.name : '')
     }
   }, [mode]) // intentionally omit other deps — we only want to run on mode transitions
 
@@ -178,7 +173,8 @@ export function LoadedApp({ store, initialState }: Props) {
 
   function handleEditProjectSubmit(name: string) {
     const trimmed = name.trim()
-    const project = listItems.view === 'projects' ? listItems.items[selected] : undefined
+    const selectedItem = listItems.view === 'projects' ? listItems.items[selected] : undefined
+    const project = selectedItem?.kind === 'project' ? selectedItem.project : undefined
     if (trimmed && project !== undefined) {
       dispatch({ type: 'edit-project', projectId: project.id, name: trimmed })
     } else {
@@ -239,44 +235,6 @@ export function LoadedApp({ store, initialState }: Props) {
     )
   } else if (listItems.view === 'task' && activeTask !== undefined) {
     content = <TaskDetail task={activeTask} state={projState} commands={commands} dispatch={dispatch} />
-  } else if (listItems.view === 'dashboard') {
-    content = (
-      <TaskList
-        groups={listItems.groups}
-        selected={selected}
-        state={projState}
-        showProject
-        emptyMessage={listItems.emptyMessage}
-        onHover={handleHover}
-        onActivate={activate}
-        onComplete={handleTaskComplete}
-      />
-    )
-  } else if (listItems.view === 'tasks') {
-    content = (
-      <TaskList
-        groups={listItems.groups}
-        selected={selected}
-        state={projState}
-        showProject
-        emptyMessage={listItems.emptyMessage}
-        onHover={handleHover}
-        onActivate={activate}
-        onComplete={handleTaskComplete}
-      />
-    )
-  } else if (listItems.view === 'projects') {
-    content = (
-      <ProjectList
-        groups={listItems.groups}
-        selected={selected}
-        projectStats={projectStats}
-        showArchived={showArchived}
-        emptyMessage={listItems.emptyMessage}
-        onHover={handleHover}
-        onActivate={activate}
-      />
-    )
   } else if (listItems.view === 'project') {
     const stateCommands = (Object.values(commands) as Command[]).filter(c => c.group === 'state')
     content = (
@@ -288,10 +246,12 @@ export function LoadedApp({ store, initialState }: Props) {
             ))}
           </Group>
         )}
-        <TaskList
+        <ItemList
           groups={listItems.groups}
           selected={selected}
           state={projState}
+          projectStats={projectStats}
+          showArchived={showArchived}
           emptyMessage={listItems.emptyMessage}
           onHover={handleHover}
           onActivate={activate}
@@ -299,57 +259,20 @@ export function LoadedApp({ store, initialState }: Props) {
         />
       </Stack>
     )
-  } else if (listItems.view === 'processing') {
-    let offset = 0
+  } else if (listItems.view === 'dashboard' || listItems.view === 'tasks' || listItems.view === 'projects' || listItems.view === 'processing') {
     content = (
-      <Stack gap={2}>
-        {listItems.groups.map((group, gi) => {
-          const groupOffset = offset
-          offset += group.items.length
-          return (
-            <React.Fragment key={gi}>
-              <Text size="xs" c="dimmed" fw={600} tt="uppercase" px="xs" {...(gi > 0 ? { pt: 'xs' } : {})}>
-                {group.title}
-              </Text>
-              {group.items.length === 0
-                ? <Text c="dimmed" size="sm" px="xs">None.</Text>
-                : group.items.map((item, i) => {
-                    const flatIndex = groupOffset + i
-                    if (item.kind === 'task') {
-                      return (
-                        <TaskRow
-                          key={item.task.id}
-                          task={item.task}
-                          flatIndex={flatIndex}
-                          isSelected={flatIndex === selected}
-                          isMobile={isMobile}
-                          state={projState}
-                          onHover={handleHover}
-                          onActivate={activate}
-                          onComplete={handleTaskComplete}
-                        />
-                      )
-                    } else {
-                      return (
-                        <ProjectRow
-                          key={item.project.id}
-                          project={item.project}
-                          flatIndex={flatIndex}
-                          isSelected={flatIndex === selected}
-                          isMobile={isMobile}
-                          projectStats={projectStats}
-                          showArchived={false}
-                          onHover={handleHover}
-                          onActivate={activate}
-                        />
-                      )
-                    }
-                  })
-              }
-            </React.Fragment>
-          )
-        })}
-      </Stack>
+      <ItemList
+        groups={listItems.groups}
+        selected={selected}
+        state={projState}
+        projectStats={projectStats}
+        showArchived={showArchived}
+        emptyMessage={listItems.emptyMessage}
+        onHover={handleHover}
+        onActivate={activate}
+        onComplete={handleTaskComplete}
+        {...((listItems.view === 'dashboard' || listItems.view === 'tasks') ? { showProject: true } : {})}
+      />
     )
   } else {
     content = activeSphere === undefined

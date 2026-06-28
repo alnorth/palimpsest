@@ -3,7 +3,6 @@ import { Text } from 'ink'
 import { getProject, getAgenda, getContext } from 'palimpsest'
 import type { Task, ProjectionState } from 'palimpsest'
 import { AGENDA_PREFIX, PROJECT_PREFIX, CONTEXT_PREFIX, RECURRENCE_PREFIX } from 'palimpsest-ui-core'
-import type { ListGroup } from 'palimpsest-ui-core'
 import { Row } from './Row.js'
 import { formatDateTime, dueDateColor } from './format.js'
 
@@ -42,37 +41,5 @@ export function TaskRow({ task, isSelected, state, showProject = false }: TaskRo
         </React.Fragment>
       ))}
     </Row>
-  )
-}
-
-interface Props {
-  groups: ListGroup<Task>[]
-  selected: number
-  state: ProjectionState
-  showProject?: boolean
-  emptyMessage?: string
-}
-
-export function TaskList({ groups, selected, state, showProject = false, emptyMessage = 'No open tasks.' }: Props) {
-  const totalItems = groups.reduce((sum, g) => sum + g.items.length, 0)
-  if (totalItems === 0) return <Text dimColor>{emptyMessage}</Text>
-
-  let offset = 0
-  return (
-    <>
-      {groups.map((group, gi) => {
-        const groupOffset = offset
-        offset += group.items.length
-        return (
-          <React.Fragment key={gi}>
-            {group.title !== '' && <Text dimColor bold>{group.title}</Text>}
-            {group.items.map((task, i) => {
-              const flatIndex = groupOffset + i
-              return <TaskRow key={task.id} task={task} isSelected={flatIndex === selected} state={state} showProject={showProject} />
-            })}
-          </React.Fragment>
-        )
-      })}
-    </>
   )
 }
