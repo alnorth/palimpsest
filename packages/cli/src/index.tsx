@@ -298,7 +298,7 @@ function LoadedApp({ initialState }: { initialState: ProjectionState }) {
       footer = <Text dimColor>enter to set  esc cancel</Text>
     } else {
       content = listItems.items.map(opt => {
-        const isSelected = opt.key === listItems.selectedItem?.key
+        const isSelected = opt === listItems.selectedItem
         const label = opt.date !== null ? `${opt.label} — ${formatDate(opt.date)}` : opt.label
         return (
           <Text key={opt.key} {...(isSelected ? { color: 'blue' as const } : {})}>
@@ -311,7 +311,7 @@ function LoadedApp({ initialState }: { initialState: ProjectionState }) {
   } else if (listItems.view === 'picking-agenda-for-task') {
     title = <Text bold color="cyan">{subtitle}</Text>
     content = listItems.items.map(opt => {
-      const isSelected = opt.id === listItems.selectedItem?.id
+      const isSelected = opt === listItems.selectedItem
       return (
         <Text key={opt.title} {...(isSelected ? { color: 'blue' as const } : {})}>
           {isSelected ? '> ' : '  '}{opt.id !== null ? AGENDA_PREFIX : ''}{opt.title}
@@ -323,7 +323,7 @@ function LoadedApp({ initialState }: { initialState: ProjectionState }) {
   } else if (listItems.view === 'picking-context-for-task') {
     title = <Text bold color="cyan">{subtitle}</Text>
     content = listItems.items.map(opt => {
-      const isSelected = opt.id === listItems.selectedItem?.id
+      const isSelected = opt === listItems.selectedItem
       return (
         <Text key={opt.name} {...(isSelected ? { color: 'blue' as const } : {})}>
           {isSelected ? '> ' : '  '}{opt.id !== null ? CONTEXT_PREFIX : ''}{opt.name}
@@ -348,7 +348,7 @@ function LoadedApp({ initialState }: { initialState: ProjectionState }) {
           {listItems.items.length === 0 && searchQuery.trim() !== '' ? (
             <Text color="blue">{'> '}Create project "{searchQuery.trim()}"</Text>
           ) : listItems.items.map(p => {
-            const isSelected = p.id === listItems.selectedItem?.id
+            const isSelected = p === listItems.selectedItem
             return (
               <Text key={p.id ?? 'null'} {...(isSelected ? { color: 'blue' as const } : {})}>
                 {isSelected ? '> ' : '  '}{p.name}
@@ -362,7 +362,7 @@ function LoadedApp({ initialState }: { initialState: ProjectionState }) {
   } else if (listItems.view === 'picking-view') {
     title = <Text bold color="cyan">{subtitle}</Text>
     content = listItems.items.map(item => {
-      const isSelected = item.id === listItems.selectedItem?.id
+      const isSelected = item === listItems.selectedItem
       return (
         <Text key={item.id} {...(isSelected ? { color: 'blue' as const } : {})}>
           {isSelected ? '> ' : '  '}{item.label}<Text dimColor>  {item.key}</Text>

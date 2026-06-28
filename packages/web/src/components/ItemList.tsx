@@ -48,7 +48,7 @@ export function ItemList({ groups, selectedItem, state, projectStats, showArchiv
                         key={item.task.id}
                         task={item.task}
                         flatIndex={flatIndex}
-                        isSelected={selectedItem?.kind === 'task' && item.task.id === selectedItem.task.id}
+                        isSelected={item === selectedItem}
                         isMobile={isMobile}
                         state={state}
                         {...(showProject !== undefined ? { showProject } : {})}
@@ -63,7 +63,7 @@ export function ItemList({ groups, selectedItem, state, projectStats, showArchiv
                         key={item.project.id}
                         project={item.project}
                         flatIndex={flatIndex}
-                        isSelected={selectedItem?.kind === 'project' && item.project.id === selectedItem.project.id}
+                        isSelected={item === selectedItem}
                         isMobile={isMobile}
                         projectStats={projectStats}
                         showArchived={showArchived}

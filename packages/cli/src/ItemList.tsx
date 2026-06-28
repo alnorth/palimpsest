@@ -28,9 +28,9 @@ export function ItemList({ groups, selectedItem, state, projectStats, showProjec
             ? <Text dimColor>  —</Text>
             : group.items.map(item => {
                 if (item.kind === 'task') {
-                  return <TaskRow key={item.task.id} task={item.task} isSelected={selectedItem?.kind === 'task' && item.task.id === selectedItem.task.id} state={state} showProject={showProject} />
+                  return <TaskRow key={item.task.id} task={item.task} isSelected={item === selectedItem} state={state} showProject={showProject} />
                 } else {
-                  return <ProjectRow key={item.project.id} project={item.project} isSelected={selectedItem?.kind === 'project' && item.project.id === selectedItem.project.id} projectStats={projectStats} showArchived={showArchived} />
+                  return <ProjectRow key={item.project.id} project={item.project} isSelected={item === selectedItem} projectStats={projectStats} showArchived={showArchived} />
                 }
               })
           }

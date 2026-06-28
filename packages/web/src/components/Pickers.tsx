@@ -34,7 +34,7 @@ export function ViewPicker({ items, selectedItem, onHover, onActivate }: { items
   return (
     <Stack gap={2}>
       {items.map((item, i) => {
-        const isSelected = item.id === selectedItem?.id && !isMobile
+        const isSelected = item === selectedItem && !isMobile
         return (
           <PickerRow key={item.id} isSelected={isSelected} onMouseEnter={onHover !== undefined ? () => onHover(i) : undefined} onClick={onActivate !== undefined ? () => onActivate(i) : undefined}>
             <Text size="sm" {...(isSelected ? { c: 'blue' } : {})}>
@@ -53,7 +53,7 @@ export function AgendaPicker({ items, selectedItem, onHover, onActivate }: { ite
   return (
     <Stack gap={2}>
       {items.map((item, i) => {
-        const isSelected = item.id === selectedItem?.id && !isMobile
+        const isSelected = item === selectedItem && !isMobile
         return (
           <PickerRow key={item.title} isSelected={isSelected} onMouseEnter={onHover !== undefined ? () => onHover(i) : undefined} onClick={onActivate !== undefined ? () => onActivate(i) : undefined}>
             <Text size="sm" {...(isSelected ? { c: 'blue' } : {})}>
@@ -72,7 +72,7 @@ export function ContextPicker({ items, selectedItem, onHover, onActivate }: { it
   return (
     <Stack gap={2}>
       {items.map((item, i) => {
-        const isSelected = item.id === selectedItem?.id && !isMobile
+        const isSelected = item === selectedItem && !isMobile
         return (
           <PickerRow key={item.name} isSelected={isSelected} onMouseEnter={onHover !== undefined ? () => onHover(i) : undefined} onClick={onActivate !== undefined ? () => onActivate(i) : undefined}>
             <Text size="sm" {...(isSelected ? { c: 'blue' } : {})}>
@@ -91,7 +91,7 @@ export function DueDatePicker({ items, selectedItem, onHover, onActivate }: { it
   return (
     <Stack gap={2}>
       {items.map((opt, i) => {
-        const isSelected = opt.key === selectedItem?.key && !isMobile
+        const isSelected = opt === selectedItem && !isMobile
         const label = opt.date !== null ? `${opt.label} — ${opt.date}` : opt.label
         return (
           <PickerRow key={opt.key} isSelected={isSelected} onMouseEnter={onHover !== undefined ? () => onHover(i) : undefined} onClick={onActivate !== undefined ? () => onActivate(i) : undefined}>
@@ -137,7 +137,7 @@ export function ProjectSearch({
             <Text size="sm" c="blue">{'> '}Create project "{searchQuery.trim()}"</Text>
           </PickerRow>
         ) : items.map((p, i) => {
-          const isSelected = p.id === selectedItem?.id && !isMobile
+          const isSelected = p === selectedItem && !isMobile
           return (
             <PickerRow key={p.id ?? 'null'} isSelected={isSelected} onMouseEnter={onHover !== undefined ? () => onHover(i) : undefined} onClick={onActivate !== undefined ? () => onActivate(i) : undefined}>
               <Text size="sm" {...(isSelected ? { c: 'blue' } : {})}>
