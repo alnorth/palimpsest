@@ -84,11 +84,9 @@ export interface ViewModel {
   currentTask: Task | undefined
   subtitle: string
   listItems: ListItems
-  listLength: number
   canGoBack: boolean
   view: View
   mode: Mode
-  selected: number
   searchQuery: string
   showCompleted: boolean
   showArchived: boolean
@@ -306,8 +304,6 @@ export function deriveViewModel(projState: ProjectionState, uiState: UIState): V
 
   const showProject = view === 'dashboard' || view === 'tasks'
 
-  const listLength = listItems.groups.reduce((sum, g) => sum + g.items.length, 0)
-
   return {
     spheres,
     activeSphere,
@@ -321,11 +317,9 @@ export function deriveViewModel(projState: ProjectionState, uiState: UIState): V
     currentTask,
     subtitle,
     listItems,
-    listLength,
     canGoBack: uiState.navStack.length > 1,
     view,
     mode,
-    selected,
     searchQuery,
     showCompleted,
     showArchived,

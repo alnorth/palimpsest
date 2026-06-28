@@ -72,8 +72,8 @@ function App() {
 
 function LoadedApp({ initialState }: { initialState: ProjectionState }) {
   const {
-    view, mode, selected, activeTask, activeProject,
-    activeSphere, agendas, contexts, projectStats, listItems, listLength, currentTask, selectedItem, selectedProject, spheres, subtitle,
+    view, mode, activeTask, activeProject,
+    activeSphere, agendas, contexts, projectStats, listItems, currentTask, selectedItem, selectedProject, spheres, subtitle,
     searchQuery, projState, commands, dispatch, canGoBack, showCompleted, showArchived, showProject,
     syncState,
   } = useAppState(store, initialState)
@@ -100,9 +100,9 @@ function LoadedApp({ initialState }: { initialState: ProjectionState }) {
     }
     // Text-input modes: TextInput component handles the rest
     if (mode !== 'list') return
-    // Up/down navigation works the same in all views (listLength covers pickers too)
-    if (key.upArrow) dispatch({ type: 'update-nav', patch: { selected: Math.max(0, selected - 1) } })
-    if (key.downArrow) dispatch({ type: 'update-nav', patch: { selected: Math.min(Math.max(0, listLength - 1), selected + 1) } })
+    // Up/down navigation works the same in all views
+    if (key.upArrow) dispatch({ type: 'move-up' })
+    if (key.downArrow) dispatch({ type: 'move-down' })
     // Picker views: handle enter/shortcut
     if (listItems.view === 'picking-view') {
       const chosen = listItems.items.find(item => item.key === input) ?? (key.return ? listItems.selectedItem : undefined)

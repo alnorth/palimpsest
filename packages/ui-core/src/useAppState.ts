@@ -27,6 +27,7 @@ export interface AppStateResult extends ViewModel {
   commands: Partial<Record<CommandId, Command>>
   dispatch: (action: Action) => void
   activate: (index: number) => void
+  activateSelected: () => void
   syncState: SyncState
 }
 
@@ -64,6 +65,17 @@ export function useAppState(store: PalimpsestStore, initialState: ProjectionStat
   const commands = useMemo(() => getCommands(vm), [vm])
 
   const dispatch = useCallback((action: Action) => {
+    if (action.type === 'move-up') {
+      const cur = navSelected(uiState.navStack[uiState.navStack.length - 1])
+      dispatchUI({ type: 'update-nav', patch: { selected: Math.max(0, cur - 1) } })
+      return
+    }
+    if (action.type === 'move-down') {
+      const cur = navSelected(uiState.navStack[uiState.navStack.length - 1])
+      const listLength = vm.listItems.groups.reduce((sum, g) => sum + g.items.length, 0)
+      dispatchUI({ type: 'update-nav', patch: { selected: Math.min(Math.max(0, listLength - 1), cur + 1) } })
+      return
+    }
     if (!isDataAction(action)) {
       dispatchUI(action as UIAction)
       return
@@ -292,5 +304,9 @@ export function useAppState(store: PalimpsestStore, initialState: ProjectionStat
     }
   }, [vm, dispatch])
 
-  return { ...vm, projState, commands, dispatch, activate, syncState }
+  const activateSelected = useCallback(() => {
+    activate(navSelected(uiState.navStack[uiState.navStack.length - 1]))
+  }, [uiState, activate])
+
+  return { ...vm, projState, commands, dispatch, activate, activateSelected, syncState }
 }

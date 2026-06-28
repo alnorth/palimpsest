@@ -37,5 +37,8 @@ export function uiReducer(state: UIState, action: UIAction): UIState {
         mode: 'list',
       }
 
+    case 'move-up':
+    case 'move-down':
+      return state
   }
 }

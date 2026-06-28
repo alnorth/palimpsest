@@ -58,6 +58,8 @@ export type UIAction =
   | { type: 'update-nav'; patch: { selected?: number; searchQuery?: string } }
   | { type: 'set-mode'; mode: Mode }
   | { type: 'set-sphere'; sphereId: SphereId }
+  | { type: 'move-up' }
+  | { type: 'move-down' }
 
 export type DataAction =
   | { type: 'create-task'; title: string; projectId?: ProjectId; sphereId?: SphereId }

@@ -10,7 +10,7 @@ export function useKeyboard(
   appState: AppStateResult,
   setFormValue: (v: string) => void,
 ): void {
-  const { mode, selected, listLength, listItems, currentTask, agendas, contexts, commands, dispatch, activate } = appState
+  const { mode, listItems, currentTask, agendas, contexts, commands, dispatch, activate, activateSelected } = appState
 
   useEffect(() => {
     function handler(e: KeyboardEvent) {
@@ -28,11 +28,11 @@ export function useKeyboard(
       if (mode !== 'list') return
 
       if (e.key === 'ArrowUp') {
-        dispatch({ type: 'update-nav', patch: { selected: Math.max(0, selected - 1) } })
+        dispatch({ type: 'move-up' })
         return
       }
       if (e.key === 'ArrowDown') {
-        dispatch({ type: 'update-nav', patch: { selected: Math.min(Math.max(0, listLength - 1), selected + 1) } })
+        dispatch({ type: 'move-down' })
         return
       }
 
@@ -42,39 +42,39 @@ export function useKeyboard(
       if (listItems.view === 'picking-view') {
         const shortcutIdx = listItems.items.findIndex(item => item.key === input)
         if (shortcutIdx !== -1) { activate(shortcutIdx); return }
-        if (e.key === 'Enter') { activate(selected); return }
+        if (e.key === 'Enter') { activateSelected(); return }
         return
       }
 
       if (listItems.view === 'picking-agenda-for-task') {
         const shortcutIdx = listItems.items.findIndex(a => a.key === input)
         if (shortcutIdx !== -1) { activate(shortcutIdx); return }
-        if (e.key === 'Enter') { activate(selected); return }
+        if (e.key === 'Enter') { activateSelected(); return }
         return
       }
 
       if (listItems.view === 'picking-context-for-task') {
         const shortcutIdx = listItems.items.findIndex(c => c.key === input)
         if (shortcutIdx !== -1) { activate(shortcutIdx); return }
-        if (e.key === 'Enter') { activate(selected); return }
+        if (e.key === 'Enter') { activateSelected(); return }
         return
       }
 
       if (listItems.view === 'picking-due-date') {
         const shortcutIdx = listItems.items.findIndex(o => o.key === input)
         if (shortcutIdx !== -1) { activate(shortcutIdx); return }
-        if (e.key === 'Enter') { activate(selected); return }
+        if (e.key === 'Enter') { activateSelected(); return }
         return
       }
 
       if (listItems.view === 'picking-project-for-task') {
-        if (e.key === 'Enter') { activate(selected); return }
+        if (e.key === 'Enter') { activateSelected(); return }
         return
       }
 
       // List views: Enter activates selected item
       if (e.key === 'Enter') {
-        activate(selected)
+        activateSelected()
         return
       }
 
@@ -100,5 +100,5 @@ export function useKeyboard(
 
     document.addEventListener('keydown', handler)
     return () => document.removeEventListener('keydown', handler)
-  }, [mode, selected, listLength, listItems, currentTask, agendas, contexts, commands, dispatch, activate, setFormValue])
+  }, [mode, listItems, currentTask, agendas, contexts, commands, dispatch, activate, activateSelected, setFormValue])
 }

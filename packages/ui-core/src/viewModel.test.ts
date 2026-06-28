@@ -144,7 +144,7 @@ describe('deriveViewModel — navigation helpers', () => {
     expect(vm.canGoBack).toBe(true)
   })
 
-  it('exposes convenience properties from currentNav', () => {
+  it('exposes view from currentNav', () => {
     const { projState, sphere } = buildTestState()
     const uiState = makeUIState({
       currentSphereId: sphere.id,
@@ -152,24 +152,6 @@ describe('deriveViewModel — navigation helpers', () => {
     })
     const vm = deriveViewModel(projState, uiState)
     expect(vm.view).toBe('projects')
-    expect(vm.selected).toBe(2)
-  })
-
-  it('listLength equals tasks.length in tasks view', () => {
-    const { projState, sphere } = buildTestState()
-    const uiState = makeUIState({ currentSphereId: sphere.id, navStack: [{ view: 'tasks' as const, selected: 0, showCompleted: false }] })
-    const vm = deriveViewModel(projState, uiState)
-    expect(vm.listLength).toBe(vm.listItems.items.length)
-  })
-
-  it('listLength equals projects.length in projects view', () => {
-    const { projState, sphere } = buildTestState()
-    const uiState = makeUIState({
-      currentSphereId: sphere.id,
-      navStack: [{ view: 'projects' as const, selected: 0, showArchived: false }],
-    })
-    const vm = deriveViewModel(projState, uiState)
-    expect(vm.listLength).toBe(vm.listItems.items.length)
   })
 })
 
