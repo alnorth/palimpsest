@@ -52,6 +52,10 @@ export interface ListGroup<T> {
   items: T[]
 }
 
+export function flatItems<T>(groups: ListGroup<T>[]): T[] {
+  return groups.flatMap(g => g.items)
+}
+
 export type ProcessingItem =
   | { kind: 'task'; task: Task }
   | { kind: 'project'; project: Project }
