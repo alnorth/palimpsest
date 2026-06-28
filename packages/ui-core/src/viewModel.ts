@@ -286,8 +286,8 @@ export function deriveViewModel(projState: ProjectionState, uiState: UIState): V
         const items: WaitingKindOption[] = [
           { subKind: 'clear',   label: 'Not waiting', key: 'x' },
           { subKind: 'review',  label: 'Review',      key: 'r' },
-          { subKind: 'agenda',  label: 'Agenda…' },
-          { subKind: 'project', label: 'Project…' },
+          { subKind: 'agenda',  label: 'Agenda…',  key: 'a' },
+          { subKind: 'project', label: 'Project…', key: 'p' },
         ]
         return { view, groups: [{ title: '', items }], items, selectedItem: items[selected] }
       }
