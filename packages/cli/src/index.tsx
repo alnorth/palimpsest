@@ -5,7 +5,7 @@ import { Title } from './Title.js'
 import TextInput from 'ink-text-input'
 import { FilePalimpsestStore, CLEAR, getProject, getAgenda, getContext, buildStateFromConfig, PALIMPSEST_CONFIG, createEmptyState, isValidExpression } from 'palimpsest'
 import type { PalimpsestStore, ProjectionState } from 'palimpsest'
-import { useAppState, ClientPalimpsestStore, parseDueDate, getDueDatePreview, getRecurrencePreview, AGENDA_PREFIX, PROJECT_PREFIX, CONTEXT_PREFIX, RECURRENCE_PREFIX } from 'palimpsest-ui-core'
+import { useAppState, ClientPalimpsestStore, parseDueDate, getDueDatePreview, getRecurrencePreview, resolveKeyAction, AGENDA_PREFIX, PROJECT_PREFIX, CONTEXT_PREFIX, RECURRENCE_PREFIX } from 'palimpsest-ui-core'
 import { FilePendingEventStore } from './FilePendingEventStore.js'
 import type { View } from 'palimpsest-ui-core'
 import { formatDate, formatDateTime } from './format.js'
@@ -73,7 +73,7 @@ function App() {
 function LoadedApp({ initialState }: { initialState: ProjectionState }) {
   const {
     view, mode, activeTask, activeProject,
-    activeSphere, agendas, contexts, projectStats, listItems, currentTask, selectedItem, selectedProject, spheres, subtitle,
+    activeSphere, projectStats, listItems, currentTask, selectedItem, selectedProject, spheres, subtitle,
     searchQuery, projState, commands, dispatch, canGoBack, showCompleted, showArchived, showProject,
     syncState,
   } = useAppState(store, initialState)
@@ -90,12 +90,9 @@ function LoadedApp({ initialState }: { initialState: ProjectionState }) {
 
   useInput((input, key) => {
     if (key.escape) {
-      if (mode !== 'list') {
-        setFormValue('')
-        dispatch({ type: 'set-mode', mode: 'list' })
-      } else {
-        dispatch({ type: 'go-back' })
-      }
+      setFormValue('')
+      // resolveKeyAction always returns non-null for escape
+      dispatch(resolveKeyAction('', true, false, false, mode, commands)!)
       return
     }
     // Text-input modes: TextInput component handles the rest
@@ -164,25 +161,16 @@ function LoadedApp({ initialState }: { initialState: ProjectionState }) {
       }
     }
 
-    const cmd = Object.values(commands).find(c => c.key === input)
-    if (cmd) {
-      if (cmd.id === 'edit-task' && currentTask !== undefined) setFormValue(currentTask.title)
-      if (cmd.id === 'edit-description') setFormValue(currentTask?.description ?? '')
-      if (cmd.id === 'set-recurrence') setFormValue(currentTask?.dueDateExpression ?? '')
-      if (cmd.id === 'edit-project' && selectedProject !== undefined) {
-        setFormValue(selectedProject.name)
+    const action = resolveKeyAction(input, false, false, false, mode, commands)
+    if (action !== null) {
+      if (action.type === 'set-mode') {
+        if (action.mode === 'editing-task') setFormValue(currentTask?.title ?? '')
+        else if (action.mode === 'editing-description') setFormValue(currentTask?.description ?? '')
+        else if (action.mode === 'editing-recurrence') setFormValue(currentTask?.dueDateExpression ?? '')
+        else if (action.mode === 'editing-project') setFormValue(selectedProject?.name ?? '')
+        else setFormValue('')
       }
-      if (cmd.id === 'pick-agenda' && currentTask !== undefined) {
-        const idx = currentTask.agendaId !== undefined ? agendas.findIndex(a => a.id === currentTask.agendaId) + 1 : 0
-        dispatch({ type: 'navigate', navState: { view: 'picking-agenda-for-task', selected: Math.max(0, idx), activeTaskId: currentTask.id } })
-      } else if (cmd.id === 'pick-context' && currentTask !== undefined) {
-        const idx = currentTask.contextId !== undefined ? contexts.findIndex(c => c.id === currentTask.contextId) + 1 : 0
-        dispatch({ type: 'navigate', navState: { view: 'picking-context-for-task', selected: Math.max(0, idx), activeTaskId: currentTask.id } })
-      } else if (cmd.id === 'pick-project' && currentTask !== undefined) {
-        dispatch({ type: 'navigate', navState: { view: 'picking-project-for-task', selected: 0, activeTaskId: currentTask.id, searchQuery: '' } })
-      } else {
-        dispatch(cmd.action)
-      }
+      dispatch(action)
     }
   })
 

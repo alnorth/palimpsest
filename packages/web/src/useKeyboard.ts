@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
-import type { AppStateResult, Command } from 'palimpsest-ui-core'
+import { resolveKeyAction } from 'palimpsest-ui-core'
+import type { AppStateResult } from 'palimpsest-ui-core'
 
 function isInputFocused(): boolean {
   const tag = document.activeElement?.tagName.toLowerCase()
@@ -10,31 +11,21 @@ export function useKeyboard(
   appState: AppStateResult,
   setFormValue: (v: string) => void,
 ): void {
-  const { mode, listItems, currentTask, agendas, contexts, commands, dispatch, activate, activateSelected } = appState
+  const { mode, listItems, commands, dispatch, activate, activateSelected } = appState
 
   useEffect(() => {
     function handler(e: KeyboardEvent) {
       if (e.key === 'Escape') {
-        if (mode !== 'list') {
-          setFormValue('')
-          dispatch({ type: 'set-mode', mode: 'list' })
-        } else {
-          dispatch({ type: 'go-back' })
-        }
+        setFormValue('')
+        // resolveKeyAction always returns non-null for escape
+        dispatch(resolveKeyAction('', true, false, false, mode, commands)!)
         return
       }
 
       if (isInputFocused()) return
-      if (mode !== 'list') return
 
-      if (e.key === 'ArrowUp') {
-        dispatch({ type: 'move-up' })
-        return
-      }
-      if (e.key === 'ArrowDown') {
-        dispatch({ type: 'move-down' })
-        return
-      }
+      if (e.key === 'ArrowUp') { dispatch({ type: 'move-up' }); return }
+      if (e.key === 'ArrowDown') { dispatch({ type: 'move-down' }); return }
 
       const input = e.key.length === 1 ? e.key : ''
 
@@ -73,32 +64,16 @@ export function useKeyboard(
       }
 
       // List views: Enter activates selected item
-      if (e.key === 'Enter') {
-        activateSelected()
-        return
-      }
+      if (e.key === 'Enter') { activateSelected(); return }
 
       // Letter command shortcuts
       if (input !== '') {
-        const cmd = Object.values(commands).filter((c): c is Command => c !== undefined).find(c => c.key === input)
-        if (cmd !== undefined) {
-          e.preventDefault()
-          if (cmd.id === 'pick-agenda' && currentTask !== undefined) {
-            const idx = currentTask.agendaId !== undefined ? agendas.findIndex(a => a.id === currentTask.agendaId) + 1 : 0
-            dispatch({ type: 'navigate', navState: { view: 'picking-agenda-for-task', selected: Math.max(0, idx), activeTaskId: currentTask.id } })
-          } else if (cmd.id === 'pick-context' && currentTask !== undefined) {
-            const idx = currentTask.contextId !== undefined ? contexts.findIndex(c => c.id === currentTask.contextId) + 1 : 0
-            dispatch({ type: 'navigate', navState: { view: 'picking-context-for-task', selected: Math.max(0, idx), activeTaskId: currentTask.id } })
-          } else if (cmd.id === 'pick-project' && currentTask !== undefined) {
-            dispatch({ type: 'navigate', navState: { view: 'picking-project-for-task', selected: 0, activeTaskId: currentTask.id, searchQuery: '' } })
-          } else {
-            dispatch(cmd.action)
-          }
-        }
+        const action = resolveKeyAction(e.key, false, false, false, mode, commands)
+        if (action !== null) { e.preventDefault(); dispatch(action) }
       }
     }
 
     document.addEventListener('keydown', handler)
     return () => document.removeEventListener('keydown', handler)
-  }, [mode, listItems, currentTask, agendas, contexts, commands, dispatch, activate, activateSelected, setFormValue])
+  }, [mode, listItems, commands, dispatch, activate, activateSelected, setFormValue])
 }
