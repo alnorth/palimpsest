@@ -163,6 +163,9 @@ export function getCommands(vm: ViewModel): Partial<Record<CommandId, Command>> 
 
   // ── Pick agenda ──────────────────────────────────────────────────────────────
   if (currentTask?.status === 'open') {
+    const agendaIdx = currentTask.agendaId !== undefined
+      ? Math.max(0, agendas.findIndex(a => a.id === currentTask.agendaId) + 1)
+      : 0
     commands['pick-agenda'] = {
       id: 'pick-agenda',
       label: 'agenda',
@@ -170,13 +173,16 @@ export function getCommands(vm: ViewModel): Partial<Record<CommandId, Command>> 
       key: 'a',
       action: {
         type: 'navigate',
-        navState: { view: 'picking-agenda-for-task', selected: 0, activeTaskId: currentTask.id },
+        navState: { view: 'picking-agenda-for-task', selected: agendaIdx, activeTaskId: currentTask.id },
       },
     }
   }
 
   // ── Pick context ──────────────────────────────────────────────────────────────
   if (currentTask?.status === 'open') {
+    const contextIdx = currentTask.contextId !== undefined
+      ? Math.max(0, contexts.findIndex(c => c.id === currentTask.contextId) + 1)
+      : 0
     commands['pick-context'] = {
       id: 'pick-context',
       label: 'context',
@@ -184,7 +190,7 @@ export function getCommands(vm: ViewModel): Partial<Record<CommandId, Command>> 
       key: 'k',
       action: {
         type: 'navigate',
-        navState: { view: 'picking-context-for-task', selected: 0, activeTaskId: currentTask.id },
+        navState: { view: 'picking-context-for-task', selected: contextIdx, activeTaskId: currentTask.id },
       },
     }
   }
