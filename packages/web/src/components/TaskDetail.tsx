@@ -40,7 +40,17 @@ export function TaskDetail({ task, state, commands, dispatch }: Props) {
         {task.isStarred === true && <Text size="sm" c="dimmed">starred</Text>}
         {task.waitingFor !== undefined && (
           <Text size="sm" c="dimmed">
-            waiting    {task.waitingFor.kind === 'review' ? 'for review' : `for ${task.waitingFor.kind}`}
+            waiting    {
+              task.waitingFor.kind === 'review' ? 'for review' :
+              task.waitingFor.kind === 'agenda' ? (() => {
+                const wfAgenda = getAgenda(state, task.waitingFor.agendaId)
+                return wfAgenda !== undefined ? `${AGENDA_PREFIX}${wfAgenda.title}` : `${AGENDA_PREFIX}?`
+              })() :
+              (() => {
+                const wfProject = getProject(state, task.waitingFor.projectId)
+                return wfProject !== undefined ? `${PROJECT_PREFIX}${wfProject.name}` : `${PROJECT_PREFIX}?`
+              })()
+            }
           </Text>
         )}
       </Stack>

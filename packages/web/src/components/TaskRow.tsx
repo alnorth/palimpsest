@@ -19,6 +19,17 @@ export function TaskRow({ task, flatIndex, isSelected, isMobile, state, showProj
   const sel = isSelected && !isMobile
   const project = showProject && task.projectId !== undefined ? getProject(state, task.projectId) : undefined
   const agenda = task.agendaId !== undefined ? getAgenda(state, task.agendaId) : undefined
+  const waitingLabel = task.waitingFor !== undefined ? (
+    task.waitingFor.kind === 'review' ? 'w/ review' :
+    task.waitingFor.kind === 'agenda' ? (() => {
+      const a = getAgenda(state, task.waitingFor.agendaId)
+      return a !== undefined ? `w/ ${AGENDA_PREFIX}${a.title}` : 'w/ agenda'
+    })() :
+    (() => {
+      const p = getProject(state, task.waitingFor.projectId)
+      return p !== undefined ? `w/ ${PROJECT_PREFIX}${p.name}` : 'w/ project'
+    })()
+  ) : undefined
   return (
     <Text
       size="sm"
@@ -52,6 +63,7 @@ export function TaskRow({ task, flatIndex, isSelected, isMobile, state, showProj
       {project !== undefined && <Text span size="xs" c="dimmed">{' · '}{PROJECT_PREFIX}{project.name}</Text>}
       {agenda !== undefined && <Text span size="xs" c="dimmed">{' · '}{AGENDA_PREFIX}{agenda.title}</Text>}
       {task.dueDate !== undefined && <Text span size="xs" c="dimmed">{' · '}{task.dueDate}</Text>}
+      {waitingLabel !== undefined && <Text span size="xs" c="dimmed">{' · '}{waitingLabel}</Text>}
     </Text>
   )
 }

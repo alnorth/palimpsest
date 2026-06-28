@@ -276,6 +276,16 @@ function LoadedApp({ initialState }: { initialState: ProjectionState }) {
       const detailProject = activeTask?.projectId !== undefined ? getProject(projState, activeTask.projectId) : undefined
       const detailAgenda = activeTask?.agendaId !== undefined ? getAgenda(projState, activeTask.agendaId) : undefined
       const detailContext = activeTask?.contextId !== undefined ? getContext(projState, activeTask.contextId) : undefined
+      const wfLabel = activeTask?.waitingFor !== undefined ? (() => {
+        const wf = activeTask.waitingFor!
+        if (wf.kind === 'review') return 'for review'
+        if (wf.kind === 'agenda') {
+          const a = getAgenda(projState, wf.agendaId)
+          return a !== undefined ? `${AGENDA_PREFIX}${a.title}` : `${AGENDA_PREFIX}?`
+        }
+        const p = getProject(projState, wf.projectId)
+        return p !== undefined ? `${PROJECT_PREFIX}${p.name}` : `${PROJECT_PREFIX}?`
+      })() : undefined
       return (
         <Box flexDirection="column">
           {activeTask?.description
@@ -291,6 +301,7 @@ function LoadedApp({ initialState }: { initialState: ProjectionState }) {
             {activeTask?.completedAt !== undefined ? <Text dimColor>completed  {formatDateTime(activeTask.completedAt)}</Text> : null}
             {activeTask?.isNext === true ? <Text dimColor>next action</Text> : null}
             {activeTask?.isStarred === true ? <Text dimColor>starred</Text> : null}
+            {wfLabel !== undefined ? <Text dimColor>waiting    {wfLabel}</Text> : null}
           </Box>
         </Box>
       )
