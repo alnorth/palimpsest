@@ -2,7 +2,7 @@ import {
   listTasks, listProjects, listSpheres, listAgendas, listContexts, getProject,
   addDays, nextWeekday,
 } from 'palimpsest'
-import type { Task, Project, Sphere, Agenda, Context, ProjectionState, ProjectId, AgendaId, ContextId } from 'palimpsest'
+import type { Task, Project, Sphere, Agenda, Context, ProjectionState, ProjectId, AgendaId, ContextId, WaitingFor } from 'palimpsest'
 import { INITIAL_NAV } from './types.js'
 import type { UIState, View, Mode, TopLevelView } from './types.js'
 import { AGENDA_PREFIX, CONTEXT_PREFIX } from './prefixes.js'
@@ -29,6 +29,12 @@ export type ProjectPickerItem = PickerItem<ProjectId | null>
 export type WaitingKindOption = PickerItem<WaitingKind>
 export type WaitingAgendaPickerItem = PickerItem<AgendaId>
 export type WaitingProjectPickerItem = PickerItem<ProjectId>
+
+const WAITING_KIND_LABELS: Record<WaitingFor['kind'], string> = {
+  review: 'Review',
+  agenda: 'Agenda',
+  project: 'Project',
+}
 
 export const VIEW_CONFIG: ViewPickerItem[] = [
   { value: 'dashboard',  label: 'Dashboard',  key: 'd' },
@@ -252,15 +258,11 @@ export function deriveViewModel(projState: ProjectionState, uiState: UIState): V
           ? listTasks(projState, { sphereId: activeSphere.id, status: 'open', isWaiting: true })
           : []
 
-        const reviewTasks = waitingTasks.filter(t => t.waitingFor?.kind === 'review')
-        const agendaTasks = waitingTasks.filter(t => t.waitingFor?.kind === 'agenda')
-        const projectTasks = waitingTasks.filter(t => t.waitingFor?.kind === 'project')
-
-        const groups: ListGroup<ListItem>[] = [
-          ...(reviewTasks.length > 0 ? [{ title: 'Review', items: reviewTasks.map((t): ListItem => ({ kind: 'task', task: t })) }] : []),
-          ...(agendaTasks.length > 0 ? [{ title: 'Agenda', items: agendaTasks.map((t): ListItem => ({ kind: 'task', task: t })) }] : []),
-          ...(projectTasks.length > 0 ? [{ title: 'Project', items: projectTasks.map((t): ListItem => ({ kind: 'task', task: t })) }] : []),
-        ]
+        const groups: ListGroup<ListItem>[] = (Object.keys(WAITING_KIND_LABELS) as Array<WaitingFor['kind']>).flatMap(kind => {
+          const kindTasks = waitingTasks.filter(t => t.waitingFor?.kind === kind)
+          if (kindTasks.length === 0) return []
+          return [{ title: WAITING_KIND_LABELS[kind], items: kindTasks.map((t): ListItem => ({ kind: 'task', task: t })) }]
+        })
         const items = flatItems(groups)
         return { view, groups, items, emptyMessage: 'No waiting tasks.', selectedItem: items[selected] }
       }
