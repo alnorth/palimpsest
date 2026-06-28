@@ -7,9 +7,8 @@ import type { Command } from 'palimpsest-ui-core'
 import { CommandButton } from './components/CommandButton.js'
 import { useKeyboard } from './useKeyboard.js'
 import { useUrlSync } from './useUrlSync.js'
-import { TaskList } from './components/TaskList.js'
+import { ItemList } from './components/ItemList.js'
 import { TaskDetail } from './components/TaskDetail.js'
-import { ProjectList } from './components/ProjectList.js'
 import { CommandBar } from './components/CommandBar.js'
 import { MobileFooter } from './components/MobileFooter.js'
 import { NavDrawer } from './components/NavDrawer.js'
@@ -73,15 +72,14 @@ function FormModal({ opened, onClose, title, placeholder, preview, value, onChan
 export function LoadedApp({ store, initialState }: Props) {
   const appState = useAppState(store, initialState)
   const {
-    view, mode, selected, activeTask, activeProject,
-    activeSphere, spheres, projectStats, listItems, currentTask,
-    subtitle, projState, commands, dispatch, canGoBack, showCompleted, showArchived,
-    syncState, searchQuery, activate,
+    view, mode, activeTask, activeProject,
+    activeSphere, spheres, projectStats, listItems, currentTask, selectedProject,
+    subtitle, projState, commands, dispatch, canGoBack, showCompleted, showArchived, showProject,
+    syncState, searchQuery, activate, selectedItem,
   } = appState
 
   const [formValue, setFormValue] = useState('')
   const [navDrawerOpen, setNavDrawerOpen] = useState(false)
-
   // Prepopulate the form when entering an editing mode (e.g. via button click in TaskDetail)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
@@ -91,8 +89,8 @@ export function LoadedApp({ store, initialState }: Props) {
       setFormValue(currentTask?.description ?? '')
     } else if (mode === 'editing-recurrence') {
       setFormValue(currentTask?.dueDateExpression ?? '')
-    } else if (mode === 'editing-project' && listItems.view === 'projects') {
-      setFormValue(listItems.items[selected]?.name ?? '')
+    } else if (mode === 'editing-project') {
+      setFormValue(selectedProject?.name ?? '')
     }
   }, [mode]) // intentionally omit other deps — we only want to run on mode transitions
 
@@ -174,9 +172,8 @@ export function LoadedApp({ store, initialState }: Props) {
 
   function handleEditProjectSubmit(name: string) {
     const trimmed = name.trim()
-    const project = listItems.view === 'projects' ? listItems.items[selected] : undefined
-    if (trimmed && project !== undefined) {
-      dispatch({ type: 'edit-project', projectId: project.id, name: trimmed })
+    if (trimmed && selectedProject !== undefined) {
+      dispatch({ type: 'edit-project', projectId: selectedProject.id, name: trimmed })
     } else {
       dispatch({ type: 'set-mode', mode: 'list' })
     }
@@ -197,36 +194,25 @@ export function LoadedApp({ store, initialState }: Props) {
 
   const toggleCmd = commands['toggle-completed'] ?? commands['toggle-archived']
 
-  let titleText: string
-  if (listItems.view === 'picking-due-date') {
-    titleText = `Due date${currentTask !== undefined ? ` — ${currentTask.title}` : ''}`
-  } else if (listItems.view === 'picking-agenda-for-task') {
-    titleText = `Agenda${currentTask !== undefined ? ` — ${currentTask.title}` : ''}`
-  } else if (listItems.view === 'picking-context-for-task') {
-    titleText = `Context${currentTask !== undefined ? ` — ${currentTask.title}` : ''}`
-  } else if (listItems.view === 'picking-project-for-task') {
-    titleText = `Project${currentTask !== undefined ? ` — ${currentTask.title}` : ''}`
-  } else if (listItems.view === 'picking-view') {
-    titleText = 'View'
-  } else {
-    titleText = `${activeSphere?.name ?? 'Palimpsest'} — ${subtitle}`
-  }
+  const titleText = view.startsWith('picking-')
+    ? subtitle
+    : `${activeSphere?.name ?? 'Palimpsest'} — ${subtitle}`
 
   let content: React.ReactNode
 
   if (listItems.view === 'picking-view') {
-    content = <ViewPicker items={listItems.items} selected={selected} onHover={handleHover} onActivate={activate} />
+    content = <ViewPicker items={listItems.items} selectedItem={listItems.selectedItem} onHover={handleHover} onActivate={activate} />
   } else if (listItems.view === 'picking-agenda-for-task') {
-    content = <AgendaPicker items={listItems.items} selected={selected} onHover={handleHover} onActivate={activate} />
+    content = <AgendaPicker items={listItems.items} selectedItem={listItems.selectedItem} onHover={handleHover} onActivate={activate} />
   } else if (listItems.view === 'picking-context-for-task') {
-    content = <ContextPicker items={listItems.items} selected={selected} onHover={handleHover} onActivate={activate} />
+    content = <ContextPicker items={listItems.items} selectedItem={listItems.selectedItem} onHover={handleHover} onActivate={activate} />
   } else if (listItems.view === 'picking-due-date') {
-    content = <DueDatePicker items={listItems.items} selected={selected} onHover={handleHover} onActivate={activate} />
+    content = <DueDatePicker items={listItems.items} selectedItem={listItems.selectedItem} onHover={handleHover} onActivate={activate} />
   } else if (listItems.view === 'picking-project-for-task') {
     content = (
       <ProjectSearch
         items={listItems.items}
-        selected={selected}
+        selectedItem={listItems.selectedItem}
         searchQuery={searchQuery}
         onSearchChange={v => dispatch({ type: 'update-nav', patch: { searchQuery: v, selected: 0 } })}
         onHover={handleHover}
@@ -235,44 +221,6 @@ export function LoadedApp({ store, initialState }: Props) {
     )
   } else if (listItems.view === 'task' && activeTask !== undefined) {
     content = <TaskDetail task={activeTask} state={projState} commands={commands} dispatch={dispatch} />
-  } else if (listItems.view === 'dashboard') {
-    content = (
-      <TaskList
-        tasks={listItems.items}
-        selected={selected}
-        state={projState}
-        showProject
-        emptyMessage="No tasks due today and no starred tasks."
-        onHover={handleHover}
-        onActivate={activate}
-        onComplete={handleTaskComplete}
-      />
-    )
-  } else if (listItems.view === 'tasks') {
-    content = (
-      <TaskList
-        tasks={listItems.items}
-        selected={selected}
-        state={projState}
-        showProject
-        emptyMessage={showCompleted ? 'No completed tasks in this sphere.' : 'No open tasks in this sphere.'}
-        onHover={handleHover}
-        onActivate={activate}
-        onComplete={handleTaskComplete}
-      />
-    )
-  } else if (listItems.view === 'projects') {
-    content = (
-      <ProjectList
-        projects={listItems.items}
-        selected={selected}
-        projectStats={projectStats}
-        showArchived={showArchived}
-        emptyMessage="No projects."
-        onHover={handleHover}
-        onActivate={activate}
-      />
-    )
   } else if (listItems.view === 'project') {
     const stateCommands = (Object.values(commands) as Command[]).filter(c => c.group === 'state')
     content = (
@@ -284,16 +232,33 @@ export function LoadedApp({ store, initialState }: Props) {
             ))}
           </Group>
         )}
-        <TaskList
-          tasks={listItems.items}
-          selected={selected}
+        <ItemList
+          groups={listItems.groups}
+          selectedItem={selectedItem}
           state={projState}
-          emptyMessage={showCompleted ? 'No completed tasks in this project.' : 'No open tasks in this project.'}
+          projectStats={projectStats}
+          showArchived={showArchived}
+          emptyMessage={listItems.emptyMessage}
           onHover={handleHover}
           onActivate={activate}
           onComplete={handleTaskComplete}
         />
       </Stack>
+    )
+  } else if (listItems.view === 'dashboard' || listItems.view === 'tasks' || listItems.view === 'projects' || listItems.view === 'processing') {
+    content = (
+      <ItemList
+        groups={listItems.groups}
+        selectedItem={selectedItem}
+        state={projState}
+        projectStats={projectStats}
+        showArchived={showArchived}
+        emptyMessage={listItems.emptyMessage}
+        onHover={handleHover}
+        onActivate={activate}
+        onComplete={handleTaskComplete}
+        {...(showProject ? { showProject } : {})}
+      />
     )
   } else {
     content = activeSphere === undefined

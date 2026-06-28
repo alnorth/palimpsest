@@ -1,10 +1,10 @@
 import type { TaskId, ProjectId, SphereId, AgendaId, ContextId } from 'palimpsest'
 import type { CLEAR } from 'palimpsest'
 
-export type TopLevelView = 'dashboard' | 'tasks' | 'projects'
+export type TopLevelView = 'dashboard' | 'tasks' | 'projects' | 'processing'
 
 export type View =
-  | 'dashboard' | 'tasks' | 'projects' | 'project' | 'task'
+  | 'dashboard' | 'tasks' | 'projects' | 'project' | 'task' | 'processing'
   | 'picking-view'
   | 'picking-agenda-for-task'
   | 'picking-context-for-task'
@@ -25,6 +25,7 @@ export type NavState =
   | { view: 'dashboard'; selected: number }
   | { view: 'tasks'; selected: number; showCompleted: boolean }
   | { view: 'projects'; selected: number; showArchived: boolean }
+  | { view: 'processing'; selected: number }
   | { view: 'project'; selected: number; activeProjectId: ProjectId; showCompleted: boolean }
   | { view: 'task'; activeTaskId: TaskId }
   | { view: 'picking-view'; selected: number }
@@ -57,6 +58,8 @@ export type UIAction =
   | { type: 'update-nav'; patch: { selected?: number; searchQuery?: string } }
   | { type: 'set-mode'; mode: Mode }
   | { type: 'set-sphere'; sphereId: SphereId }
+  | { type: 'move-up' }
+  | { type: 'move-down' }
 
 export type DataAction =
   | { type: 'create-task'; title: string; projectId?: ProjectId; sphereId?: SphereId }

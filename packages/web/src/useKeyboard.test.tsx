@@ -16,7 +16,6 @@ function makeAppState(overrides: Partial<AppStateResult> = {}): AppStateResult {
   const base: ViewModel = {
     view: 'dashboard',
     mode: 'list',
-    selected: 0,
     activeTask: undefined,
     activeProject: undefined,
     activeSphere: { id: SPHERE_ID, name: 'Work' },
@@ -24,18 +23,16 @@ function makeAppState(overrides: Partial<AppStateResult> = {}): AppStateResult {
     contexts: [],
     spheres: [{ id: SPHERE_ID, name: 'Work' }],
     projectStats: { hasNext: new Set(), taskCount: new Map() },
-    listItems: { view: 'dashboard', items: [] },
-    listLength: 0,
+    listItems: { view: 'dashboard', groups: [], items: [], emptyMessage: '', selectedItem: undefined },
+    selectedItem: undefined,
+    selectedProject: undefined,
     currentTask: undefined,
     subtitle: 'Work',
     searchQuery: '',
     canGoBack: false,
     showCompleted: false,
     showArchived: false,
-    tasks: [],
-    dashboardTasks: [],
-    projects: [],
-    projectTasks: [],
+    showProject: false,
   }
   return {
     ...base,
@@ -43,6 +40,7 @@ function makeAppState(overrides: Partial<AppStateResult> = {}): AppStateResult {
     commands: {},
     dispatch: vi.fn(),
     activate: vi.fn(),
+    activateSelected: vi.fn(),
     syncState: { health: 'idle', unsyncedCount: 0, pendingConflicts: [], lastError: undefined },
     ...overrides,
   }
@@ -74,25 +72,25 @@ describe('useKeyboard', () => {
     expect(dispatch).toHaveBeenCalledWith({ type: 'set-mode', mode: 'list' })
   })
 
-  it('dispatches navigate selected-1 on ArrowUp', () => {
+  it('dispatches move-up on ArrowUp', () => {
     const dispatch = vi.fn()
-    const appState = makeAppState({ dispatch, selected: 2, listLength: 5 })
+    const appState = makeAppState({ dispatch })
     render(<TestHarness appState={appState} />)
     fireEvent.keyDown(document, { key: 'ArrowUp' })
-    expect(dispatch).toHaveBeenCalledWith({ type: 'update-nav', patch: { selected: 1 } })
+    expect(dispatch).toHaveBeenCalledWith({ type: 'move-up' })
   })
 
-  it('dispatches navigate selected+1 on ArrowDown', () => {
+  it('dispatches move-down on ArrowDown', () => {
     const dispatch = vi.fn()
-    const appState = makeAppState({ dispatch, selected: 2, listLength: 5 })
+    const appState = makeAppState({ dispatch })
     render(<TestHarness appState={appState} />)
     fireEvent.keyDown(document, { key: 'ArrowDown' })
-    expect(dispatch).toHaveBeenCalledWith({ type: 'update-nav', patch: { selected: 3 } })
+    expect(dispatch).toHaveBeenCalledWith({ type: 'move-down' })
   })
 
   it('does not fire navigation when an input element is focused', () => {
     const dispatch = vi.fn()
-    const appState = makeAppState({ dispatch, selected: 2, listLength: 5, activate: vi.fn() })
+    const appState = makeAppState({ dispatch, activate: vi.fn() })
     render(<TestHarness appState={appState} />)
     const input = document.createElement('input')
     document.body.appendChild(input)

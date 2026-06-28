@@ -29,12 +29,12 @@ function PickerRow({ isSelected, onMouseEnter, onClick, children }: {
   )
 }
 
-export function ViewPicker({ items, selected, onHover, onActivate }: { items: ViewPickerItem[]; selected: number; onHover?: (i: number) => void; onActivate?: (i: number) => void }) {
+export function ViewPicker({ items, selectedItem, onHover, onActivate }: { items: ViewPickerItem[]; selectedItem: ViewPickerItem | undefined; onHover?: (i: number) => void; onActivate?: (i: number) => void }) {
   const isMobile = useMediaQuery('(max-width: 768px)')
   return (
     <Stack gap={2}>
       {items.map((item, i) => {
-        const isSelected = i === selected && !isMobile
+        const isSelected = item === selectedItem && !isMobile
         return (
           <PickerRow key={item.id} isSelected={isSelected} onMouseEnter={onHover !== undefined ? () => onHover(i) : undefined} onClick={onActivate !== undefined ? () => onActivate(i) : undefined}>
             <Text size="sm" {...(isSelected ? { c: 'blue' } : {})}>
@@ -48,12 +48,12 @@ export function ViewPicker({ items, selected, onHover, onActivate }: { items: Vi
   )
 }
 
-export function AgendaPicker({ items, selected, onHover, onActivate }: { items: AgendaPickerItem[]; selected: number; onHover?: (i: number) => void; onActivate?: (i: number) => void }) {
+export function AgendaPicker({ items, selectedItem, onHover, onActivate }: { items: AgendaPickerItem[]; selectedItem: AgendaPickerItem | undefined; onHover?: (i: number) => void; onActivate?: (i: number) => void }) {
   const isMobile = useMediaQuery('(max-width: 768px)')
   return (
     <Stack gap={2}>
       {items.map((item, i) => {
-        const isSelected = i === selected && !isMobile
+        const isSelected = item === selectedItem && !isMobile
         return (
           <PickerRow key={item.title} isSelected={isSelected} onMouseEnter={onHover !== undefined ? () => onHover(i) : undefined} onClick={onActivate !== undefined ? () => onActivate(i) : undefined}>
             <Text size="sm" {...(isSelected ? { c: 'blue' } : {})}>
@@ -67,12 +67,12 @@ export function AgendaPicker({ items, selected, onHover, onActivate }: { items: 
   )
 }
 
-export function ContextPicker({ items, selected, onHover, onActivate }: { items: ContextPickerItem[]; selected: number; onHover?: (i: number) => void; onActivate?: (i: number) => void }) {
+export function ContextPicker({ items, selectedItem, onHover, onActivate }: { items: ContextPickerItem[]; selectedItem: ContextPickerItem | undefined; onHover?: (i: number) => void; onActivate?: (i: number) => void }) {
   const isMobile = useMediaQuery('(max-width: 768px)')
   return (
     <Stack gap={2}>
       {items.map((item, i) => {
-        const isSelected = i === selected && !isMobile
+        const isSelected = item === selectedItem && !isMobile
         return (
           <PickerRow key={item.name} isSelected={isSelected} onMouseEnter={onHover !== undefined ? () => onHover(i) : undefined} onClick={onActivate !== undefined ? () => onActivate(i) : undefined}>
             <Text size="sm" {...(isSelected ? { c: 'blue' } : {})}>
@@ -86,12 +86,12 @@ export function ContextPicker({ items, selected, onHover, onActivate }: { items:
   )
 }
 
-export function DueDatePicker({ items, selected, onHover, onActivate }: { items: DueDateOption[]; selected: number; onHover?: (i: number) => void; onActivate?: (i: number) => void }) {
+export function DueDatePicker({ items, selectedItem, onHover, onActivate }: { items: DueDateOption[]; selectedItem: DueDateOption | undefined; onHover?: (i: number) => void; onActivate?: (i: number) => void }) {
   const isMobile = useMediaQuery('(max-width: 768px)')
   return (
     <Stack gap={2}>
       {items.map((opt, i) => {
-        const isSelected = i === selected && !isMobile
+        const isSelected = opt === selectedItem && !isMobile
         const label = opt.date !== null ? `${opt.label} — ${opt.date}` : opt.label
         return (
           <PickerRow key={opt.key} isSelected={isSelected} onMouseEnter={onHover !== undefined ? () => onHover(i) : undefined} onClick={onActivate !== undefined ? () => onActivate(i) : undefined}>
@@ -108,14 +108,14 @@ export function DueDatePicker({ items, selected, onHover, onActivate }: { items:
 
 export function ProjectSearch({
   items,
-  selected,
+  selectedItem,
   searchQuery,
   onSearchChange,
   onHover,
   onActivate,
 }: {
   items: ProjectPickerItem[]
-  selected: number
+  selectedItem: ProjectPickerItem | undefined
   searchQuery: string
   onSearchChange: (v: string) => void
   onHover?: (i: number) => void
@@ -137,7 +137,7 @@ export function ProjectSearch({
             <Text size="sm" c="blue">{'> '}Create project "{searchQuery.trim()}"</Text>
           </PickerRow>
         ) : items.map((p, i) => {
-          const isSelected = i === selected && !isMobile
+          const isSelected = p === selectedItem && !isMobile
           return (
             <PickerRow key={p.id ?? 'null'} isSelected={isSelected} onMouseEnter={onHover !== undefined ? () => onHover(i) : undefined} onClick={onActivate !== undefined ? () => onActivate(i) : undefined}>
               <Text size="sm" {...(isSelected ? { c: 'blue' } : {})}>

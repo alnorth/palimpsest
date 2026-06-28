@@ -1,6 +1,6 @@
 import { useMemo, useCallback, useReducer } from 'react'
 import {
-  listTasks, listProjects,
+  listTasks,
   createTask, updateTask, completeTask, uncompleteTask,
   createProject, updateProject, archiveProject, unarchiveProject,
   CLEAR,
@@ -27,6 +27,7 @@ export interface AppStateResult extends ViewModel {
   commands: Partial<Record<CommandId, Command>>
   dispatch: (action: Action) => void
   activate: (index: number) => void
+  activateSelected: () => void
   syncState: SyncState
 }
 
@@ -64,6 +65,17 @@ export function useAppState(store: PalimpsestStore, initialState: ProjectionStat
   const commands = useMemo(() => getCommands(vm), [vm])
 
   const dispatch = useCallback((action: Action) => {
+    if (action.type === 'move-up') {
+      const cur = navSelected(uiState.navStack[uiState.navStack.length - 1])
+      dispatchUI({ type: 'update-nav', patch: { selected: Math.max(0, cur - 1) } })
+      return
+    }
+    if (action.type === 'move-down') {
+      const cur = navSelected(uiState.navStack[uiState.navStack.length - 1])
+      const listLength = vm.listItems.groups.reduce((sum, g) => sum + g.items.length, 0)
+      dispatchUI({ type: 'update-nav', patch: { selected: Math.min(Math.max(0, listLength - 1), cur + 1) } })
+      return
+    }
     if (!isDataAction(action)) {
       dispatchUI(action as UIAction)
       return
@@ -122,26 +134,12 @@ export function useAppState(store: PalimpsestStore, initialState: ProjectionStat
         case 'complete-task': {
           const task = projState.tasks.get(action.taskId)
           if (!task) break
+          await store.appendEvents(completeTask(task))
           if (vm.view !== 'task') {
-            let tasks: typeof vm.dashboardTasks
-            if (vm.view === 'dashboard') {
-              tasks = vm.dashboardTasks
-            } else {
-              const activeProjectId = vm.activeProject?.id
-              const activeSphereId = vm.activeSphere?.id
-              tasks = activeProjectId !== undefined
-                ? listTasks(projState, { projectId: activeProjectId, status: 'open' })
-                : activeSphereId !== undefined
-                  ? listTasks(projState, { sphereId: activeSphereId, status: 'open' })
-                  : []
-            }
-            await store.appendEvents(completeTask(task))
             dispatchUI({
               type: 'update-nav',
-              patch: { selected: indexAfterRemove(tasks, navSelected(uiState.navStack[uiState.navStack.length - 1])) },
+              patch: { selected: indexAfterRemove(vm.listItems.items, navSelected(uiState.navStack[uiState.navStack.length - 1])) },
             })
-          } else {
-            await store.appendEvents(completeTask(task))
           }
           break
         }
@@ -149,21 +147,12 @@ export function useAppState(store: PalimpsestStore, initialState: ProjectionStat
         case 'uncomplete-task': {
           const task = projState.tasks.get(action.taskId)
           if (!task) break
+          await store.appendEvents(uncompleteTask(task))
           if (vm.view !== 'task') {
-            const activeProjectId = vm.activeProject?.id
-            const activeSphereId = vm.activeSphere?.id
-            const tasks = activeProjectId !== undefined
-              ? listTasks(projState, { projectId: activeProjectId, status: 'completed' })
-              : activeSphereId !== undefined
-                ? listTasks(projState, { sphereId: activeSphereId, status: 'completed' })
-                : []
-            await store.appendEvents(uncompleteTask(task))
             dispatchUI({
               type: 'update-nav',
-              patch: { selected: indexAfterRemove(tasks, navSelected(uiState.navStack[uiState.navStack.length - 1])) },
+              patch: { selected: indexAfterRemove(vm.listItems.items, navSelected(uiState.navStack[uiState.navStack.length - 1])) },
             })
-          } else {
-            await store.appendEvents(uncompleteTask(task))
           }
           break
         }
@@ -253,14 +242,10 @@ export function useAppState(store: PalimpsestStore, initialState: ProjectionStat
         case 'archive-project': {
           const project = projState.projects.get(action.projectId)
           if (!project) break
-          const activeSphereId = vm.activeSphere?.id
-          const projects = activeSphereId !== undefined
-            ? listProjects(projState, { sphereId: activeSphereId, isArchived: false })
-            : []
           await store.appendEvents(archiveProject(project))
           dispatchUI({
             type: 'update-nav',
-            patch: { selected: indexAfterRemove(projects, navSelected(uiState.navStack[uiState.navStack.length - 1])) },
+            patch: { selected: indexAfterRemove(vm.listItems.items, navSelected(uiState.navStack[uiState.navStack.length - 1])) },
           })
           break
         }
@@ -268,14 +253,10 @@ export function useAppState(store: PalimpsestStore, initialState: ProjectionStat
         case 'unarchive-project': {
           const project = projState.projects.get(action.projectId)
           if (!project) break
-          const activeSphereId = vm.activeSphere?.id
-          const projects = activeSphereId !== undefined
-            ? listProjects(projState, { sphereId: activeSphereId, isArchived: true })
-            : []
           await store.appendEvents(unarchiveProject(project))
           dispatchUI({
             type: 'update-nav',
-            patch: { selected: indexAfterRemove(projects, navSelected(uiState.navStack[uiState.navStack.length - 1])) },
+            patch: { selected: indexAfterRemove(vm.listItems.items, navSelected(uiState.navStack[uiState.navStack.length - 1])) },
           })
           break
         }
@@ -290,38 +271,42 @@ export function useAppState(store: PalimpsestStore, initialState: ProjectionStat
       if (item !== undefined) {
         dispatch({ type: 'set-nav', navState: navStateForTopLevelView(item.id) })
       }
-    } else if (vm.listItems.view === 'picking-agenda-for-task' && vm.currentTask !== undefined) {
+    } else if (vm.listItems.view === 'picking-agenda-for-task') {
       const item = vm.listItems.items[i]
-      if (item !== undefined) dispatch({ type: 'set-task-agenda', taskId: vm.currentTask.id, agendaId: item.id ?? CLEAR })
-    } else if (vm.listItems.view === 'picking-context-for-task' && vm.currentTask !== undefined) {
+      if (item !== undefined && vm.currentTask !== undefined) dispatch({ type: 'set-task-agenda', taskId: vm.currentTask.id, agendaId: item.id ?? CLEAR })
+    } else if (vm.listItems.view === 'picking-context-for-task') {
       const item = vm.listItems.items[i]
-      if (item !== undefined) dispatch({ type: 'set-task-context', taskId: vm.currentTask.id, contextId: item.id ?? CLEAR })
-    } else if (vm.listItems.view === 'picking-due-date' && vm.currentTask !== undefined) {
+      if (item !== undefined && vm.currentTask !== undefined) dispatch({ type: 'set-task-context', taskId: vm.currentTask.id, contextId: item.id ?? CLEAR })
+    } else if (vm.listItems.view === 'picking-due-date') {
       const opt = vm.listItems.items[i]
-      if (opt !== undefined) {
+      if (opt !== undefined && vm.currentTask !== undefined) {
         if (opt.date !== null) dispatch({ type: 'set-task-due-date', taskId: vm.currentTask.id, dueDate: opt.date })
         else if (opt.key === 'c') dispatch({ type: 'set-mode', mode: 'editing-due-date' })
         else dispatch({ type: 'set-task-due-date', taskId: vm.currentTask.id, dueDate: CLEAR })
       }
-    } else if (vm.listItems.view === 'picking-project-for-task' && vm.currentTask !== undefined) {
+    } else if (vm.listItems.view === 'picking-project-for-task') {
+      const { items } = vm.listItems
+      const item = items[i]
+      if (vm.currentTask !== undefined) {
+        if (item !== undefined) {
+          dispatch({ type: 'set-task-project', taskId: vm.currentTask.id, projectId: item.id ?? CLEAR })
+        } else if (items.length === 0 && vm.searchQuery.trim() !== '' && vm.activeSphere !== undefined) {
+          dispatch({ type: 'create-and-assign-project', name: vm.searchQuery.trim(), sphereId: vm.activeSphere.id, taskId: vm.currentTask.id })
+        }
+      }
+    } else {
       const item = vm.listItems.items[i]
-      if (item !== undefined) {
-        dispatch({ type: 'set-task-project', taskId: vm.currentTask.id, projectId: item.id ?? CLEAR })
-      } else if (vm.listItems.items.length === 0 && vm.searchQuery.trim() !== '' && vm.activeSphere !== undefined) {
-        dispatch({ type: 'create-and-assign-project', name: vm.searchQuery.trim(), sphereId: vm.activeSphere.id, taskId: vm.currentTask.id })
-      }
-    } else if (vm.listItems.view === 'projects') {
-      const project = vm.listItems.items[i]
-      if (project !== undefined) {
-        dispatch({ type: 'navigate', navState: { view: 'project', selected: 0, activeProjectId: project.id, showCompleted: false } })
-      }
-    } else if (vm.listItems.view === 'tasks' || vm.listItems.view === 'project' || vm.listItems.view === 'dashboard') {
-      const task = vm.listItems.items[i]
-      if (task !== undefined) {
-        dispatch({ type: 'navigate', navState: { view: 'task', activeTaskId: task.id } })
+      if (item?.kind === 'task') {
+        dispatch({ type: 'navigate', navState: { view: 'task', activeTaskId: item.task.id } })
+      } else if (item?.kind === 'project') {
+        dispatch({ type: 'navigate', navState: { view: 'project', selected: 0, activeProjectId: item.project.id, showCompleted: false } })
       }
     }
   }, [vm, dispatch])
 
-  return { ...vm, projState, commands, dispatch, activate, syncState }
+  const activateSelected = useCallback(() => {
+    activate(navSelected(uiState.navStack[uiState.navStack.length - 1]))
+  }, [uiState, activate])
+
+  return { ...vm, projState, commands, dispatch, activate, activateSelected, syncState }
 }
