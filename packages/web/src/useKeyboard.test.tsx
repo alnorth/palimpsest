@@ -26,6 +26,7 @@ function makeAppState(overrides: Partial<AppStateResult> = {}): AppStateResult {
     projectStats: { hasNext: new Set(), taskCount: new Map() },
     listItems: { view: 'dashboard', groups: [], items: [], emptyMessage: '' },
     listLength: 0,
+    selectedItem: undefined,
     currentTask: undefined,
     subtitle: 'Work',
     searchQuery: '',

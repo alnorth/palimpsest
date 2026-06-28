@@ -74,7 +74,7 @@ function App() {
 function LoadedApp({ initialState }: { initialState: ProjectionState }) {
   const {
     view, mode, selected, activeTask, activeProject,
-    activeSphere, agendas, contexts, projectStats, listItems, listLength, currentTask, spheres, subtitle,
+    activeSphere, agendas, contexts, projectStats, listItems, listLength, currentTask, selectedItem, spheres, subtitle,
     searchQuery, projState, commands, dispatch, canGoBack, showCompleted, showArchived, showProject,
     syncState,
   } = useAppState(store, initialState)
@@ -189,8 +189,7 @@ function LoadedApp({ initialState }: { initialState: ProjectionState }) {
       if (cmd.id === 'edit-description') setFormValue(currentTask?.description ?? '')
       if (cmd.id === 'set-recurrence') setFormValue(currentTask?.dueDateExpression ?? '')
       if (cmd.id === 'edit-project') {
-        const item = listItems.items[selected]
-        if (item !== undefined && 'kind' in item && item.kind === 'project') setFormValue(item.project.name)
+        if (selectedItem?.kind === 'project') setFormValue(selectedItem.project.name)
       }
       if (cmd.id === 'pick-agenda' && currentTask !== undefined) {
         const idx = currentTask.agendaId !== undefined ? agendas.findIndex(a => a.id === currentTask.agendaId) + 1 : 0
@@ -273,8 +272,7 @@ function LoadedApp({ initialState }: { initialState: ProjectionState }) {
 
   function handleEditProjectSubmit(name: string) {
     const trimmed = name.trim()
-    const selectedItem = listItems.items[selected]
-    const project = selectedItem !== undefined && 'kind' in selectedItem && selectedItem.kind === 'project' ? selectedItem.project : undefined
+    const project = selectedItem?.kind === 'project' ? selectedItem.project : undefined
     if (trimmed && project !== undefined) {
       dispatch({ type: 'edit-project', projectId: project.id, name: trimmed })
     } else {

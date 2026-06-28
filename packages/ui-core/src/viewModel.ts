@@ -81,6 +81,7 @@ export interface ViewModel {
   projectStats: ProjectStats
   activeProject: Project | undefined
   activeTask: Task | undefined
+  selectedItem: ListItem | undefined
   currentTask: Task | undefined
   subtitle: string
   listItems: ListItems
@@ -275,18 +276,16 @@ export function deriveViewModel(projState: ProjectionState, uiState: UIState): V
     }
   })()
 
-  const currentTask: Task | undefined = (() => {
-    if (listItems.view === 'task') return activeTask
-    if (
-      listItems.view === 'dashboard' || listItems.view === 'tasks' || listItems.view === 'project' ||
-      listItems.view === 'projects' || listItems.view === 'processing'
-    ) {
-      const item = listItems.items[selected]
-      return item?.kind === 'task' ? item.task : undefined
-    }
-    if (isPickerView) return activeTask
-    return undefined
-  })()
+  const selectedItem: ListItem | undefined = (
+    listItems.view === 'dashboard' || listItems.view === 'tasks' || listItems.view === 'project' ||
+    listItems.view === 'projects' || listItems.view === 'processing'
+  ) ? listItems.items[selected] : undefined
+
+  const currentTask: Task | undefined =
+    listItems.view === 'task' ? activeTask
+    : selectedItem !== undefined ? (selectedItem.kind === 'task' ? selectedItem.task : undefined)
+    : isPickerView ? activeTask
+    : undefined
 
   const taskSuffix = currentTask !== undefined ? ` — ${currentTask.title}` : ''
   const subtitle =
@@ -315,6 +314,7 @@ export function deriveViewModel(projState: ProjectionState, uiState: UIState): V
     projectStats,
     activeProject,
     activeTask,
+    selectedItem,
     currentTask,
     subtitle,
     listItems,
