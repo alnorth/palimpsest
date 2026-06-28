@@ -5,7 +5,7 @@ import {
 import type { Task, Project, Sphere, Agenda, Context, ProjectionState, ProjectId, AgendaId, ContextId } from 'palimpsest'
 import { INITIAL_NAV } from './types.js'
 import type { UIState, View, Mode, TopLevelView } from './types.js'
-import { AGENDA_PREFIX, PROJECT_PREFIX, CONTEXT_PREFIX } from './prefixes.js'
+import { AGENDA_PREFIX, CONTEXT_PREFIX } from './prefixes.js'
 
 export interface ProjectStats {
   hasNext: Set<ProjectId>
@@ -253,37 +253,13 @@ export function deriveViewModel(projState: ProjectionState, uiState: UIState): V
           : []
 
         const reviewTasks = waitingTasks.filter(t => t.waitingFor?.kind === 'review')
-
-        const agendaGroups = new Map<AgendaId, Task[]>()
-        for (const t of waitingTasks) {
-          if (t.waitingFor?.kind === 'agenda') {
-            const id = t.waitingFor.agendaId
-            const group = agendaGroups.get(id) ?? []
-            group.push(t)
-            agendaGroups.set(id, group)
-          }
-        }
-
-        const projectGroups = new Map<ProjectId, Task[]>()
-        for (const t of waitingTasks) {
-          if (t.waitingFor?.kind === 'project') {
-            const id = t.waitingFor.projectId
-            const group = projectGroups.get(id) ?? []
-            group.push(t)
-            projectGroups.set(id, group)
-          }
-        }
+        const agendaTasks = waitingTasks.filter(t => t.waitingFor?.kind === 'agenda')
+        const projectTasks = waitingTasks.filter(t => t.waitingFor?.kind === 'project')
 
         const groups: ListGroup<ListItem>[] = [
           ...(reviewTasks.length > 0 ? [{ title: 'Review', items: reviewTasks.map((t): ListItem => ({ kind: 'task', task: t })) }] : []),
-          ...[...agendaGroups.entries()].map(([agendaId, tasks]) => {
-            const agenda = projState.agendas.get(agendaId)
-            return { title: `${AGENDA_PREFIX}${agenda?.title ?? agendaId}`, items: tasks.map((t): ListItem => ({ kind: 'task', task: t })) }
-          }),
-          ...[...projectGroups.entries()].map(([projectId, tasks]) => {
-            const project = projState.projects.get(projectId)
-            return { title: `${PROJECT_PREFIX}${project?.name ?? projectId}`, items: tasks.map((t): ListItem => ({ kind: 'task', task: t })) }
-          }),
+          ...(agendaTasks.length > 0 ? [{ title: 'Agenda', items: agendaTasks.map((t): ListItem => ({ kind: 'task', task: t })) }] : []),
+          ...(projectTasks.length > 0 ? [{ title: 'Project', items: projectTasks.map((t): ListItem => ({ kind: 'task', task: t })) }] : []),
         ]
         const items = flatItems(groups)
         return { view, groups, items, emptyMessage: 'No waiting tasks.', selectedItem: items[selected] }
