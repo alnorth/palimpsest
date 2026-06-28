@@ -1,8 +1,7 @@
 import React from 'react'
 import { Stack, Group, Text, TextInput } from '@mantine/core'
 import { useMediaQuery } from '@mantine/hooks'
-import type { PickerItem, ViewPickerItem, AgendaPickerItem, ContextPickerItem, DueDateOption, ProjectPickerItem, WaitingKindOption } from 'palimpsest-ui-core'
-import type { AgendaId, ProjectId } from 'palimpsest'
+import type { PickerItem, ViewPickerItem, AgendaPickerItem, ContextPickerItem, DueDateOption, ProjectPickerItem, WaitingKindOption, WaitingAgendaPickerItem, WaitingProjectPickerItem } from 'palimpsest-ui-core'
 
 function PickerRow({ isSelected, onMouseEnter, onClick, children }: {
   isSelected: boolean
@@ -81,7 +80,7 @@ export function AgendaPicker({ items, selectedItem, onHover, onActivate }: { ite
   )
 }
 
-export function WaitingAgendaPicker({ items, selectedItem, onHover, onActivate }: { items: PickerItem<AgendaId>[]; selectedItem: PickerItem<AgendaId> | undefined; onHover?: (i: number) => void; onActivate?: (i: number) => void }) {
+export function WaitingAgendaPicker({ items, selectedItem, onHover, onActivate }: { items: WaitingAgendaPickerItem[]; selectedItem: WaitingAgendaPickerItem | undefined; onHover?: (i: number) => void; onActivate?: (i: number) => void }) {
   return (
     <PickerList
       items={items}
@@ -176,8 +175,8 @@ export function WaitingProjectSearch({
   onHover,
   onActivate,
 }: {
-  items: PickerItem<ProjectId>[]
-  selectedItem: PickerItem<ProjectId> | undefined
+  items: WaitingProjectPickerItem[]
+  selectedItem: WaitingProjectPickerItem | undefined
   searchQuery: string
   onSearchChange: (v: string) => void
   onHover?: (i: number) => void
