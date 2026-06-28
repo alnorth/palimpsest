@@ -38,7 +38,11 @@ export function TaskDetail({ task, state, commands, dispatch }: Props) {
         {task.completedAt !== undefined && <Text size="sm" c="dimmed">completed  {formatDateTime(task.completedAt)}</Text>}
         {task.isNext === true && <Text size="sm" c="dimmed">next action</Text>}
         {task.isStarred === true && <Text size="sm" c="dimmed">starred</Text>}
-        {task.isWaiting === true && <Text size="sm" c="dimmed">waiting</Text>}
+        {task.waitingFor !== undefined && (
+          <Text size="sm" c="dimmed">
+            waiting    {task.waitingFor.kind === 'review' ? 'for review' : `for ${task.waitingFor.kind}`}
+          </Text>
+        )}
       </Stack>
       {commands !== undefined && dispatch !== undefined && (Object.values(commands) as Command[]).some(c => c.group === 'state') && (
         <Group gap="xs" mt="md" wrap="wrap">

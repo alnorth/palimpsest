@@ -1,4 +1,4 @@
-export type { Task, Project, Sphere, Agenda, Context, TaskStatus } from './types.js'
+export type { Task, Project, Sphere, Agenda, Context, TaskStatus, WaitingFor } from './types.js'
 export type { TaskId, ProjectId, SphereId, AgendaId, ContextId, EventId } from './ids.js'
 export type {
   PalimpsestEvent,

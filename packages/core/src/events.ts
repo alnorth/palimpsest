@@ -1,4 +1,5 @@
 import type { TaskId, ProjectId, SphereId, AgendaId, ContextId, EventId } from './ids.js'
+import type { WaitingFor } from './types.js'
 
 export const CLEAR = null
 
@@ -57,7 +58,7 @@ export interface TaskCreatedEvent extends EventBase {
   contextId?: ContextId
   isNext?: boolean
   isStarred?: boolean
-  isWaiting?: boolean
+  waitingFor?: WaitingFor
   dueDate?: string
   dueDateExpression?: string
 }
@@ -71,7 +72,7 @@ export type TaskPatch = {
   contextId?: ContextId | typeof CLEAR
   isNext?: boolean
   isStarred?: boolean
-  isWaiting?: boolean
+  waitingFor?: WaitingFor | typeof CLEAR
   dueDate?: string | typeof CLEAR
   dueDateExpression?: string | typeof CLEAR
 }

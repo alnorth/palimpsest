@@ -20,7 +20,10 @@ export function TaskRow({ task, isSelected, state, showProject = false }: TaskRo
   const ddColor = task.dueDate !== undefined ? dueDateColor(task.dueDate) : undefined
   const metaItems: React.ReactNode[] = []
   if (task.description) metaItems.push(<Text dimColor>¶</Text>)
-  if (task.isWaiting === true) metaItems.push(<Text dimColor>Waiting</Text>)
+  if (task.waitingFor !== undefined) {
+    const label = task.waitingFor.kind === 'review' ? 'Waiting' : `Waiting (${task.waitingFor.kind})`
+    metaItems.push(<Text dimColor>{label}</Text>)
+  }
   if (project !== undefined) metaItems.push(<Text dimColor>{PROJECT_PREFIX}{project.name}</Text>)
   if (agenda !== undefined) metaItems.push(<Text dimColor>{AGENDA_PREFIX}{agenda.title}</Text>)
   if (context !== undefined) metaItems.push(<Text dimColor>{CONTEXT_PREFIX}{context.name}</Text>)

@@ -71,15 +71,15 @@ export function NavDrawer({ opened, onClose, spheres, activeSphere, currentView,
           </Text>
           <Stack gap={2}>
             {VIEW_CONFIG.map(v => {
-              const isActive = currentView === v.id
+              const isActive = currentView === v.value
               return (
                 <Text
-                  key={v.id}
+                  key={v.value}
                   size="sm"
                   px="xs"
                   py={4}
                   {...(isActive ? { c: 'blue' } : {})}
-                  onClick={() => handleView(v.id)}
+                  onClick={() => handleView(v.value)}
                   style={{
                     background: isActive ? 'var(--mantine-color-blue-light)' : undefined,
                     borderRadius: 4,

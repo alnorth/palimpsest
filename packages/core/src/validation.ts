@@ -31,6 +31,12 @@ function validateEvent(state: ProjectionState, event: PalimpsestEvent): void {
       if (event.contextId !== undefined && !state.contexts.has(event.contextId)) {
         throw new Error(`Context not found: ${event.contextId}`)
       }
+      if (event.waitingFor?.kind === 'agenda' && !state.agendas.has(event.waitingFor.agendaId)) {
+        throw new Error(`Agenda not found: ${event.waitingFor.agendaId}`)
+      }
+      if (event.waitingFor?.kind === 'project' && !state.projects.has(event.waitingFor.projectId)) {
+        throw new Error(`Project not found: ${event.waitingFor.projectId}`)
+      }
       break
     case 'task.updated':
       if (!state.tasks.has(event.taskId)) throw new Error(`Task not found: ${event.taskId}`)
@@ -45,6 +51,12 @@ function validateEvent(state: ProjectionState, event: PalimpsestEvent): void {
       }
       if (event.patch.contextId != null && !state.contexts.has(event.patch.contextId)) {
         throw new Error(`Context not found: ${event.patch.contextId}`)
+      }
+      if (event.patch.waitingFor != null && event.patch.waitingFor.kind === 'agenda' && !state.agendas.has(event.patch.waitingFor.agendaId)) {
+        throw new Error(`Agenda not found: ${event.patch.waitingFor.agendaId}`)
+      }
+      if (event.patch.waitingFor != null && event.patch.waitingFor.kind === 'project' && !state.projects.has(event.patch.waitingFor.projectId)) {
+        throw new Error(`Project not found: ${event.patch.waitingFor.projectId}`)
       }
       break
     case 'task.completed':

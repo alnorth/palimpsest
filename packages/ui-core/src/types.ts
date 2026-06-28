@@ -1,4 +1,4 @@
-import type { TaskId, ProjectId, SphereId, AgendaId, ContextId } from 'palimpsest'
+import type { TaskId, ProjectId, SphereId, AgendaId, ContextId, WaitingFor } from 'palimpsest'
 import type { CLEAR } from 'palimpsest'
 
 export type TopLevelView = 'dashboard' | 'tasks' | 'projects' | 'processing'
@@ -10,6 +10,9 @@ export type View =
   | 'picking-context-for-task'
   | 'picking-due-date'
   | 'picking-project-for-task'
+  | 'picking-waiting-for-task'
+  | 'picking-waiting-agenda'
+  | 'picking-waiting-project'
 
 export type Mode =
   | { type: 'adding'; formValue: string }
@@ -34,6 +37,9 @@ export type NavState =
   | { view: 'picking-context-for-task'; selected: number; activeTaskId: TaskId }
   | { view: 'picking-due-date'; selected: number; activeTaskId: TaskId }
   | { view: 'picking-project-for-task'; selected: number; activeTaskId: TaskId; searchQuery: string }
+  | { view: 'picking-waiting-for-task'; selected: number; activeTaskId: TaskId }
+  | { view: 'picking-waiting-agenda'; selected: number; activeTaskId: TaskId }
+  | { view: 'picking-waiting-project'; selected: number; activeTaskId: TaskId; searchQuery: string }
 
 export const INITIAL_NAV = {
   view: 'dashboard' as const,
@@ -55,7 +61,7 @@ export const INITIAL_UI_STATE: UIState = {
 export type UIAction =
   | { type: 'navigate'; navState: NavState }
   | { type: 'set-nav'; navState: NavState }
-  | { type: 'go-back' }
+  | { type: 'go-back'; steps?: number }
   | { type: 'update-nav'; patch: { selected?: number; searchQuery?: string } }
   | { type: 'set-mode'; mode: Mode }
   | { type: 'exit-mode' }
@@ -75,7 +81,7 @@ export type DataAction =
   | { type: 'uncomplete-task'; taskId: TaskId }
   | { type: 'toggle-next'; taskId: TaskId }
   | { type: 'toggle-starred'; taskId: TaskId }
-  | { type: 'toggle-waiting'; taskId: TaskId }
+  | { type: 'set-waiting'; taskId: TaskId; waitingFor: WaitingFor | typeof CLEAR }
   | { type: 'set-task-agenda'; taskId: TaskId; agendaId: AgendaId | typeof CLEAR }
   | { type: 'set-task-context'; taskId: TaskId; contextId: ContextId | typeof CLEAR }
   | { type: 'create-project'; name: string; sphereId: SphereId }
@@ -96,7 +102,8 @@ export type CommandId =
   | 'uncomplete-task'
   | 'toggle-next'
   | 'star'
-  | 'toggle-waiting'
+  | 'set-waiting'
+  | 'pick-waiting'
   | 'pick-due-date'
   | 'set-recurrence'
   | 'pick-project'

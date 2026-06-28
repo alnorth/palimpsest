@@ -111,14 +111,17 @@ export function getCommands(vm: ViewModel): Partial<Record<CommandId, Command>> 
     }
   }
 
-  // ── Toggle waiting ────────────────────────────────────────────────────────────
+  // ── Pick waiting for ────────────────────────────────────────────────────────────
   if (currentTask?.status === 'open') {
-    commands['toggle-waiting'] = {
-      id: 'toggle-waiting',
+    commands['pick-waiting'] = {
+      id: 'pick-waiting',
       label: 'waiting',
       group: 'state',
       key: 'w',
-      action: { type: 'toggle-waiting', taskId: currentTask.id },
+      action: {
+        type: 'navigate',
+        navState: { view: 'picking-waiting-for-task', selected: 0, activeTaskId: currentTask.id },
+      },
     }
   }
 
@@ -269,7 +272,7 @@ export function getCommands(vm: ViewModel): Partial<Record<CommandId, Command>> 
     key: 'v',
     action: {
       type: 'navigate',
-      navState: { view: 'picking-view', selected: Math.max(0, VIEW_CONFIG.findIndex(item => item.id === view)) },
+      navState: { view: 'picking-view', selected: Math.max(0, VIEW_CONFIG.findIndex(item => item.value === view)) },
     },
   }
 
