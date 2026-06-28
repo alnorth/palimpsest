@@ -9,8 +9,10 @@ import { CommandButton } from './components/CommandButton.js'
 import { useKeyboard } from './useKeyboard.js'
 import { useUrlSync } from './useUrlSync.js'
 import { TaskList } from './components/TaskList.js'
+import { TaskRow } from './components/TaskRow.js'
 import { TaskDetail } from './components/TaskDetail.js'
 import { ProjectList } from './components/ProjectList.js'
+import { ProjectRow } from './components/ProjectRow.js'
 import { CommandBar } from './components/CommandBar.js'
 import { MobileFooter } from './components/MobileFooter.js'
 import { NavDrawer } from './components/NavDrawer.js'
@@ -82,7 +84,7 @@ export function LoadedApp({ store, initialState }: Props) {
 
   const [formValue, setFormValue] = useState('')
   const [navDrawerOpen, setNavDrawerOpen] = useState(false)
-  const isMobile = useMediaQuery('(max-width: 768px)')
+  const isMobile = useMediaQuery('(max-width: 768px)') ?? false
 
   // Prepopulate the form when entering an editing mode (e.g. via button click in TaskDetail)
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -313,62 +315,33 @@ export function LoadedApp({ store, initialState }: Props) {
                 ? <Text c="dimmed" size="sm" px="xs">None.</Text>
                 : group.items.map((item, i) => {
                     const flatIndex = groupOffset + i
-                    const isSelected = flatIndex === selected && !isMobile
                     if (item.kind === 'task') {
                       return (
-                        <Text
+                        <TaskRow
                           key={item.task.id}
-                          size="sm"
-                          px="xs"
-                          py={2}
-                          {...(isSelected ? { c: 'blue' } : {})}
-                          onMouseEnter={() => handleHover(flatIndex)}
-                          onClick={() => activate(flatIndex)}
-                          style={{
-                            background: isSelected ? 'var(--mantine-color-blue-light)' : undefined,
-                            borderRadius: 4,
-                            cursor: 'pointer',
-                            fontFamily: 'monospace',
-                            userSelect: 'none',
-                          }}
-                        >
-                          <Text span visibleFrom="sm" style={{ display: 'inline-block', width: '2ch' }}>{isSelected ? '>' : ''}</Text>
-                          <Text
-                            span
-                            c="dimmed"
-                            onClick={(e) => { e.stopPropagation(); handleTaskComplete(item.task) }}
-                            style={{ cursor: 'pointer' }}
-                          >
-                            {'○ '}
-                          </Text>
-                          {item.task.isStarred === true && <Text span c="yellow.6">{'★ '}</Text>}
-                          {item.task.title}
-                        </Text>
+                          task={item.task}
+                          flatIndex={flatIndex}
+                          isSelected={flatIndex === selected}
+                          isMobile={isMobile}
+                          state={projState}
+                          onHover={handleHover}
+                          onActivate={activate}
+                          onComplete={handleTaskComplete}
+                        />
                       )
                     } else {
-                      const count = projectStats.taskCount.get(item.project.id) ?? 0
                       return (
-                        <Group
+                        <ProjectRow
                           key={item.project.id}
-                          justify="space-between"
-                          px="xs"
-                          py={2}
-                          onMouseEnter={() => handleHover(flatIndex)}
-                          onClick={() => activate(flatIndex)}
-                          style={{
-                            background: isSelected ? 'var(--mantine-color-blue-light)' : undefined,
-                            borderRadius: 4,
-                            cursor: 'pointer',
-                            fontFamily: 'monospace',
-                            userSelect: 'none',
-                          }}
-                        >
-                          <Text size="sm" c={isSelected ? 'blue' : 'red'}>
-                            <Text span visibleFrom="sm" style={{ display: 'inline-block', width: '2ch' }}>{isSelected ? '>' : ''}</Text>
-                            {item.project.name}
-                          </Text>
-                          <Text size="xs" c="dimmed">{count}</Text>
-                        </Group>
+                          project={item.project}
+                          flatIndex={flatIndex}
+                          isSelected={flatIndex === selected}
+                          isMobile={isMobile}
+                          projectStats={projectStats}
+                          showArchived={false}
+                          onHover={handleHover}
+                          onActivate={activate}
+                        />
                       )
                     }
                   })

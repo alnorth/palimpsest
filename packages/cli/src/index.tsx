@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react'
 import { render, Box, Text, useInput, useWindowSize } from 'ink'
-import { TaskList } from './TaskList.js'
-import { Row, Meta } from './Row.js'
+import { TaskList, TaskRow } from './TaskList.js'
+import { ProjectList } from './ProjectList.js'
+import { ProjectRow } from './ProjectRow.js'
 import { Title } from './Title.js'
 import TextInput from 'ink-text-input'
 import { FilePalimpsestStore, CLEAR, getProject, getAgenda, getContext, buildStateFromConfig, PALIMPSEST_CONFIG, createEmptyState, isValidExpression } from 'palimpsest'
@@ -443,35 +444,9 @@ function LoadedApp({ initialState }: { initialState: ProjectionState }) {
       <TaskList groups={listItems.groups} selected={selected} state={projState} showProject emptyMessage={listItems.emptyMessage} />
     ) : listItems.view === 'tasks' ? (
       <TaskList groups={listItems.groups} selected={selected} state={projState} showProject emptyMessage={listItems.emptyMessage} />
-    ) : listItems.view === 'projects' ? (() => {
-      return listItems.items.length === 0 ? (
-        <Text dimColor>{listItems.emptyMessage}</Text>
-      ) : (
-        <>
-          {listItems.groups.map((group, gi) => {
-            let groupOffset = listItems.groups.slice(0, gi).reduce((sum, g) => sum + g.items.length, 0)
-            return (
-              <React.Fragment key={gi}>
-                {group.title !== '' && <Text dimColor bold>{group.title}</Text>}
-                {group.items.map((project, i) => {
-                  const flatIndex = groupOffset + i
-                  const isSelected = flatIndex === selected
-                  const hasNext = projectStats.hasNext.has(project.id)
-                  const color = isSelected ? 'blue' as const : !showArchived && !hasNext ? 'red' as const : undefined
-                  const count = projectStats.taskCount.get(project.id) ?? 0
-                  return (
-                    <Row key={project.id} isSelected={isSelected} color={color} title={project.name}>
-                      {project.archivedAt !== undefined ? <Meta>{formatDate(project.archivedAt)}</Meta> : null}
-                      <Meta>{count}</Meta>
-                    </Row>
-                  )
-                })}
-              </React.Fragment>
-            )
-          })}
-        </>
-      )
-    })() : listItems.view === 'processing' ? (() => {
+    ) : listItems.view === 'projects' ? (
+      <ProjectList groups={listItems.groups} selected={selected} projectStats={projectStats} showArchived={showArchived} emptyMessage={listItems.emptyMessage} />
+    ) : listItems.view === 'processing' ? (() => {
       let offset = 0
       return (
         <>
@@ -485,24 +460,10 @@ function LoadedApp({ initialState }: { initialState: ProjectionState }) {
                   ? <Text dimColor>  —</Text>
                   : group.items.map((item, i) => {
                       const flatIndex = groupOffset + i
-                      const isSelected = flatIndex === selected
                       if (item.kind === 'task') {
-                        return (
-                          <Row
-                            key={item.task.id}
-                            isSelected={isSelected}
-                            color={isSelected ? 'blue' : undefined}
-                            twoLine={false}
-                            title={<><Text color="yellow">{item.task.isStarred === true ? '★ ' : ''}</Text>{item.task.title}</>}
-                          />
-                        )
+                        return <TaskRow key={item.task.id} task={item.task} isSelected={flatIndex === selected} state={projState} />
                       } else {
-                        const count = projectStats.taskCount.get(item.project.id) ?? 0
-                        return (
-                          <Row key={item.project.id} isSelected={isSelected} color={isSelected ? 'blue' : 'red'} title={item.project.name}>
-                            <Meta>{count}</Meta>
-                          </Row>
-                        )
+                        return <ProjectRow key={item.project.id} project={item.project} isSelected={flatIndex === selected} projectStats={projectStats} />
                       }
                     })
                 }
