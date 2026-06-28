@@ -273,9 +273,9 @@ export function deriveViewModel(projState: ProjectionState, uiState: UIState): V
       }
       case 'pick-list': {
         const eligible = (activeSphere !== undefined
-          ? listTasks(projState, { sphereId: activeSphere.id, status: 'open' })
+          ? listTasks(projState, { sphereId: activeSphere.id, status: 'open', isActionable: true })
           : []
-        ).filter(t => t.contextId !== undefined && (t.projectId === undefined || t.isNext === true))
+        ).filter(t => t.contextId !== undefined)
 
         const byContext = new Map<ContextId, Task[]>()
         for (const task of eligible) {

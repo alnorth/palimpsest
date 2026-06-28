@@ -22,19 +22,21 @@ export interface TaskFilter {
   agendaId?: AgendaId
   contextId?: ContextId
   isWaiting?: boolean
+  isActionable?: boolean
 }
 
 export function listTasks(state: ProjectionState, filter?: TaskFilter): Task[] {
   let tasks = [...state.tasks.values()]
-  if (filter?.status    !== undefined) tasks = tasks.filter(t => t.status === filter.status)
-  if (filter?.projectId !== undefined) tasks = tasks.filter(t => t.projectId === filter.projectId)
-  if (filter?.agendaId  !== undefined) tasks = tasks.filter(t => t.agendaId  === filter.agendaId)
-  if (filter?.contextId !== undefined) tasks = tasks.filter(t => t.contextId === filter.contextId)
-  if (filter?.sphereId  !== undefined) {
+  if (filter?.status       !== undefined) tasks = tasks.filter(t => t.status === filter.status)
+  if (filter?.projectId    !== undefined) tasks = tasks.filter(t => t.projectId === filter.projectId)
+  if (filter?.agendaId     !== undefined) tasks = tasks.filter(t => t.agendaId  === filter.agendaId)
+  if (filter?.contextId    !== undefined) tasks = tasks.filter(t => t.contextId === filter.contextId)
+  if (filter?.sphereId     !== undefined) {
     const sid = filter.sphereId
     tasks = tasks.filter(t => getTaskSphereId(state, t) === sid)
   }
-  if (filter?.isWaiting !== undefined) tasks = tasks.filter(t => filter.isWaiting ? t.waitingFor !== undefined : t.waitingFor === undefined)
+  if (filter?.isWaiting    !== undefined) tasks = tasks.filter(t => filter.isWaiting ? t.waitingFor !== undefined : t.waitingFor === undefined)
+  if (filter?.isActionable === true)      tasks = tasks.filter(t => t.projectId === undefined || t.isNext === true)
   return tasks
 }
 
