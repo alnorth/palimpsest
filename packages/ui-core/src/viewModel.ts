@@ -205,13 +205,7 @@ export function deriveViewModel(projState: ProjectionState, uiState: UIState): V
     : undefined
 
   const inboxTasks: Task[] = activeSphere !== undefined
-    ? listTasks(projState, { sphereId: activeSphere.id, status: 'open' })
-        .filter(t =>
-          t.dueDate === undefined &&
-          t.agendaId === undefined &&
-          t.contextId === undefined &&
-          t.projectId === undefined
-        )
+    ? listTasks(projState, { sphereId: activeSphere.id, status: 'open', hasProject: false, hasDueDate: false, hasAgenda: false, hasContext: false })
     : []
 
   const projectsWithoutNext: Project[] = activeSphere !== undefined
