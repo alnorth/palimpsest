@@ -172,9 +172,8 @@ export function LoadedApp({ store, initialState }: Props) {
 
   function handleEditProjectSubmit(name: string) {
     const trimmed = name.trim()
-    const project = selectedProject
-    if (trimmed && project !== undefined) {
-      dispatch({ type: 'edit-project', projectId: project.id, name: trimmed })
+    if (trimmed && selectedProject !== undefined) {
+      dispatch({ type: 'edit-project', projectId: selectedProject.id, name: trimmed })
     } else {
       dispatch({ type: 'set-mode', mode: 'list' })
     }
