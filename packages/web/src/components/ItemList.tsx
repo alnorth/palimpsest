@@ -8,7 +8,7 @@ import { ProjectRow } from './ProjectRow.js'
 
 interface Props {
   groups: ListGroup<ListItem>[]
-  selected: number
+  selectedItem: ListItem | undefined
   state: ProjectionState
   projectStats: ProjectStats
   showArchived: boolean
@@ -19,7 +19,7 @@ interface Props {
   onComplete?: (task: Task) => void
 }
 
-export function ItemList({ groups, selected, state, projectStats, showArchived, showProject, emptyMessage, onHover, onActivate, onComplete }: Props) {
+export function ItemList({ groups, selectedItem, state, projectStats, showArchived, showProject, emptyMessage, onHover, onActivate, onComplete }: Props) {
   const isMobile = useMediaQuery('(max-width: 768px)') ?? false
   const totalItems = groups.reduce((sum, g) => sum + g.items.length, 0)
   if (totalItems === 0) {
@@ -48,7 +48,7 @@ export function ItemList({ groups, selected, state, projectStats, showArchived, 
                         key={item.task.id}
                         task={item.task}
                         flatIndex={flatIndex}
-                        isSelected={flatIndex === selected}
+                        isSelected={selectedItem?.kind === 'task' && item.task.id === selectedItem.task.id}
                         isMobile={isMobile}
                         state={state}
                         {...(showProject !== undefined ? { showProject } : {})}
@@ -63,7 +63,7 @@ export function ItemList({ groups, selected, state, projectStats, showArchived, 
                         key={item.project.id}
                         project={item.project}
                         flatIndex={flatIndex}
-                        isSelected={flatIndex === selected}
+                        isSelected={selectedItem?.kind === 'project' && item.project.id === selectedItem.project.id}
                         isMobile={isMobile}
                         projectStats={projectStats}
                         showArchived={showArchived}

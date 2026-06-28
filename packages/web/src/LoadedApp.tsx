@@ -72,10 +72,10 @@ function FormModal({ opened, onClose, title, placeholder, preview, value, onChan
 export function LoadedApp({ store, initialState }: Props) {
   const appState = useAppState(store, initialState)
   const {
-    view, mode, selected, activeTask, activeProject,
+    view, mode, activeTask, activeProject,
     activeSphere, spheres, projectStats, listItems, currentTask, selectedProject,
     subtitle, projState, commands, dispatch, canGoBack, showCompleted, showArchived, showProject,
-    syncState, searchQuery, activate,
+    syncState, searchQuery, activate, selectedItem,
   } = appState
 
   const [formValue, setFormValue] = useState('')
@@ -201,18 +201,18 @@ export function LoadedApp({ store, initialState }: Props) {
   let content: React.ReactNode
 
   if (listItems.view === 'picking-view') {
-    content = <ViewPicker items={listItems.items} selected={selected} onHover={handleHover} onActivate={activate} />
+    content = <ViewPicker items={listItems.items} selectedItem={listItems.selectedItem} onHover={handleHover} onActivate={activate} />
   } else if (listItems.view === 'picking-agenda-for-task') {
-    content = <AgendaPicker items={listItems.items} selected={selected} onHover={handleHover} onActivate={activate} />
+    content = <AgendaPicker items={listItems.items} selectedItem={listItems.selectedItem} onHover={handleHover} onActivate={activate} />
   } else if (listItems.view === 'picking-context-for-task') {
-    content = <ContextPicker items={listItems.items} selected={selected} onHover={handleHover} onActivate={activate} />
+    content = <ContextPicker items={listItems.items} selectedItem={listItems.selectedItem} onHover={handleHover} onActivate={activate} />
   } else if (listItems.view === 'picking-due-date') {
-    content = <DueDatePicker items={listItems.items} selected={selected} onHover={handleHover} onActivate={activate} />
+    content = <DueDatePicker items={listItems.items} selectedItem={listItems.selectedItem} onHover={handleHover} onActivate={activate} />
   } else if (listItems.view === 'picking-project-for-task') {
     content = (
       <ProjectSearch
         items={listItems.items}
-        selected={selected}
+        selectedItem={listItems.selectedItem}
         searchQuery={searchQuery}
         onSearchChange={v => dispatch({ type: 'update-nav', patch: { searchQuery: v, selected: 0 } })}
         onHover={handleHover}
@@ -234,7 +234,7 @@ export function LoadedApp({ store, initialState }: Props) {
         )}
         <ItemList
           groups={listItems.groups}
-          selected={selected}
+          selectedItem={selectedItem}
           state={projState}
           projectStats={projectStats}
           showArchived={showArchived}
@@ -249,7 +249,7 @@ export function LoadedApp({ store, initialState }: Props) {
     content = (
       <ItemList
         groups={listItems.groups}
-        selected={selected}
+        selectedItem={selectedItem}
         state={projState}
         projectStats={projectStats}
         showArchived={showArchived}

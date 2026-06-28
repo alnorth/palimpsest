@@ -7,7 +7,7 @@ import { ProjectRow } from './ProjectRow.js'
 
 interface Props {
   groups: ListGroup<ListItem>[]
-  selected: number
+  selectedItem: ListItem | undefined
   state: ProjectionState
   projectStats: ProjectStats
   showProject?: boolean
@@ -15,33 +15,27 @@ interface Props {
   emptyMessage?: string
 }
 
-export function ItemList({ groups, selected, state, projectStats, showProject = false, showArchived = false, emptyMessage = 'No items.' }: Props) {
+export function ItemList({ groups, selectedItem, state, projectStats, showProject = false, showArchived = false, emptyMessage = 'No items.' }: Props) {
   const totalItems = groups.reduce((sum, g) => sum + g.items.length, 0)
   if (totalItems === 0) return <Text dimColor>{emptyMessage}</Text>
 
-  let offset = 0
   return (
     <>
-      {groups.map((group, gi) => {
-        const groupOffset = offset
-        offset += group.items.length
-        return (
-          <React.Fragment key={gi}>
-            {group.title !== '' && <Text dimColor bold>{group.title}</Text>}
-            {group.items.length === 0
-              ? <Text dimColor>  —</Text>
-              : group.items.map((item, i) => {
-                  const flatIndex = groupOffset + i
-                  if (item.kind === 'task') {
-                    return <TaskRow key={item.task.id} task={item.task} isSelected={flatIndex === selected} state={state} showProject={showProject} />
-                  } else {
-                    return <ProjectRow key={item.project.id} project={item.project} isSelected={flatIndex === selected} projectStats={projectStats} showArchived={showArchived} />
-                  }
-                })
-            }
-          </React.Fragment>
-        )
-      })}
+      {groups.map((group, gi) => (
+        <React.Fragment key={gi}>
+          {group.title !== '' && <Text dimColor bold>{group.title}</Text>}
+          {group.items.length === 0
+            ? <Text dimColor>  —</Text>
+            : group.items.map(item => {
+                if (item.kind === 'task') {
+                  return <TaskRow key={item.task.id} task={item.task} isSelected={selectedItem?.kind === 'task' && item.task.id === selectedItem.task.id} state={state} showProject={showProject} />
+                } else {
+                  return <ProjectRow key={item.project.id} project={item.project} isSelected={selectedItem?.kind === 'project' && item.project.id === selectedItem.project.id} projectStats={projectStats} showArchived={showArchived} />
+                }
+              })
+          }
+        </React.Fragment>
+      ))}
     </>
   )
 }

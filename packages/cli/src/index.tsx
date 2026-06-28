@@ -105,8 +105,7 @@ function LoadedApp({ initialState }: { initialState: ProjectionState }) {
     if (key.downArrow) dispatch({ type: 'update-nav', patch: { selected: Math.min(Math.max(0, listLength - 1), selected + 1) } })
     // Picker views: handle enter/shortcut
     if (listItems.view === 'picking-view') {
-      const shortcut = listItems.items.find(item => item.key === input)
-      const chosen = shortcut ?? (key.return ? listItems.items[selected] : undefined)
+      const chosen = listItems.items.find(item => item.key === input) ?? (key.return ? listItems.selectedItem : undefined)
       if (chosen !== undefined) {
         const navState =
           chosen.id === 'tasks'      ? { view: 'tasks' as const,      selected: 0, showCompleted: false } :
@@ -119,37 +118,21 @@ function LoadedApp({ initialState }: { initialState: ProjectionState }) {
     }
     if (listItems.view === 'picking-agenda-for-task') {
       if (currentTask !== undefined) {
-        const shortcutItem = listItems.items.find(a => a.key === input)
-        if (shortcutItem !== undefined) {
-          dispatch({ type: 'set-task-agenda', taskId: currentTask.id, agendaId: shortcutItem.id ?? CLEAR })
-          return
-        }
-        if (key.return) {
-          const item = listItems.items[selected]
-          if (item !== undefined) dispatch({ type: 'set-task-agenda', taskId: currentTask.id, agendaId: item.id ?? CLEAR })
-        }
+        const item = listItems.items.find(a => a.key === input) ?? (key.return ? listItems.selectedItem : undefined)
+        if (item !== undefined) dispatch({ type: 'set-task-agenda', taskId: currentTask.id, agendaId: item.id ?? CLEAR })
       }
       return
     }
     if (listItems.view === 'picking-context-for-task') {
       if (currentTask !== undefined) {
-        const shortcutItem = listItems.items.find(c => c.key === input)
-        if (shortcutItem !== undefined) {
-          dispatch({ type: 'set-task-context', taskId: currentTask.id, contextId: shortcutItem.id ?? CLEAR })
-          return
-        }
-        if (key.return) {
-          const item = listItems.items[selected]
-          if (item !== undefined) dispatch({ type: 'set-task-context', taskId: currentTask.id, contextId: item.id ?? CLEAR })
-        }
+        const item = listItems.items.find(c => c.key === input) ?? (key.return ? listItems.selectedItem : undefined)
+        if (item !== undefined) dispatch({ type: 'set-task-context', taskId: currentTask.id, contextId: item.id ?? CLEAR })
       }
       return
     }
     if (listItems.view === 'picking-due-date') {
-      const shortcutIdx = listItems.items.findIndex(o => o.key === input)
-      const activeIdx = shortcutIdx !== -1 ? shortcutIdx : (key.return ? selected : -1)
-      if (activeIdx !== -1 && currentTask !== undefined) {
-        const opt = listItems.items[activeIdx]!
+      const opt = listItems.items.find(o => o.key === input) ?? (key.return ? listItems.selectedItem : undefined)
+      if (opt !== undefined && currentTask !== undefined) {
         if (opt.date !== null) {
           dispatch({ type: 'set-task-due-date', taskId: currentTask.id, dueDate: opt.date })
         } else if (opt.key === 'c') {
@@ -163,7 +146,7 @@ function LoadedApp({ initialState }: { initialState: ProjectionState }) {
     }
     if (listItems.view === 'picking-project-for-task') {
       if (key.return && currentTask !== undefined) {
-        const item = listItems.items[selected]
+        const item = listItems.selectedItem
         if (item !== undefined) {
           dispatch({ type: 'set-task-project', taskId: currentTask.id, projectId: item.id ?? CLEAR })
         } else if (listItems.items.length === 0 && searchQuery.trim() !== '' && activeSphere !== undefined) {
@@ -314,8 +297,8 @@ function LoadedApp({ initialState }: { initialState: ProjectionState }) {
       )
       footer = <Text dimColor>enter to set  esc cancel</Text>
     } else {
-      content = listItems.items.map((opt, i) => {
-        const isSelected = i === selected
+      content = listItems.items.map(opt => {
+        const isSelected = opt.key === listItems.selectedItem?.key
         const label = opt.date !== null ? `${opt.label} — ${formatDate(opt.date)}` : opt.label
         return (
           <Text key={opt.key} {...(isSelected ? { color: 'blue' as const } : {})}>
@@ -327,21 +310,27 @@ function LoadedApp({ initialState }: { initialState: ProjectionState }) {
     }
   } else if (listItems.view === 'picking-agenda-for-task') {
     title = <Text bold color="cyan">{subtitle}</Text>
-    content = listItems.items.map((opt, i) => (
-      <Text key={opt.title} {...(i === selected ? { color: 'blue' as const } : {})}>
-        {i === selected ? '> ' : '  '}{opt.id !== null ? AGENDA_PREFIX : ''}{opt.title}
-        {opt.key !== undefined ? <Text dimColor>  {opt.key}</Text> : null}
-      </Text>
-    ))
+    content = listItems.items.map(opt => {
+      const isSelected = opt.id === listItems.selectedItem?.id
+      return (
+        <Text key={opt.title} {...(isSelected ? { color: 'blue' as const } : {})}>
+          {isSelected ? '> ' : '  '}{opt.id !== null ? AGENDA_PREFIX : ''}{opt.title}
+          {opt.key !== undefined ? <Text dimColor>  {opt.key}</Text> : null}
+        </Text>
+      )
+    })
     footer = <Text dimColor>↑↓ navigate  enter/key select  esc back</Text>
   } else if (listItems.view === 'picking-context-for-task') {
     title = <Text bold color="cyan">{subtitle}</Text>
-    content = listItems.items.map((opt, i) => (
-      <Text key={opt.name} {...(i === selected ? { color: 'blue' as const } : {})}>
-        {i === selected ? '> ' : '  '}{opt.id !== null ? CONTEXT_PREFIX : ''}{opt.name}
-        {opt.key !== undefined ? <Text dimColor>  {opt.key}</Text> : null}
-      </Text>
-    ))
+    content = listItems.items.map(opt => {
+      const isSelected = opt.id === listItems.selectedItem?.id
+      return (
+        <Text key={opt.name} {...(isSelected ? { color: 'blue' as const } : {})}>
+          {isSelected ? '> ' : '  '}{opt.id !== null ? CONTEXT_PREFIX : ''}{opt.name}
+          {opt.key !== undefined ? <Text dimColor>  {opt.key}</Text> : null}
+        </Text>
+      )
+    })
     footer = <Text dimColor>↑↓ navigate  enter/key select  esc back</Text>
   } else if (listItems.view === 'picking-project-for-task') {
     title = <Text bold color="cyan">{subtitle}</Text>
@@ -358,22 +347,28 @@ function LoadedApp({ initialState }: { initialState: ProjectionState }) {
         <Box flexDirection="column" marginTop={1}>
           {listItems.items.length === 0 && searchQuery.trim() !== '' ? (
             <Text color="blue">{'> '}Create project "{searchQuery.trim()}"</Text>
-          ) : listItems.items.map((p, i) => (
-            <Text key={p.id ?? 'null'} {...(i === selected ? { color: 'blue' as const } : {})}>
-              {i === selected ? '> ' : '  '}{p.name}
-            </Text>
-          ))}
+          ) : listItems.items.map(p => {
+            const isSelected = p.id === listItems.selectedItem?.id
+            return (
+              <Text key={p.id ?? 'null'} {...(isSelected ? { color: 'blue' as const } : {})}>
+                {isSelected ? '> ' : '  '}{p.name}
+              </Text>
+            )
+          })}
         </Box>
       </Box>
     )
     footer = <Text dimColor>type to search  ↑↓ navigate  enter select  esc back</Text>
   } else if (listItems.view === 'picking-view') {
     title = <Text bold color="cyan">{subtitle}</Text>
-    content = listItems.items.map((item, i) => (
-      <Text key={item.id} {...(i === selected ? { color: 'blue' as const } : {})}>
-        {i === selected ? '> ' : '  '}{item.label}<Text dimColor>  {item.key}</Text>
-      </Text>
-    ))
+    content = listItems.items.map(item => {
+      const isSelected = item.id === listItems.selectedItem?.id
+      return (
+        <Text key={item.id} {...(isSelected ? { color: 'blue' as const } : {})}>
+          {isSelected ? '> ' : '  '}{item.label}<Text dimColor>  {item.key}</Text>
+        </Text>
+      )
+    })
     footer = <Text dimColor>↑↓ navigate  enter select  esc back</Text>
   } else {
     const completedTag = showCompleted && view !== 'projects' ? <Text color="yellow"> completed</Text> : null
@@ -437,7 +432,7 @@ function LoadedApp({ initialState }: { initialState: ProjectionState }) {
     })() : (listItems.view === 'dashboard' || listItems.view === 'tasks' || listItems.view === 'project' || listItems.view === 'projects' || listItems.view === 'processing') ? (
       <ItemList
         groups={listItems.groups}
-        selected={selected}
+        selectedItem={selectedItem}
         state={projState}
         projectStats={projectStats}
         showProject={showProject}
