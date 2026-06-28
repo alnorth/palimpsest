@@ -286,7 +286,7 @@ function LoadedApp({ initialState }: { initialState: ProjectionState }) {
           </Box>
         </Box>
       )
-    })() : (listItems.view === 'dashboard' || listItems.view === 'tasks' || listItems.view === 'project' || listItems.view === 'projects' || listItems.view === 'processing') ? (
+    })() : (listItems.view === 'dashboard' || listItems.view === 'tasks' || listItems.view === 'project' || listItems.view === 'projects' || listItems.view === 'processing' || listItems.view === 'waiting') ? (
       <ItemList
         groups={listItems.groups}
         selectedItem={selectedItem}

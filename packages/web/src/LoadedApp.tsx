@@ -165,7 +165,7 @@ export function LoadedApp({ store, initialState }: Props) {
         />
       </Stack>
     )
-  } else if (listItems.view === 'dashboard' || listItems.view === 'tasks' || listItems.view === 'projects' || listItems.view === 'processing') {
+  } else if (listItems.view === 'dashboard' || listItems.view === 'tasks' || listItems.view === 'projects' || listItems.view === 'processing' || listItems.view === 'waiting') {
     content = (
       <ItemList
         groups={listItems.groups}

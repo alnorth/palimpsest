@@ -12,5 +12,6 @@ export function navStateForTopLevelView(view: TopLevelView): NavState {
   if (view === 'tasks') return { view: 'tasks', selected: 0, showCompleted: false }
   if (view === 'projects') return { view: 'projects', selected: 0, showArchived: false }
   if (view === 'processing') return { view: 'processing', selected: 0 }
+  if (view === 'waiting') return { view: 'waiting', selected: 0 }
   return { view: 'dashboard', selected: 0 }
 }

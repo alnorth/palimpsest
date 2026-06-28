@@ -30,6 +30,7 @@ function toPath(
     case 'dashboard': return `/${sphereId}/dashboard`
     case 'tasks':     return `/${sphereId}/tasks`
     case 'projects':  return `/${sphereId}/projects`
+    case 'waiting':   return `/${sphereId}/waiting`
     case 'project':   return activeProjectId !== undefined ? `/${sphereId}/projects/${activeProjectId}` : null
     case 'task':      return activeTaskId !== undefined ? `/${sphereId}/tasks/${activeTaskId}` : null
     default:          return null // picking-* views — leave URL alone
@@ -53,6 +54,8 @@ function applyPath(pathname: string, dispatch: (action: Action) => void): void {
     navState = { view: 'project', selected: 0, activeProjectId: id as ProjectId, showCompleted: false }
   } else if (section === 'tasks' && id !== undefined) {
     navState = { view: 'task', activeTaskId: id as TaskId }
+  } else if (section === 'waiting' && id === undefined) {
+    navState = { view: 'waiting', selected: 0 }
   }
 
   if (navState === null) return
