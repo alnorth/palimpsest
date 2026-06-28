@@ -273,6 +273,31 @@ describe('toggleWaiting via updateTask', () => {
     const s3 = buildState([...taskEvts, ...setEvts, ...clearEvts])
     expect(s3.tasks.get(tid)?.waitingFor).toBeUndefined()
   })
+
+  it('validateBatch throws when waitingFor references an agenda not in state', () => {
+    const { taskEvts, task } = setup()
+    const s1 = buildState(taskEvts)
+    const agendaId = 'agenda-unknown' as AgendaId
+    const evts = updateTask(task, { waitingFor: { kind: 'agenda', agendaId } })
+    expect(() => validateBatch(s1, evts)).toThrow('Agenda not found')
+  })
+
+  it('validateBatch throws when waitingFor references a project not in state', () => {
+    const { taskEvts, task } = setup()
+    const s1 = buildState(taskEvts)
+    const projectId = 'proj-unknown' as ProjectId
+    const evts = updateTask(task, { waitingFor: { kind: 'project', projectId } })
+    expect(() => validateBatch(s1, evts)).toThrow('Project not found')
+  })
+
+  it('validateBatch passes when waitingFor references a project in the same batch', () => {
+    const { taskEvts, task } = setup()
+    const s1 = buildState(taskEvts)
+    const projectEvts = createProject({ name: 'New project', sphereId })
+    const projectId = (projectEvts[0] as any).projectId as ProjectId
+    const waitingEvts = updateTask(task, { waitingFor: { kind: 'project', projectId } })
+    expect(() => validateBatch(s1, [...projectEvts, ...waitingEvts])).not.toThrow()
+  })
 })
 
 describe('create project and assign task in same batch', () => {
