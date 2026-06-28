@@ -10,6 +10,7 @@ export type View =
   | 'picking-context-for-task'
   | 'picking-due-date'
   | 'picking-project-for-task'
+  | 'picking-waiting-for-task'
 
 export type Mode =
   | { type: 'adding'; formValue: string }
@@ -34,6 +35,7 @@ export type NavState =
   | { view: 'picking-context-for-task'; selected: number; activeTaskId: TaskId }
   | { view: 'picking-due-date'; selected: number; activeTaskId: TaskId }
   | { view: 'picking-project-for-task'; selected: number; activeTaskId: TaskId; searchQuery: string }
+  | { view: 'picking-waiting-for-task'; selected: number; activeTaskId: TaskId }
 
 export const INITIAL_NAV = {
   view: 'dashboard' as const,
@@ -97,6 +99,7 @@ export type CommandId =
   | 'toggle-next'
   | 'star'
   | 'set-waiting'
+  | 'pick-waiting'
   | 'pick-due-date'
   | 'set-recurrence'
   | 'pick-project'

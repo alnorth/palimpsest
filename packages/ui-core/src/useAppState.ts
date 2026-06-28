@@ -294,6 +294,11 @@ export function useAppState(store: PalimpsestStore, initialState: ProjectionStat
           dispatch({ type: 'create-and-assign-project', name: vm.searchQuery.trim(), sphereId: vm.activeSphere.id, taskId: vm.currentTask.id })
         }
       }
+    } else if (vm.listItems.view === 'picking-waiting-for-task') {
+      const item = vm.listItems.items[i]
+      if (item !== undefined && vm.currentTask !== undefined) {
+        dispatch({ type: 'set-waiting', taskId: vm.currentTask.id, waitingFor: item.waitingFor })
+      }
     } else {
       const item = vm.listItems.items[i]
       if (item?.kind === 'task') {

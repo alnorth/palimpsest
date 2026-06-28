@@ -1,8 +1,8 @@
 import React from 'react'
 import { Stack, Group, Text, TextInput } from '@mantine/core'
 import { useMediaQuery } from '@mantine/hooks'
-import type { ViewPickerItem, AgendaPickerItem, ContextPickerItem, DueDateOption, ProjectPickerItem } from 'palimpsest-ui-core'
-import { AGENDA_PREFIX, CONTEXT_PREFIX } from 'palimpsest-ui-core'
+import type { ViewPickerItem, AgendaPickerItem, ContextPickerItem, DueDateOption, ProjectPickerItem, WaitingForPickerItem } from 'palimpsest-ui-core'
+import { AGENDA_PREFIX, CONTEXT_PREFIX, PROJECT_PREFIX } from 'palimpsest-ui-core'
 
 function PickerRow({ isSelected, onMouseEnter, onClick, children }: {
   isSelected: boolean
@@ -98,6 +98,29 @@ export function DueDatePicker({ items, selectedItem, onHover, onActivate }: { it
             <Text size="sm" {...(isSelected ? { c: 'blue' } : {})}>
               {isSelected ? '> ' : '  '}{label}
               <Text span size="xs" c="dimmed">  {opt.key}</Text>
+            </Text>
+          </PickerRow>
+        )
+      })}
+    </Stack>
+  )
+}
+
+export function WaitingForPicker({ items, selectedItem, onHover, onActivate }: { items: WaitingForPickerItem[]; selectedItem: WaitingForPickerItem | undefined; onHover?: (i: number) => void; onActivate?: (i: number) => void }) {
+  const isMobile = useMediaQuery('(max-width: 768px)')
+  return (
+    <Stack gap={2}>
+      {items.map((item, i) => {
+        const isSelected = item === selectedItem && !isMobile
+        const wf = item.waitingFor
+        const prefix = wf !== null && typeof wf === 'object' && wf.kind === 'agenda' ? AGENDA_PREFIX
+          : wf !== null && typeof wf === 'object' && wf.kind === 'project' ? PROJECT_PREFIX
+          : ''
+        return (
+          <PickerRow key={i} isSelected={isSelected} onMouseEnter={onHover !== undefined ? () => onHover(i) : undefined} onClick={onActivate !== undefined ? () => onActivate(i) : undefined}>
+            <Text size="sm" {...(isSelected ? { c: 'blue' } : {})}>
+              {isSelected ? '> ' : '  '}{prefix}{item.label}
+              {item.key !== undefined && <Text span size="xs" c="dimmed">  {item.key}</Text>}
             </Text>
           </PickerRow>
         )

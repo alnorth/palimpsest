@@ -111,17 +111,16 @@ export function getCommands(vm: ViewModel): Partial<Record<CommandId, Command>> 
     }
   }
 
-  // ── Toggle waiting ────────────────────────────────────────────────────────────
+  // ── Pick waiting for ────────────────────────────────────────────────────────────
   if (currentTask?.status === 'open') {
-    commands['set-waiting'] = {
-      id: 'set-waiting',
+    commands['pick-waiting'] = {
+      id: 'pick-waiting',
       label: 'waiting',
       group: 'state',
       key: 'w',
       action: {
-        type: 'set-waiting',
-        taskId: currentTask.id,
-        waitingFor: currentTask.waitingFor !== undefined ? CLEAR : { kind: 'review' },
+        type: 'navigate',
+        navState: { view: 'picking-waiting-for-task', selected: 0, activeTaskId: currentTask.id },
       },
     }
   }

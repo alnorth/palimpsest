@@ -150,6 +150,13 @@ function LoadedApp({ initialState }: { initialState: ProjectionState }) {
       }
       return
     }
+    if (listItems.view === 'picking-waiting-for-task') {
+      if (currentTask !== undefined) {
+        const item = listItems.items.find(i => i.key === input) ?? (key.return ? listItems.selectedItem : undefined)
+        if (item !== undefined) dispatch({ type: 'set-waiting', taskId: currentTask.id, waitingFor: item.waitingFor })
+      }
+      return
+    }
     // List mode
     if (key.return && selectedItem !== undefined) {
       if (selectedItem.kind === 'task') {
@@ -296,6 +303,22 @@ function LoadedApp({ initialState }: { initialState: ProjectionState }) {
       return (
         <Text key={opt.name} {...(isSelected ? { color: 'blue' as const } : {})}>
           {isSelected ? '> ' : '  '}{opt.id !== null ? CONTEXT_PREFIX : ''}{opt.name}
+          {opt.key !== undefined ? <Text dimColor>  {opt.key}</Text> : null}
+        </Text>
+      )
+    })
+    footer = <Text dimColor>↑↓ navigate  enter/key select  esc back</Text>
+  } else if (listItems.view === 'picking-waiting-for-task') {
+    title = <Text bold color="cyan">{subtitle}</Text>
+    content = listItems.items.map((opt, i) => {
+      const isSelected = opt === listItems.selectedItem
+      const wf = opt.waitingFor
+      const prefix = wf !== null && typeof wf === 'object' && wf.kind === 'agenda' ? AGENDA_PREFIX
+        : wf !== null && typeof wf === 'object' && wf.kind === 'project' ? PROJECT_PREFIX
+        : ''
+      return (
+        <Text key={i} {...(isSelected ? { color: 'blue' as const } : {})}>
+          {isSelected ? '> ' : '  '}{prefix}{opt.label}
           {opt.key !== undefined ? <Text dimColor>  {opt.key}</Text> : null}
         </Text>
       )

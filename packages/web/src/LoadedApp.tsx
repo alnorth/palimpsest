@@ -13,7 +13,7 @@ import { CommandBar } from './components/CommandBar.js'
 import { MobileFooter } from './components/MobileFooter.js'
 import { NavDrawer } from './components/NavDrawer.js'
 import { SyncStatus } from './components/SyncStatus.js'
-import { ViewPicker, AgendaPicker, ContextPicker, DueDatePicker, ProjectSearch } from './components/Pickers.js'
+import { ViewPicker, AgendaPicker, ContextPicker, DueDatePicker, ProjectSearch, WaitingForPicker } from './components/Pickers.js'
 
 interface Props {
   store: PalimpsestStore
@@ -124,6 +124,8 @@ export function LoadedApp({ store, initialState }: Props) {
         onActivate={activate}
       />
     )
+  } else if (listItems.view === 'picking-waiting-for-task') {
+    content = <WaitingForPicker items={listItems.items} selectedItem={listItems.selectedItem} onHover={handleHover} onActivate={activate} />
   } else if (listItems.view === 'task' && activeTask !== undefined) {
     content = <TaskDetail task={activeTask} state={projState} commands={commands} dispatch={dispatch} />
   } else if (listItems.view === 'project') {
