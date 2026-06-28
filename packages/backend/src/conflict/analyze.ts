@@ -7,7 +7,6 @@ export type ConflictResult =
 export type ConflictReason =
   | 'task-deleted'
   | 'task-already-completed'
-  | 'parent-deleted'
   | 'concurrent-update'
 
 // Extract the primary entity ID from an event
@@ -23,7 +22,6 @@ interface InterveningIndex {
   deletedTasks: Set<string>
   completedTasks: Set<string>  // completed or recurred (closed state)
   uncompletedTasks: Set<string>
-  deletedProjects: Set<string>
 }
 
 function indexIntervening(intervening: PalimpsestEvent[]): InterveningIndex {
@@ -31,18 +29,15 @@ function indexIntervening(intervening: PalimpsestEvent[]): InterveningIndex {
     deletedTasks: new Set(),
     completedTasks: new Set(),
     uncompletedTasks: new Set(),
-    deletedProjects: new Set(),
   }
   for (const ev of intervening) {
     const e = ev as unknown as Record<string, unknown>
     const tid = e['taskId'] as string | undefined
-    const pid = e['projectId'] as string | undefined
     switch (ev.type) {
       case 'task.deleted':    if (tid) idx.deletedTasks.add(tid); break
       case 'task.completed':  if (tid) idx.completedTasks.add(tid); break
       case 'task.recurred':   if (tid) idx.completedTasks.add(tid); break
       case 'task.uncompleted': if (tid) idx.uncompletedTasks.add(tid); break
-      case 'project.deleted': if (pid) idx.deletedProjects.add(pid); break
     }
   }
   return idx
@@ -56,7 +51,6 @@ function analyzeOne(
   const e = submitted as unknown as Record<string, unknown>
   const tid = e['taskId'] as string | undefined
   const sid = e['sphereId'] as string | undefined
-  const pid = e['projectId'] as string | undefined
 
   switch (submitted.type) {
     case 'task.updated': {
@@ -93,12 +87,8 @@ function analyzeOne(
       return { status: 'ok' }
     }
 
-    case 'task.created': {
-      if (pid && idx.deletedProjects.has(pid)) {
-        return { status: 'conflict', reason: 'parent-deleted', conflictingEvents: intervening.filter(ev => (ev as any).projectId === pid && ev.type === 'project.deleted') }
-      }
+    case 'task.created':
       return { status: 'ok' }
-    }
 
     case 'task.recurred': {
       if (tid && idx.deletedTasks.has(tid)) {
@@ -109,7 +99,6 @@ function analyzeOne(
 
     // Project events
     case 'project.updated':
-    case 'project.deleted':
     case 'project.archived':
     case 'project.unarchived': {
       // These don't overlap with the indices above in a hard-conflict way

@@ -2,7 +2,7 @@ export type { Task, Project, Sphere, Agenda, Context, TaskStatus, WaitingFor } f
 export type { TaskId, ProjectId, SphereId, AgendaId, ContextId, EventId } from './ids.js'
 export type {
   PalimpsestEvent,
-  ProjectCreatedEvent, ProjectUpdatedEvent, ProjectDeletedEvent, ProjectArchivedEvent, ProjectUnarchivedEvent,
+  ProjectCreatedEvent, ProjectUpdatedEvent, ProjectArchivedEvent, ProjectUnarchivedEvent,
   TaskCreatedEvent, TaskUpdatedEvent, TaskCompletedEvent, TaskUncompletedEvent, TaskRecurredEvent, TaskDeletedEvent,
   TaskPatch, ProjectPatch,
 } from './events.js'
@@ -18,7 +18,7 @@ export type { SphereConfig, AgendaConfig, ContextConfig } from './config.js'
 export { project, applyEvent, createEmptyState } from './projection.js'
 export { PalimpsestStore, FilePalimpsestStore } from './store.js'
 export {
-  createProject, updateProject, deleteProject, archiveProject, unarchiveProject,
+  createProject, updateProject, archiveProject, unarchiveProject,
   createTask, updateTask, completeTask, uncompleteTask, deleteTask, postponeTask, finishRecurringTask,
 } from './commands.js'
 export {

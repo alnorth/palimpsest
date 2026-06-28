@@ -13,7 +13,6 @@ function validateEvent(state: ProjectionState, event: PalimpsestEvent): void {
         throw new Error(`Sphere not found: ${event.patch.sphereId}`)
       }
       break
-    case 'project.deleted':
     case 'project.archived':
     case 'project.unarchived':
       if (!state.projects.has(event.projectId)) throw new Error(`Project not found: ${event.projectId}`)

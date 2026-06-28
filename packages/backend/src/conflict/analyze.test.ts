@@ -3,7 +3,7 @@ import { analyzeConflict } from './analyze.js'
 import type {
   TaskCreatedEvent, TaskUpdatedEvent, TaskCompletedEvent, TaskDeletedEvent,
   TaskRecurredEvent, TaskUncompletedEvent,
-  ProjectCreatedEvent, ProjectUpdatedEvent, ProjectDeletedEvent,
+  ProjectCreatedEvent, ProjectUpdatedEvent,
 } from 'palimpsest'
 import type { TaskId, ProjectId, SphereId, EventId } from 'palimpsest'
 
@@ -26,9 +26,6 @@ function taskRecurred(taskId: string): TaskRecurredEvent {
 }
 function taskUncompleted(taskId: string): TaskUncompletedEvent {
   return { id: 'e6' as EventId, type: 'task.uncompleted', taskId: taskId as TaskId, occurredAt: T }
-}
-function projectDeleted(projectId: string): ProjectDeletedEvent {
-  return { id: 'e8' as EventId, type: 'project.deleted', projectId: projectId as ProjectId, occurredAt: T }
 }
 function projectUpdated(projectId: string): ProjectUpdatedEvent {
   return { id: 'e9' as EventId, type: 'project.updated', projectId: projectId as ProjectId, patch: {}, occurredAt: T }
@@ -130,13 +127,6 @@ describe('analyzeConflict', () => {
       if (result.status === 'conflict') expect(result.reason).toBe('task-already-completed')
     })
 
-    it('task.created when parent project was deleted → conflict with reason parent-deleted', () => {
-      const submitted = [taskCreated('taskA', 's1', 'proj1')]
-      const intervening = [projectDeleted('proj1')]
-      const result = analyzeConflict(submitted, intervening)
-      expect(result.status).toBe('conflict')
-      if (result.status === 'conflict') expect(result.reason).toBe('parent-deleted')
-    })
   })
 
   describe('multiple submitted events', () => {

@@ -21,6 +21,7 @@ export interface TaskFilter {
   sphereId?: SphereId
   agendaId?: AgendaId
   contextId?: ContextId
+  isWaiting?: boolean
 }
 
 export function listTasks(state: ProjectionState, filter?: TaskFilter): Task[] {
@@ -33,6 +34,7 @@ export function listTasks(state: ProjectionState, filter?: TaskFilter): Task[] {
     const sid = filter.sphereId
     tasks = tasks.filter(t => getTaskSphereId(state, t) === sid)
   }
+  if (filter?.isWaiting !== undefined) tasks = tasks.filter(t => filter.isWaiting ? t.waitingFor !== undefined : t.waitingFor === undefined)
   return tasks
 }
 

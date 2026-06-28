@@ -33,10 +33,6 @@ export function updateProject(project: Project, patch: ProjectPatch): Palimpsest
   return [evt('project.updated', { projectId: project.id, patch })]
 }
 
-export function deleteProject(project: Project): PalimpsestEvent[] {
-  return [evt('project.deleted', { projectId: project.id })]
-}
-
 export function archiveProject(project: Project): PalimpsestEvent[] {
   if (project.isArchived) throw new Error('Project is already archived')
   return [evt('project.archived', { projectId: project.id })]

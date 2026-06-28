@@ -207,6 +207,15 @@ export function deriveViewModel(projState: ProjectionState, uiState: UIState): V
         .filter(p => !projectStats.hasNext.has(p.id))
     : []
 
+  const tasksWaitingOnArchivedProjects: Task[] = activeSphere !== undefined
+    ? listTasks(projState, { sphereId: activeSphere.id, status: 'open', isWaiting: true })
+        .filter(t => {
+          if (t.waitingFor?.kind !== 'project') return false
+          const p = projState.projects.get(t.waitingFor.projectId)
+          return p === undefined || p.isArchived === true
+        })
+    : []
+
   const isPickerView = view === 'picking-view' || view === 'picking-agenda-for-task' || view === 'picking-context-for-task' || view === 'picking-due-date' || view === 'picking-project-for-task' || view === 'picking-waiting-for-task' || view === 'picking-waiting-agenda' || view === 'picking-waiting-project'
 
 
@@ -232,6 +241,7 @@ export function deriveViewModel(projState: ProjectionState, uiState: UIState): V
         const groups: ListGroup<ListItem>[] = [
           { title: 'Inbox tasks', items: inboxTasks.map((t): ListItem => ({ kind: 'task', task: t })) },
           { title: 'Projects without a next action', items: projectsWithoutNext.map((p): ListItem => ({ kind: 'project', project: p })) },
+          { title: 'Waiting on archived projects', items: tasksWaitingOnArchivedProjects.map((t): ListItem => ({ kind: 'task', task: t })) },
         ]
         const items = flatItems(groups)
         return { view, groups, items, emptyMessage: 'Nothing to process.', selectedItem: items[selected] }
