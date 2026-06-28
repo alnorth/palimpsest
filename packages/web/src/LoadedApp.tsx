@@ -92,7 +92,7 @@ export function LoadedApp({ store, initialState }: Props) {
     } else if (mode === 'editing-recurrence') {
       setFormValue(currentTask?.dueDateExpression ?? '')
     } else if (mode === 'editing-project' && listItems.view === 'projects') {
-      setFormValue(listItems.items[selected]?.name ?? '')
+      setFormValue(listItems.groups.flatMap(g => g.items)[selected]?.name ?? '')
     }
   }, [mode]) // intentionally omit other deps — we only want to run on mode transitions
 
@@ -174,7 +174,7 @@ export function LoadedApp({ store, initialState }: Props) {
 
   function handleEditProjectSubmit(name: string) {
     const trimmed = name.trim()
-    const project = listItems.view === 'projects' ? listItems.items[selected] : undefined
+    const project = listItems.view === 'projects' ? listItems.groups.flatMap(g => g.items)[selected] : undefined
     if (trimmed && project !== undefined) {
       dispatch({ type: 'edit-project', projectId: project.id, name: trimmed })
     } else {
@@ -215,17 +215,17 @@ export function LoadedApp({ store, initialState }: Props) {
   let content: React.ReactNode
 
   if (listItems.view === 'picking-view') {
-    content = <ViewPicker items={listItems.items} selected={selected} onHover={handleHover} onActivate={activate} />
+    content = <ViewPicker items={listItems.groups.flatMap(g => g.items)} selected={selected} onHover={handleHover} onActivate={activate} />
   } else if (listItems.view === 'picking-agenda-for-task') {
-    content = <AgendaPicker items={listItems.items} selected={selected} onHover={handleHover} onActivate={activate} />
+    content = <AgendaPicker items={listItems.groups.flatMap(g => g.items)} selected={selected} onHover={handleHover} onActivate={activate} />
   } else if (listItems.view === 'picking-context-for-task') {
-    content = <ContextPicker items={listItems.items} selected={selected} onHover={handleHover} onActivate={activate} />
+    content = <ContextPicker items={listItems.groups.flatMap(g => g.items)} selected={selected} onHover={handleHover} onActivate={activate} />
   } else if (listItems.view === 'picking-due-date') {
-    content = <DueDatePicker items={listItems.items} selected={selected} onHover={handleHover} onActivate={activate} />
+    content = <DueDatePicker items={listItems.groups.flatMap(g => g.items)} selected={selected} onHover={handleHover} onActivate={activate} />
   } else if (listItems.view === 'picking-project-for-task') {
     content = (
       <ProjectSearch
-        items={listItems.items}
+        items={listItems.groups.flatMap(g => g.items)}
         selected={selected}
         searchQuery={searchQuery}
         onSearchChange={v => dispatch({ type: 'update-nav', patch: { searchQuery: v, selected: 0 } })}
@@ -238,7 +238,7 @@ export function LoadedApp({ store, initialState }: Props) {
   } else if (listItems.view === 'dashboard') {
     content = (
       <TaskList
-        tasks={listItems.items}
+        groups={listItems.groups}
         selected={selected}
         state={projState}
         showProject
@@ -251,7 +251,7 @@ export function LoadedApp({ store, initialState }: Props) {
   } else if (listItems.view === 'tasks') {
     content = (
       <TaskList
-        tasks={listItems.items}
+        groups={listItems.groups}
         selected={selected}
         state={projState}
         showProject
@@ -264,7 +264,7 @@ export function LoadedApp({ store, initialState }: Props) {
   } else if (listItems.view === 'projects') {
     content = (
       <ProjectList
-        projects={listItems.items}
+        groups={listItems.groups}
         selected={selected}
         projectStats={projectStats}
         showArchived={showArchived}
@@ -285,7 +285,7 @@ export function LoadedApp({ store, initialState }: Props) {
           </Group>
         )}
         <TaskList
-          tasks={listItems.items}
+          groups={listItems.groups}
           selected={selected}
           state={projState}
           emptyMessage={showCompleted ? 'No completed tasks in this project.' : 'No open tasks in this project.'}

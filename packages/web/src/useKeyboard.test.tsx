@@ -24,7 +24,7 @@ function makeAppState(overrides: Partial<AppStateResult> = {}): AppStateResult {
     contexts: [],
     spheres: [{ id: SPHERE_ID, name: 'Work' }],
     projectStats: { hasNext: new Set(), taskCount: new Map() },
-    listItems: { view: 'dashboard', items: [] },
+    listItems: { view: 'dashboard', groups: [] },
     listLength: 0,
     currentTask: undefined,
     subtitle: 'Work',

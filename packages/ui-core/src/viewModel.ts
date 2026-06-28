@@ -46,17 +46,22 @@ export interface ProjectPickerItem {
   name: string
 }
 
+export interface ListGroup<T> {
+  title: string
+  items: T[]
+}
+
 export type ListItems =
-  | { view: 'dashboard'; items: Task[] }
-  | { view: 'tasks'; items: Task[] }
-  | { view: 'project'; items: Task[] }
-  | { view: 'projects'; items: Project[] }
-  | { view: 'task'; items: never[] }
-  | { view: 'picking-view'; items: ViewPickerItem[] }
-  | { view: 'picking-agenda-for-task'; items: AgendaPickerItem[] }
-  | { view: 'picking-context-for-task'; items: ContextPickerItem[] }
-  | { view: 'picking-due-date'; items: DueDateOption[] }
-  | { view: 'picking-project-for-task'; items: ProjectPickerItem[] }
+  | { view: 'dashboard'; groups: ListGroup<Task>[] }
+  | { view: 'tasks'; groups: ListGroup<Task>[] }
+  | { view: 'project'; groups: ListGroup<Task>[] }
+  | { view: 'projects'; groups: ListGroup<Project>[] }
+  | { view: 'task'; groups: ListGroup<never>[] }
+  | { view: 'picking-view'; groups: ListGroup<ViewPickerItem>[] }
+  | { view: 'picking-agenda-for-task'; groups: ListGroup<AgendaPickerItem>[] }
+  | { view: 'picking-context-for-task'; groups: ListGroup<ContextPickerItem>[] }
+  | { view: 'picking-due-date'; groups: ListGroup<DueDateOption>[] }
+  | { view: 'picking-project-for-task'; groups: ListGroup<ProjectPickerItem>[] }
 
 export interface ViewModel {
   spheres: Sphere[]
@@ -208,31 +213,37 @@ export function deriveViewModel(projState: ProjectionState, uiState: UIState): V
 
   const listItems: ListItems = (() => {
     switch (view) {
-      case 'dashboard': return { view, items: dashboardTasks }
-      case 'tasks': return { view, items: tasks }
-      case 'project': return { view, items: projectTasks }
-      case 'projects': return { view, items: projects }
-      case 'task': return { view, items: [] as never[] }
-      case 'picking-view': return { view, items: VIEW_CONFIG }
+      case 'dashboard': return { view, groups: [{ title: '', items: dashboardTasks }] }
+      case 'tasks': return { view, groups: [{ title: '', items: tasks }] }
+      case 'project': return { view, groups: [{ title: '', items: projectTasks }] }
+      case 'projects': return { view, groups: [{ title: '', items: projects }] }
+      case 'task': return { view, groups: [] }
+      case 'picking-view': return { view, groups: [{ title: '', items: VIEW_CONFIG }] }
       case 'picking-agenda-for-task': return {
         view,
-        items: [
-          { id: null, title: 'No agenda' },
-          ...agendas.map((a): AgendaPickerItem =>
-            a.key !== undefined ? { id: a.id, title: a.title, key: a.key } : { id: a.id, title: a.title }
-          ),
-        ],
+        groups: [{
+          title: '',
+          items: [
+            { id: null, title: 'No agenda' },
+            ...agendas.map((a): AgendaPickerItem =>
+              a.key !== undefined ? { id: a.id, title: a.title, key: a.key } : { id: a.id, title: a.title }
+            ),
+          ],
+        }],
       }
       case 'picking-context-for-task': return {
         view,
-        items: [
-          { id: null, name: 'No context' },
-          ...contexts.map((c): ContextPickerItem =>
-            c.key !== undefined ? { id: c.id, name: c.name, key: c.key } : { id: c.id, name: c.name }
-          ),
-        ],
+        groups: [{
+          title: '',
+          items: [
+            { id: null, name: 'No context' },
+            ...contexts.map((c): ContextPickerItem =>
+              c.key !== undefined ? { id: c.id, name: c.name, key: c.key } : { id: c.id, name: c.name }
+            ),
+          ],
+        }],
       }
-      case 'picking-due-date': return { view, items: dueDateOptions }
+      case 'picking-due-date': return { view, groups: [{ title: '', items: dueDateOptions }] }
       case 'picking-project-for-task': {
         const query = searchQuery.toLowerCase().trim()
         const allProjects = activeSphere !== undefined
@@ -245,12 +256,12 @@ export function deriveViewModel(projState: ProjectionState, uiState: UIState): V
           ...(query === '' ? [{ id: null as null, name: 'No project' }] : []),
           ...filtered.map(p => ({ id: p.id, name: p.name })),
         ]
-        return { view, items }
+        return { view, groups: [{ title: '', items }] }
       }
     }
   })()
 
-  const listLength = listItems.items.length
+  const listLength = listItems.groups.reduce((sum, g) => sum + g.items.length, 0)
 
   return {
     spheres,

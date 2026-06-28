@@ -40,28 +40,32 @@ export function useKeyboard(
 
       // Picker views: letter shortcuts select by key, Enter activates selected
       if (listItems.view === 'picking-view') {
-        const shortcutIdx = listItems.items.findIndex(item => item.key === input)
+        const flat = listItems.groups.flatMap(g => g.items)
+        const shortcutIdx = flat.findIndex(item => item.key === input)
         if (shortcutIdx !== -1) { activate(shortcutIdx); return }
         if (e.key === 'Enter') { activate(selected); return }
         return
       }
 
       if (listItems.view === 'picking-agenda-for-task') {
-        const shortcutIdx = listItems.items.findIndex(a => a.key === input)
+        const flat = listItems.groups.flatMap(g => g.items)
+        const shortcutIdx = flat.findIndex(a => a.key === input)
         if (shortcutIdx !== -1) { activate(shortcutIdx); return }
         if (e.key === 'Enter') { activate(selected); return }
         return
       }
 
       if (listItems.view === 'picking-context-for-task') {
-        const shortcutIdx = listItems.items.findIndex(c => c.key === input)
+        const flat = listItems.groups.flatMap(g => g.items)
+        const shortcutIdx = flat.findIndex(c => c.key === input)
         if (shortcutIdx !== -1) { activate(shortcutIdx); return }
         if (e.key === 'Enter') { activate(selected); return }
         return
       }
 
       if (listItems.view === 'picking-due-date') {
-        const shortcutIdx = listItems.items.findIndex(o => o.key === input)
+        const flat = listItems.groups.flatMap(g => g.items)
+        const shortcutIdx = flat.findIndex(o => o.key === input)
         if (shortcutIdx !== -1) { activate(shortcutIdx); return }
         if (e.key === 'Enter') { activate(selected); return }
         return

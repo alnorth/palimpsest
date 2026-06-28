@@ -286,37 +286,38 @@ export function useAppState(store: PalimpsestStore, initialState: ProjectionStat
 
   const activate = useCallback((i: number) => {
     if (vm.listItems.view === 'picking-view') {
-      const item = vm.listItems.items[i]
+      const item = vm.listItems.groups.flatMap(g => g.items)[i]
       if (item !== undefined) {
         dispatch({ type: 'set-nav', navState: navStateForTopLevelView(item.id) })
       }
     } else if (vm.listItems.view === 'picking-agenda-for-task' && vm.currentTask !== undefined) {
-      const item = vm.listItems.items[i]
+      const item = vm.listItems.groups.flatMap(g => g.items)[i]
       if (item !== undefined) dispatch({ type: 'set-task-agenda', taskId: vm.currentTask.id, agendaId: item.id ?? CLEAR })
     } else if (vm.listItems.view === 'picking-context-for-task' && vm.currentTask !== undefined) {
-      const item = vm.listItems.items[i]
+      const item = vm.listItems.groups.flatMap(g => g.items)[i]
       if (item !== undefined) dispatch({ type: 'set-task-context', taskId: vm.currentTask.id, contextId: item.id ?? CLEAR })
     } else if (vm.listItems.view === 'picking-due-date' && vm.currentTask !== undefined) {
-      const opt = vm.listItems.items[i]
+      const opt = vm.listItems.groups.flatMap(g => g.items)[i]
       if (opt !== undefined) {
         if (opt.date !== null) dispatch({ type: 'set-task-due-date', taskId: vm.currentTask.id, dueDate: opt.date })
         else if (opt.key === 'c') dispatch({ type: 'set-mode', mode: 'editing-due-date' })
         else dispatch({ type: 'set-task-due-date', taskId: vm.currentTask.id, dueDate: CLEAR })
       }
     } else if (vm.listItems.view === 'picking-project-for-task' && vm.currentTask !== undefined) {
-      const item = vm.listItems.items[i]
+      const flat = vm.listItems.groups.flatMap(g => g.items)
+      const item = flat[i]
       if (item !== undefined) {
         dispatch({ type: 'set-task-project', taskId: vm.currentTask.id, projectId: item.id ?? CLEAR })
-      } else if (vm.listItems.items.length === 0 && vm.searchQuery.trim() !== '' && vm.activeSphere !== undefined) {
+      } else if (flat.length === 0 && vm.searchQuery.trim() !== '' && vm.activeSphere !== undefined) {
         dispatch({ type: 'create-and-assign-project', name: vm.searchQuery.trim(), sphereId: vm.activeSphere.id, taskId: vm.currentTask.id })
       }
     } else if (vm.listItems.view === 'projects') {
-      const project = vm.listItems.items[i]
+      const project = vm.listItems.groups.flatMap(g => g.items)[i]
       if (project !== undefined) {
         dispatch({ type: 'navigate', navState: { view: 'project', selected: 0, activeProjectId: project.id, showCompleted: false } })
       }
     } else if (vm.listItems.view === 'tasks' || vm.listItems.view === 'project' || vm.listItems.view === 'dashboard') {
-      const task = vm.listItems.items[i]
+      const task = vm.listItems.groups.flatMap(g => g.items)[i]
       if (task !== undefined) {
         dispatch({ type: 'navigate', navState: { view: 'task', activeTaskId: task.id } })
       }
