@@ -272,10 +272,9 @@ export function deriveViewModel(projState: ProjectionState, uiState: UIState): V
         return { view, groups, items, emptyMessage: 'No waiting tasks.', selectedItem: items[selected] }
       }
       case 'pick-list': {
-        const eligible = (activeSphere !== undefined
-          ? listTasks(projState, { sphereId: activeSphere.id, status: 'open', isActionable: true })
+        const eligible = activeSphere !== undefined
+          ? listTasks(projState, { sphereId: activeSphere.id, status: 'open', isActionable: true, hasContext: true })
           : []
-        ).filter(t => t.contextId !== undefined)
 
         const byContext = new Map<ContextId, Task[]>()
         for (const task of eligible) {

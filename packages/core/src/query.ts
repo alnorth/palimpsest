@@ -23,6 +23,7 @@ export interface TaskFilter {
   contextId?: ContextId
   isWaiting?: boolean
   isActionable?: boolean
+  hasContext?: boolean
 }
 
 export function listTasks(state: ProjectionState, filter?: TaskFilter): Task[] {
@@ -37,6 +38,7 @@ export function listTasks(state: ProjectionState, filter?: TaskFilter): Task[] {
   }
   if (filter?.isWaiting    !== undefined) tasks = tasks.filter(t => filter.isWaiting ? t.waitingFor !== undefined : t.waitingFor === undefined)
   if (filter?.isActionable === true)      tasks = tasks.filter(t => t.projectId === undefined || t.isNext === true)
+  if (filter?.hasContext   !== undefined) tasks = tasks.filter(t => filter.hasContext ? t.contextId !== undefined : t.contextId === undefined)
   return tasks
 }
 
