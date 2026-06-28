@@ -82,6 +82,7 @@ export function useKeyboard(
       if (input !== '') {
         const cmd = Object.values(commands).filter((c): c is Command => c !== undefined).find(c => c.key === input)
         if (cmd !== undefined) {
+          e.preventDefault()
           if (cmd.id === 'pick-agenda' && currentTask !== undefined) {
             const idx = currentTask.agendaId !== undefined ? agendas.findIndex(a => a.id === currentTask.agendaId) + 1 : 0
             dispatch({ type: 'navigate', navState: { view: 'picking-agenda-for-task', selected: Math.max(0, idx), activeTaskId: currentTask.id } })
