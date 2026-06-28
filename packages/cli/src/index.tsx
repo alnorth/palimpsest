@@ -4,12 +4,11 @@ import { ItemList } from './ItemList.js'
 import { Title } from './Title.js'
 import { PickerList, DueDatePicker, ProjectSearch } from './Pickers.js'
 import TextInput from 'ink-text-input'
-import { FilePalimpsestStore, CLEAR, getProject, getAgenda, getContext, buildStateFromConfig, PALIMPSEST_CONFIG, createEmptyState, isValidExpression } from 'palimpsest'
+import { FilePalimpsestStore, CLEAR, buildStateFromConfig, PALIMPSEST_CONFIG, createEmptyState, isValidExpression } from 'palimpsest'
 import type { PalimpsestStore, ProjectionState } from 'palimpsest'
-import { useAppState, ClientPalimpsestStore, parseDueDate, getDueDatePreview, getRecurrencePreview, handleKey, AGENDA_PREFIX, PROJECT_PREFIX, CONTEXT_PREFIX, RECURRENCE_PREFIX } from 'palimpsest-ui-core'
+import { useAppState, ClientPalimpsestStore, parseDueDate, getDueDatePreview, getRecurrencePreview, handleKey, getTaskDetailFields } from 'palimpsest-ui-core'
 import { FilePendingEventStore } from './FilePendingEventStore.js'
 import type { View } from 'palimpsest-ui-core'
-import { formatDateTime } from './format.js'
 import { homedir } from 'node:os'
 import { join, dirname } from 'node:path'
 import { mkdirSync } from 'node:fs'
@@ -273,9 +272,7 @@ function LoadedApp({ initialState }: { initialState: ProjectionState }) {
     content = activeSphere === undefined ? (
       <Text dimColor>No spheres configured — edit PALIMPSEST_CONFIG in packages/core/src/config.ts.</Text>
     ) : listItems.view === 'task' ? (() => {
-      const detailProject = activeTask?.projectId !== undefined ? getProject(projState, activeTask.projectId) : undefined
-      const detailAgenda = activeTask?.agendaId !== undefined ? getAgenda(projState, activeTask.agendaId) : undefined
-      const detailContext = activeTask?.contextId !== undefined ? getContext(projState, activeTask.contextId) : undefined
+      const detailFields = activeTask !== undefined ? getTaskDetailFields(activeTask, projState) : []
       return (
         <Box flexDirection="column">
           {activeTask?.description
@@ -283,14 +280,9 @@ function LoadedApp({ initialState }: { initialState: ProjectionState }) {
             : <Text dimColor>No description.</Text>
           }
           <Box flexDirection="column" marginTop={1}>
-            {detailProject !== undefined ? <Text dimColor>project    {PROJECT_PREFIX}{detailProject.name}</Text> : null}
-            {detailAgenda !== undefined ? <Text dimColor>agenda     {AGENDA_PREFIX}{detailAgenda.title}</Text> : null}
-            {detailContext !== undefined ? <Text dimColor>context    {CONTEXT_PREFIX}{detailContext.name}</Text> : null}
-            {activeTask?.dueDate !== undefined ? <Text dimColor>due        {activeTask.dueDate}</Text> : null}
-            {activeTask?.dueDateExpression !== undefined ? <Text dimColor>recurring  {RECURRENCE_PREFIX} {activeTask.dueDateExpression}</Text> : null}
-            {activeTask?.completedAt !== undefined ? <Text dimColor>completed  {formatDateTime(activeTask.completedAt)}</Text> : null}
-            {activeTask?.isNext === true ? <Text dimColor>next action</Text> : null}
-            {activeTask?.isStarred === true ? <Text dimColor>starred</Text> : null}
+            {detailFields.map((f, i) => (
+              <Text key={i} dimColor>{f.label}{f.value}</Text>
+            ))}
           </Box>
         </Box>
       )
