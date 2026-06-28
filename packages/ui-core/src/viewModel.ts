@@ -60,12 +60,10 @@ export type ListItem =
   | { kind: 'task'; task: Task }
   | { kind: 'project'; project: Project }
 
+type MainListItems = { view: 'dashboard' | 'tasks' | 'project' | 'projects' | 'processing'; groups: ListGroup<ListItem>[]; items: ListItem[]; emptyMessage: string }
+
 export type ListItems =
-  | { view: 'dashboard'; groups: ListGroup<ListItem>[]; items: ListItem[]; emptyMessage: string }
-  | { view: 'tasks'; groups: ListGroup<ListItem>[]; items: ListItem[]; emptyMessage: string }
-  | { view: 'project'; groups: ListGroup<ListItem>[]; items: ListItem[]; emptyMessage: string }
-  | { view: 'projects'; groups: ListGroup<ListItem>[]; items: ListItem[]; emptyMessage: string }
-  | { view: 'processing'; groups: ListGroup<ListItem>[]; items: ListItem[]; emptyMessage: string }
+  | MainListItems
   | { view: 'task'; groups: ListGroup<never>[]; items: never[] }
   | { view: 'picking-view'; groups: ListGroup<ViewPickerItem>[]; items: ViewPickerItem[] }
   | { view: 'picking-agenda-for-task'; groups: ListGroup<AgendaPickerItem>[]; items: AgendaPickerItem[] }
