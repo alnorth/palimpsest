@@ -440,12 +440,12 @@ function LoadedApp({ initialState }: { initialState: ProjectionState }) {
         </Box>
       )
     })() : listItems.view === 'dashboard' ? (
-      <TaskList groups={listItems.groups} selected={selected} state={projState} showProject emptyMessage="No tasks due today and no starred tasks." />
+      <TaskList groups={listItems.groups} selected={selected} state={projState} showProject emptyMessage={listItems.emptyMessage} />
     ) : listItems.view === 'tasks' ? (
-      <TaskList groups={listItems.groups} selected={selected} state={projState} showProject emptyMessage={showCompleted ? 'No completed tasks in this sphere.' : 'No open tasks in this sphere.'} />
+      <TaskList groups={listItems.groups} selected={selected} state={projState} showProject emptyMessage={listItems.emptyMessage} />
     ) : listItems.view === 'projects' ? (() => {
       return listItems.items.length === 0 ? (
-        <Text dimColor>No projects.</Text>
+        <Text dimColor>{listItems.emptyMessage}</Text>
       ) : (
         <>
           {listItems.groups.map((group, gi) => {
@@ -512,7 +512,7 @@ function LoadedApp({ initialState }: { initialState: ProjectionState }) {
         </>
       )
     })() : (
-      <TaskList groups={listItems.groups} selected={selected} state={projState} emptyMessage={showCompleted ? 'No completed tasks in this project.' : 'No open tasks in this project.'} />
+      <TaskList groups={listItems.groups} selected={selected} state={projState} emptyMessage={listItems.emptyMessage} />
     )
     footer = mode === 'adding' ? (
       activeSphere === undefined ? (

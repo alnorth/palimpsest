@@ -244,7 +244,7 @@ export function LoadedApp({ store, initialState }: Props) {
         selected={selected}
         state={projState}
         showProject
-        emptyMessage="No tasks due today and no starred tasks."
+        emptyMessage={listItems.emptyMessage}
         onHover={handleHover}
         onActivate={activate}
         onComplete={handleTaskComplete}
@@ -257,7 +257,7 @@ export function LoadedApp({ store, initialState }: Props) {
         selected={selected}
         state={projState}
         showProject
-        emptyMessage={showCompleted ? 'No completed tasks in this sphere.' : 'No open tasks in this sphere.'}
+        emptyMessage={listItems.emptyMessage}
         onHover={handleHover}
         onActivate={activate}
         onComplete={handleTaskComplete}
@@ -270,7 +270,7 @@ export function LoadedApp({ store, initialState }: Props) {
         selected={selected}
         projectStats={projectStats}
         showArchived={showArchived}
-        emptyMessage="No projects."
+        emptyMessage={listItems.emptyMessage}
         onHover={handleHover}
         onActivate={activate}
       />
@@ -290,7 +290,7 @@ export function LoadedApp({ store, initialState }: Props) {
           groups={listItems.groups}
           selected={selected}
           state={projState}
-          emptyMessage={showCompleted ? 'No completed tasks in this project.' : 'No open tasks in this project.'}
+          emptyMessage={listItems.emptyMessage}
           onHover={handleHover}
           onActivate={activate}
           onComplete={handleTaskComplete}
