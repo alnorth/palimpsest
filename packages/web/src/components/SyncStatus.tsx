@@ -1,6 +1,6 @@
 import React from 'react'
 import { Text } from '@mantine/core'
-import type { SyncState } from 'palimpsest-ui-core'
+import type { SyncState } from 'palimpsest'
 
 interface Props {
   syncState: SyncState
