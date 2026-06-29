@@ -18,6 +18,7 @@ import { ViewPicker, AgendaPicker, WaitingAgendaPicker, ContextPicker, DueDatePi
 interface Props {
   store: PalimpsestStore
   initialState: ProjectionState
+  onLogout: () => void
 }
 
 function FormModal({ opened, onClose, title, placeholder, preview, value, onChange, onSubmit, multiline }: {
@@ -69,7 +70,7 @@ function FormModal({ opened, onClose, title, placeholder, preview, value, onChan
   )
 }
 
-export function LoadedApp({ store, initialState }: Props) {
+export function LoadedApp({ store, initialState, onLogout }: Props) {
   const appState = useAppState(store, initialState)
   const {
     view, mode, formValue, activeTask, activeProject,
@@ -282,6 +283,7 @@ export function LoadedApp({ store, initialState }: Props) {
         activeSphere={activeSphere}
         currentView={view}
         dispatch={dispatch}
+        onLogout={onLogout}
       />
       <AppShell.Header px="md">
         <Group h="100%" justify="space-between">

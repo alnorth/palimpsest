@@ -1,5 +1,5 @@
 import React from 'react'
-import { Drawer, Stack, Text, Menu, Button } from '@mantine/core'
+import { Drawer, Stack, Text, Menu, Button, Divider } from '@mantine/core'
 import type { Sphere } from 'palimpsest'
 import type { Action, TopLevelView, View } from 'palimpsest-ui-core'
 import { VIEW_CONFIG, navStateForTopLevelView } from 'palimpsest-ui-core'
@@ -11,9 +11,10 @@ interface Props {
   activeSphere: Sphere | undefined
   currentView: View
   dispatch: (action: Action) => void
+  onLogout: () => void
 }
 
-export function NavDrawer({ opened, onClose, spheres, activeSphere, currentView, dispatch }: Props) {
+export function NavDrawer({ opened, onClose, spheres, activeSphere, currentView, dispatch, onLogout }: Props) {
   function handleSphere(sphereId: Sphere['id']) {
     dispatch({ type: 'set-sphere', sphereId })
     onClose()
@@ -94,6 +95,10 @@ export function NavDrawer({ opened, onClose, spheres, activeSphere, currentView,
             })}
           </Stack>
         </div>
+        <Divider />
+        <Button variant="subtle" color="red" size="sm" onClick={onLogout} style={{ fontFamily: 'monospace' }}>
+          Log out
+        </Button>
       </Stack>
     </Drawer>
   )

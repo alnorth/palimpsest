@@ -96,5 +96,15 @@ export function App() {
     )
   }
 
-  return <LoadedApp store={store!} initialState={initialState} />
+  function handleLogout() {
+    localStorage.removeItem('palimpsest_todoist_token')
+    localStorage.removeItem('palimpsest_auth_token')
+    localStorage.removeItem('palimpsest_api_url')
+    setTodoistToken(null)
+    setAuthToken(null)
+    setManualApiUrl(null)
+    setInitialState(undefined)
+  }
+
+  return <LoadedApp store={store!} initialState={initialState} onLogout={handleLogout} />
 }
