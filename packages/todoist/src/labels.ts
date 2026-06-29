@@ -29,6 +29,8 @@ export function computeLabels(task: TaskLabelFields): string[] {
       if (wfLabel !== undefined && !labels.includes(wfLabel)) labels.push(wfLabel)
     } else if (task.waitingFor.kind === 'project') {
       labels.push('project')
+    } else if (task.waitingFor.kind === 'trello') {
+      labels.push('trello')
     }
   }
 

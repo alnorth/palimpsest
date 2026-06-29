@@ -106,9 +106,14 @@ function buildPalimpsestTask(t: TodoistTask, byId: Map<string, TodoistProject>):
     if (id !== undefined) { agendaId = id; break }
   }
 
-  // Context: first matching label
+  // 'trello' label doubles as a waitingFor marker when 'waiting' is also present;
+  // in that case it is NOT a context.
+  const isTrelloWait = t.labels.includes('waiting') && t.labels.includes('trello')
+
+  // Context: first matching label (skip 'trello' when it is the waitingFor marker)
   let contextId = undefined as typeof LABEL_TO_CONTEXT_ID[string] | undefined
   for (const label of t.labels) {
+    if (label === 'trello' && isTrelloWait) continue
     const id = LABEL_TO_CONTEXT_ID[label]
     if (id !== undefined) { contextId = id; break }
   }
@@ -119,7 +124,9 @@ function buildPalimpsestTask(t: TodoistTask, byId: Map<string, TodoistProject>):
   // waitingFor
   let waitingFor: Task['waitingFor'] = undefined
   if (t.labels.includes('waiting')) {
-    if (t.labels.includes('project')) {
+    if (isTrelloWait) {
+      waitingFor = { kind: 'trello', cardUrl: t.description }
+    } else if (t.labels.includes('project')) {
       const linkedProjectId = extractProjectIdFromUrl(t.description)
       if (linkedProjectId !== undefined) {
         waitingFor = { kind: 'project', projectId: linkedProjectId }
@@ -141,8 +148,9 @@ function buildPalimpsestTask(t: TodoistTask, byId: Map<string, TodoistProject>):
     }
   }
 
-  // description: if it's a waitingFor.project task, the URL is structural, not user content
-  const description = t.labels.includes('project') && t.labels.includes('waiting') ? '' : t.description
+  // For structural waitingFor types the description holds a URL, not user content
+  const isStructuralDescription = isTrelloWait || (t.labels.includes('project') && t.labels.includes('waiting'))
+  const description = isStructuralDescription ? '' : t.description
 
   const task: Task = {
     id: t.id as TaskId,

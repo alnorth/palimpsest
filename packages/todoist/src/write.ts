@@ -34,10 +34,11 @@ export async function applyEventToTodoist(
         ...(event.waitingFor !== undefined && { waitingFor: event.waitingFor }),
       })
 
-      // waitingFor.project: encode the linked project as a URL in the description
-      const description = event.waitingFor?.kind === 'project'
-        ? todoistProjectUrl(event.waitingFor.projectId)
-        : (event.description !== '' ? event.description : undefined)
+      // Structural waitingFor types encode their reference in the description field
+      const description =
+        event.waitingFor?.kind === 'project' ? todoistProjectUrl(event.waitingFor.projectId) :
+        event.waitingFor?.kind === 'trello'  ? event.waitingFor.cardUrl :
+        event.description !== ''             ? event.description : undefined
 
       const priority = event.isStarred === true ? 4 : 1
 
@@ -90,12 +91,14 @@ export async function applyEventToTodoist(
         updateArgs.priority = patch.isStarred === true ? 4 : 1
       }
 
-      // waitingFor.project encodes its link in the description
+      // Structural waitingFor types encode their reference URL in the description field
       if (patch.waitingFor !== undefined) {
         if (patch.waitingFor !== CLEAR && patch.waitingFor.kind === 'project') {
           updateArgs.description = todoistProjectUrl(patch.waitingFor.projectId)
+        } else if (patch.waitingFor !== CLEAR && patch.waitingFor.kind === 'trello') {
+          updateArgs.description = patch.waitingFor.cardUrl
         } else if (patch.description === undefined) {
-          // Changed or cleared waitingFor away from project — restore the task's own description
+          // Changed or cleared waitingFor away from a structural kind — restore the task's own description
           updateArgs.description = task.description
         }
       }
