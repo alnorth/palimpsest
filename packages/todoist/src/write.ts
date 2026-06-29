@@ -117,19 +117,15 @@ export function buildCommands(
         ? patch.dueDateExpression : undefined
       const newDate = patch.dueDate !== undefined && patch.dueDate !== CLEAR
         ? patch.dueDate : undefined
+      // When only the date changes, carry the existing expression forward so
+      // Todoist doesn't wipe it out. When both change, newExpression wins.
+      const effectiveExpression = newExpression ?? (newDate !== undefined ? task.dueDateExpression : undefined)
 
-      if (newExpression !== undefined && newDate !== undefined) {
-        // Both changing: anchor Todoist to palimpsest's calculated date rather
-        // than letting Todoist recalculate independently from the expression.
-        args['due'] = { date: newDate, string: newExpression }
-      } else if (newExpression !== undefined) {
-        args['due'] = { string: newExpression }
-      } else if (newDate !== undefined) {
-        // Preserve the existing dueDateExpression when only the date is changing,
-        // so Todoist doesn't wipe out the recurring rule from the due object.
-        args['due'] = task.dueDateExpression !== undefined
-          ? { date: newDate, string: task.dueDateExpression }
-          : { date: newDate }
+      if (newExpression !== undefined || newDate !== undefined) {
+        args['due'] = {
+          ...(newDate          !== undefined && { date:   newDate }),
+          ...(effectiveExpression !== undefined && { string: effectiveExpression }),
+        }
       }
 
       const commands: SyncCommand[] = []
