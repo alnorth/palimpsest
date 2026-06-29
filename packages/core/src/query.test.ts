@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import { createEmptyState, project } from './projection.js'
 import { buildStateFromConfig } from './config.js'
-import { createProject, createTask } from './commands.js'
-import { listTasksBySphere, listTasksByProject, listOpenTasks, getTaskSphereId } from './query.js'
+import { createProject, createTask, completeTask, updateTask } from './commands.js'
+import { listTasksBySphere, listOpenTasks, getTaskSphereId, listTasks } from './query.js'
 import type { SphereId, ProjectId, TaskId } from './ids.js'
 import type { PalimpsestEvent } from './events.js'
 
@@ -46,20 +46,52 @@ describe('listTasksBySphere', () => {
   })
 })
 
-describe('listTasksByProject', () => {
-  it('returns only tasks in the given project', () => {
-    const { state, projId, task1Id, task2Id } = setup()
-    const tasks = listTasksByProject(state, projId)
-    expect(tasks.map(t => t.id)).toContain(task1Id)
-    expect(tasks.map(t => t.id)).not.toContain(task2Id)
-  })
-})
 
 describe('listOpenTasks', () => {
   it('returns only open tasks', () => {
     const { state } = setup()
     const tasks = listOpenTasks(state)
     expect(tasks.every(t => t.status === 'open')).toBe(true)
+  })
+})
+
+describe('listTasks isActionable', () => {
+  it('includes project-less open tasks', () => {
+    const { state, task2Id } = setup()
+    const tasks = listTasks(state, { isActionable: true })
+    expect(tasks.map(t => t.id)).toContain(task2Id)
+  })
+
+  it('includes project tasks marked isNext', () => {
+    const { state, task1Id } = setup()
+    const task = state.tasks.get(task1Id)!
+    const updated = project(updateTask(task, { isNext: true }), state)
+    const tasks = listTasks(updated, { isActionable: true })
+    expect(tasks.map(t => t.id)).toContain(task1Id)
+  })
+
+  it('excludes project tasks not marked isNext', () => {
+    const { state, task1Id } = setup()
+    const tasks = listTasks(state, { isActionable: true })
+    expect(tasks.map(t => t.id)).not.toContain(task1Id)
+  })
+
+  it('excludes completed tasks', () => {
+    const { state, task2Id } = setup()
+    const task = state.tasks.get(task2Id)!
+    const updated = project(completeTask(task), state)
+    const tasks = listTasks(updated, { isActionable: true })
+    expect(tasks.map(t => t.id)).not.toContain(task2Id)
+  })
+
+  it('excludes completed isNext tasks', () => {
+    const { state, task1Id } = setup()
+    const task = state.tasks.get(task1Id)!
+    const withNext = project(updateTask(task, { isNext: true }), state)
+    const withNextTask = withNext.tasks.get(task1Id)!
+    const completed = project(completeTask(withNextTask), withNext)
+    const tasks = listTasks(completed, { isActionable: true })
+    expect(tasks.map(t => t.id)).not.toContain(task1Id)
   })
 })
 

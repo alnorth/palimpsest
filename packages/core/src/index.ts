@@ -25,7 +25,7 @@ export {
   createTask, updateTask, completeTask, uncompleteTask, deleteTask, postponeTask, finishRecurringTask,
 } from './commands.js'
 export {
-  getTask, listTasks, listOpenTasks, listTasksByProject, listTasksBySphere, listTasksByAgenda,
+  getTask, listTasks, listOpenTasks, listTasksBySphere, listTasksByAgenda,
   getProject, listProjects,
   getContext, listContexts, listTasksByContext,
   getAgenda, listAgendas,

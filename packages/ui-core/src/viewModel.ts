@@ -195,7 +195,7 @@ export function deriveViewModel(projState: ProjectionState, uiState: UIState): V
 
   const projectTasks: Task[] = activeProjectId !== undefined
     ? (() => {
-        const result = listTasks(projState, { projectId: activeProjectId, status: showCompleted ? 'completed' : 'open' })
+        const result = listTasks(projState, { projectId: activeProjectId, status: showCompleted ? 'completed' : 'open', showArchivedProjects: true })
         if (showCompleted) result.sort((a, b) => (b.completedAt ?? '').localeCompare(a.completedAt ?? ''))
         return result
       })()
@@ -205,8 +205,8 @@ export function deriveViewModel(projState: ProjectionState, uiState: UIState): V
     ? projState.tasks.get(activeTaskId)
     : undefined
 
-  const inboxTasks: Task[] = activeSphere !== undefined
-    ? listTasks(projState, { sphereId: activeSphere.id, status: 'open', hasProject: false, hasDueDate: false, hasAgenda: false, hasContext: false })
+  const actionableTasks: Task[] = activeSphere !== undefined
+    ? listTasks(projState, { sphereId: activeSphere.id, isActionable: true, isWaiting: false, hasDueDate: false, hasAgenda: false, hasContext: false })
     : []
 
   const projectsWithoutNext: Project[] = activeSphere !== undefined
@@ -246,7 +246,7 @@ export function deriveViewModel(projState: ProjectionState, uiState: UIState): V
       }
       case 'processing': {
         const groups: ListGroup<ListItem>[] = [
-          { title: 'Inbox tasks', items: inboxTasks.map((t): ListItem => ({ kind: 'task', task: t })) },
+          { title: 'Actionable tasks', items: actionableTasks.map((t): ListItem => ({ kind: 'task', task: t })) },
           { title: 'Projects without a next action', items: projectsWithoutNext.map((p): ListItem => ({ kind: 'project', project: p })) },
           { title: 'Waiting on archived projects', items: tasksWaitingOnArchivedProjects.map((t): ListItem => ({ kind: 'task', task: t })) },
         ]
@@ -268,7 +268,7 @@ export function deriveViewModel(projState: ProjectionState, uiState: UIState): V
       }
       case 'pick-list': {
         const eligible = activeSphere !== undefined
-          ? listTasks(projState, { sphereId: activeSphere.id, status: 'open', isActionable: true, hasContext: true })
+          ? listTasks(projState, { sphereId: activeSphere.id, isActionable: true, hasContext: true })
           : []
 
         const byContext = new Map<ContextId, Task[]>()
