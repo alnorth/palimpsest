@@ -379,14 +379,11 @@ describe('buildCommands — task lifecycle', () => {
     expect(commands[0]?.args.is_forward).toBe(1)
   })
 
-  it('task.recurred → item_update_date_complete without expression when task not in state', () => {
-    const { commands } = buildCommands(
+  it('task.recurred → throws if task not in state', () => {
+    expect(() => buildCommands(
       { type: 'task.recurred', id: evId(), occurredAt: '', taskId: taskId(), newDueDate: '2026-07-14' },
       baseState(),
-    )
-    expect(commands[0]?.type).toBe('item_update_date_complete')
-    expect(commands[0]?.args.due).toEqual({ date: '2026-07-14' })
-    expect(commands[0]?.args.is_forward).toBe(1)
+    )).toThrow('not found in state')
   })
 
   it('task.deleted → item_delete', () => {

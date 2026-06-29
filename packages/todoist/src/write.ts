@@ -168,8 +168,9 @@ export function buildCommands(
 
     case 'task.recurred': {
       const task = state.tasks.get(event.taskId)
+      if (task === undefined) throw new Error(`task.recurred: task ${event.taskId} not found in state`)
       const due: Record<string, string> = { date: event.newDueDate }
-      if (task?.dueDateExpression !== undefined) due['string'] = task.dueDateExpression
+      if (task.dueDateExpression !== undefined) due['string'] = task.dueDateExpression
       return { commands: [{
         type: 'item_update_date_complete',
         uuid: uuid(),
