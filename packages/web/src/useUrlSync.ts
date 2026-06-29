@@ -23,11 +23,8 @@ interface Params {
   dispatch: (action: Action) => void
 }
 
-function assertNever(x: never): never {
-  throw new Error('Unhandled view: ' + String(x))
-}
 
-function topLevelViewToPath(view: TopLevelView, sphereId: SphereId): string | null {
+function topLevelViewToPath(view: TopLevelView, sphereId: SphereId): string {
   switch (view) {
     case 'dashboard':   return `/${sphereId}/dashboard`
     case 'tasks':       return `/${sphereId}/tasks`
@@ -35,7 +32,6 @@ function topLevelViewToPath(view: TopLevelView, sphereId: SphereId): string | nu
     case 'processing':  return `/${sphereId}/processing`
     case 'waiting':     return `/${sphereId}/waiting`
     case 'pick-list':   return `/${sphereId}/pick-list`
-    default:            return assertNever(view)
   }
 }
 
