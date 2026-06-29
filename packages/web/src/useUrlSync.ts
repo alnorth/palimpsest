@@ -9,6 +9,7 @@ import { VIEW_CONFIG, navStateForTopLevelView } from 'palimpsest-ui-core'
 //   /:sphereId/projects
 //   /:sphereId/processing
 //   /:sphereId/waiting
+//   /:sphereId/pick-list
 //   /:sphereId/projects/:projectId
 //   /:sphereId/tasks/:taskId
 //
@@ -33,7 +34,7 @@ function topLevelViewToPath(view: TopLevelView, sphereId: SphereId): string | nu
     case 'projects':    return `/${sphereId}/projects`
     case 'processing':  return `/${sphereId}/processing`
     case 'waiting':     return `/${sphereId}/waiting`
-    case 'pick-list':   return null
+    case 'pick-list':   return `/${sphereId}/pick-list`
     default:            return assertNever(view)
   }
 }
