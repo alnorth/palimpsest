@@ -20,6 +20,7 @@
 - [x] Track what a task is waiting for.
 - [x] Build the problem lists into the ui-core.
 - [x] Expose problem lists in the TUI.
+- [ ] Think through how to handle Someday / Maybe and Soon lists.
 - [ ] Implement a script that imports events from a Todoist export or the sync API.
 - [ ] Show the day of the week when showing due dates in the TUI. Maybe replace the current date display with the day-of-week when it's in the next week. And have "Today", "Tomorrow" for those days too.
 - [x] In the TUI, show the recurrence expression for a task.
@@ -38,16 +39,3 @@
 - [ ] Add a description field for projects.
 - [ ] Add a way of turning tasks into projects.
 - [ ] Make URLs in descriptions clickable.
-
-
-To check
-- Do Trello and project URLs get written to descriptions?
-- What does the "they are only applied to tasks written to the Recurring project, which we don't do" comment mean?
-- Tell me how we're handling the ! modifier in recurring tasks. I don't think we actually need to strip it.
-- Tell me how're handling someday / maybe and soon.
-- Do we need to do something for @waiting @trello tasks where there's other content in the description than the card URL? Or the same for @project?
-- We should take the createdAt, updatedAt and archivedAt timestamps from the Todoist data, rather than using "now".
-- Inline isTrelloWait?
-- I think we probably want to include completed tasks and archived projects in the import.
-- I think Todoist should be consistent with the other stores in taking initialState: configState as a parameter.
-- TodoistStore.readAllEvents should throw rather than return an empty array.
