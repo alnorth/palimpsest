@@ -1,6 +1,7 @@
 import { PalimpsestStore } from './store.js'
 import { MemoryPendingEventStore } from './pendingEventStore.js'
 import type { PendingEventStore } from './pendingEventStore.js'
+import type { PalimpsestEvent } from './events.js'
 import type { ProjectionState } from './projection.js'
 
 function getDoc(): { addEventListener: Function; removeEventListener: Function; visibilityState: string } | undefined {
@@ -11,6 +12,7 @@ export abstract class PollingStore extends PalimpsestStore {
   protected readonly pendingStore: PendingEventStore
   protected readonly syncIntervalMs: number
   private pollTimer: ReturnType<typeof setInterval> | undefined
+  private debounceTimer: ReturnType<typeof setTimeout> | undefined
 
   protected constructor(
     opts: { pendingStore?: PendingEventStore; syncIntervalMs?: number; initialState?: ProjectionState } = {},
@@ -22,6 +24,17 @@ export abstract class PollingStore extends PalimpsestStore {
 
   abstract refresh(): Promise<void>
 
+  protected override async doAppend(events: PalimpsestEvent[]): Promise<void> {
+    const pending = await this.pendingStore.load()
+    await this.pendingStore.save([...pending, ...events])
+    this.scheduleSync()
+  }
+
+  protected scheduleSync(): void {
+    if (this.debounceTimer !== undefined) clearTimeout(this.debounceTimer)
+    this.debounceTimer = setTimeout(() => { void this.refresh() }, 500)
+  }
+
   override start(): void {
     this.pollTimer = setInterval(() => { void this.refresh() }, this.syncIntervalMs)
     getDoc()?.addEventListener('visibilitychange', this.onVisibilityChange)
@@ -29,6 +42,7 @@ export abstract class PollingStore extends PalimpsestStore {
 
   override stop(): void {
     if (this.pollTimer !== undefined) clearInterval(this.pollTimer)
+    if (this.debounceTimer !== undefined) clearTimeout(this.debounceTimer)
     getDoc()?.removeEventListener('visibilitychange', this.onVisibilityChange)
   }
 

@@ -9,9 +9,10 @@ const testInitialState = { ...createEmptyState(), ...buildStateFromConfig([{ id:
 
 class SpyPendingStore implements PendingEventStore {
   saved: PalimpsestEvent[] | undefined
-  constructor(private initial: PalimpsestEvent[] = []) {}
-  async load(): Promise<PalimpsestEvent[]> { return this.initial }
-  async save(events: PalimpsestEvent[]): Promise<void> { this.saved = events }
+  private current: PalimpsestEvent[]
+  constructor(initial: PalimpsestEvent[] = []) { this.current = initial }
+  async load(): Promise<PalimpsestEvent[]> { return this.current }
+  async save(events: PalimpsestEvent[]): Promise<void> { this.saved = events; this.current = events }
 }
 
 let eventCounter = 0

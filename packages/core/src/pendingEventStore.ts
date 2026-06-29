@@ -6,9 +6,13 @@ export interface PendingEventStore {
 }
 
 export class MemoryPendingEventStore implements PendingEventStore {
+  private events: PalimpsestEvent[] = []
+
   async load(): Promise<PalimpsestEvent[]> {
-    return []
+    return this.events
   }
 
-  async save(_unsyncedEvents: PalimpsestEvent[]): Promise<void> {}
+  async save(events: PalimpsestEvent[]): Promise<void> {
+    this.events = events
+  }
 }
