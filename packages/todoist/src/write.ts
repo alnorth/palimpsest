@@ -166,12 +166,17 @@ export function buildCommands(
     case 'task.uncompleted':
       return { commands: [{ type: 'item_uncomplete', uuid: uuid(), args: { id: String(event.taskId) } }] }
 
-    case 'task.recurred':
+    case 'task.recurred': {
+      const task = state.tasks.get(event.taskId)
+      if (task === undefined) throw new Error(`task.recurred: task ${event.taskId} not found in state`)
+      const due: Record<string, string> = { date: event.newDueDate }
+      if (task.dueDateExpression !== undefined) due['string'] = task.dueDateExpression
       return { commands: [{
-        type: 'item_update',
+        type: 'item_update_date_complete',
         uuid: uuid(),
-        args: { id: String(event.taskId), due: { date: event.newDueDate } },
+        args: { id: String(event.taskId), due, is_forward: 1 },
       }] }
+    }
 
     case 'task.deleted':
       return { commands: [{ type: 'item_delete', uuid: uuid(), args: { id: String(event.taskId) } }] }
