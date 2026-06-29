@@ -15,7 +15,7 @@ export type {
 export type { TaskFilter } from './query.js'
 export type { SphereConfig, AgendaConfig, ContextConfig } from './config.js'
 
-export { project, applyEvent, createEmptyState } from './projection.js'
+export { project, applyEvent, createEmptyState, cloneState } from './projection.js'
 export { PalimpsestStore, FilePalimpsestStore } from './store.js'
 export { PollingStore } from './pollingStore.js'
 export type { SyncHealth, PendingConflict, SyncState } from './pollingStore.js'
