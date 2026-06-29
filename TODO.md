@@ -14,6 +14,7 @@
 - [x] Fix web app display of starred and next tasks.
 - [x] Update the web app so it can be used on mobile without all the keyboard shortcuts.
 - [x] Pick list screen for choosing work to do, separated by contexts.
+- [ ] TodoistStore isn't properly handling read/write operations on recurring tasks.
 - [ ] Agenda view listing tasks for a particular agenda, separated by isWaiting.
 - [ ] Spend some time optimising React rendering and the updates of store state.
 - [ ] Search across tasks and projects.
@@ -38,4 +39,4 @@
 - [ ] Cache the event data locally so it can be accessed offline, and to speed up initial startup.
 - [ ] Add a description field for projects.
 - [ ] Add a way of turning tasks into projects.
-- [ ] Make URLs in descriptions clickable.
+- [x] Make URLs in descriptions clickable.
