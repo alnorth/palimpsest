@@ -6,14 +6,15 @@ import { buildState, applyDelta } from './read.js'
 import { buildCommands } from './write.js'
 
 export class TodoistStore extends PollingStore {
-  private currentState: ProjectionState = createEmptyState()
+  private currentState: ProjectionState
   private syncToken = '*'
 
   constructor(
     private readonly token: string,
-    opts: { syncIntervalMs?: number; pendingStore?: PendingEventStore } = {},
+    opts: { syncIntervalMs?: number; pendingStore?: PendingEventStore; initialState?: ProjectionState } = {},
   ) {
     super(opts)
+    this.currentState = opts.initialState ?? createEmptyState()
   }
 
   override async init(): Promise<void> {
@@ -38,8 +39,15 @@ export class TodoistStore extends PollingStore {
 
   protected override async doAppend(events: PalimpsestEvent[]): Promise<void> {
     await this.pendingStore.save(events)
-    await this.flush(events)
-    await this.pendingStore.save([])
+    try {
+      await this.flush(events)
+      await this.pendingStore.save([])
+      this.health = 'idle'
+      this.syncError = undefined
+    } catch (err) {
+      this.health = 'error'
+      this.syncError = err instanceof Error ? err.message : String(err)
+    }
   }
 
   private async flush(events: PalimpsestEvent[]): Promise<void> {
@@ -94,13 +102,24 @@ export class TodoistStore extends PollingStore {
 
   protected override async doRefresh(): Promise<void> {
     const now = new Date().toISOString()
-    const res = await syncRead(this.token, this.syncToken)
-    this.syncToken = res.sync_token
-
-    if (res.full_sync) {
-      this.currentState = buildState(res.projects, res.items, now)
-    } else {
-      applyDelta(this.currentState, res.projects, res.items, now)
+    try {
+      const pending = await this.pendingStore.load()
+      if (pending.length > 0) {
+        await this.flush(pending)
+        await this.pendingStore.save([])
+      }
+      const res = await syncRead(this.token, this.syncToken)
+      this.syncToken = res.sync_token
+      if (res.full_sync) {
+        this.currentState = buildState(res.projects, res.items, now)
+      } else {
+        applyDelta(this.currentState, res.projects, res.items, now)
+      }
+      this.health = 'idle'
+      this.syncError = undefined
+    } catch (err) {
+      this.health = 'error'
+      this.syncError = err instanceof Error ? err.message : String(err)
     }
   }
 
