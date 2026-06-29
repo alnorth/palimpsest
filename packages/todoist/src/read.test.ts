@@ -209,11 +209,11 @@ describe('buildState — task field mapping', () => {
     expect(task?.dueDateExpression).toBe('every monday')
   })
 
-  it('normalises recurring due string by stripping !', () => {
+  it('preserves ! in recurring due string (dateParser handles it natively)', () => {
     const state = buildState(baseProjects, [
       makeItem({ id: 't1', due: { date: '2026-07-07', is_recurring: true, string: 'every! monday' } }),
     ], NOW, CONFIG_STATE)
-    expect(state.tasks.get('t1' as TaskId)?.dueDateExpression).toBe('every monday')
+    expect(state.tasks.get('t1' as TaskId)?.dueDateExpression).toBe('every! monday')
   })
 
   it('description preserved for normal tasks', () => {

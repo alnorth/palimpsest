@@ -108,9 +108,10 @@ export function sphereParentProjectFor(sphereId: SphereId): string {
   return sphereId === PERSONAL_SPHERE_ID ? TODOIST_PERSONAL_PROJECT_ID : TODOIST_WORK_PROJECT_ID
 }
 
-// Strip Todoist's "fixed schedule" modifier — not part of palimpsest's expression syntax
+// Normalise whitespace in a Todoist due string. The "!" fixed-schedule modifier
+// is left in place — palimpsest's dateParser handles it natively.
 export function normaliseDueString(s: string): string {
-  return s.replace(/!/g, '').replace(/\s+/g, ' ').trim()
+  return s.replace(/\s+/g, ' ').trim()
 }
 
 // Todoist URL for a project (used in waitingFor.project descriptions)

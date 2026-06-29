@@ -19,12 +19,12 @@ import {
 import type { ProjectId } from 'palimpsest'
 
 describe('normaliseDueString', () => {
-  it('strips ! modifier', () => {
-    expect(normaliseDueString('every! 3 weeks')).toBe('every 3 weeks')
+  it('preserves ! modifier (dateParser handles it natively)', () => {
+    expect(normaliseDueString('every! 3 weeks')).toBe('every! 3 weeks')
   })
 
-  it('strips multiple ! characters', () => {
-    expect(normaliseDueString('every! monday')).toBe('every monday')
+  it('preserves ! even with surrounding spaces collapsed', () => {
+    expect(normaliseDueString('every!  monday')).toBe('every! monday')
   })
 
   it('collapses extra spaces', () => {
