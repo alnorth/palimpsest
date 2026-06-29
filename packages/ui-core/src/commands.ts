@@ -5,7 +5,7 @@ import { VIEW_CONFIG } from './viewModel.js'
 import type { ViewModel } from './viewModel.js'
 
 export function getCommands(vm: ViewModel): Partial<Record<CommandId, Command>> {
-  const { view, mode, currentTask, selectedProject, activeSphere, listItems, showCompleted, showArchived, canGoBack, agendas, contexts, spheres } = vm
+  const { view, mode, currentTask, selectedProject, activeSphere, listItems, showCompleted, showArchived, canGoBack, agendas, contexts, spheres, projectFocus } = vm
   const commands: Partial<Record<CommandId, Command>> = {}
 
   if (mode !== undefined) return commands
@@ -199,14 +199,15 @@ export function getCommands(vm: ViewModel): Partial<Record<CommandId, Command>> 
   }
 
   // ── Archive / unarchive project ──────────────────────────────────────────────
-  if (view === 'projects' && selectedProject !== undefined) {
-    if (selectedProject.isArchived) {
+  const archiveTarget = view === 'projects' ? selectedProject : (projectFocus === 'header' ? vm.activeProject : undefined)
+  if (archiveTarget !== undefined) {
+    if (archiveTarget.isArchived) {
       commands['unarchive-project'] = {
         id: 'unarchive-project',
         label: 'unarchive',
         group: 'state',
         key: 'x',
-        action: { type: 'unarchive-project', projectId: selectedProject.id },
+        action: { type: 'unarchive-project', projectId: archiveTarget.id },
       }
     } else {
       commands['archive-project'] = {
@@ -214,8 +215,19 @@ export function getCommands(vm: ViewModel): Partial<Record<CommandId, Command>> 
         label: 'archive',
         group: 'state',
         key: 'x',
-        action: { type: 'archive-project', projectId: selectedProject.id },
+        action: { type: 'archive-project', projectId: archiveTarget.id },
       }
+    }
+  }
+
+  // ── Edit project name (from project view header) ─────────────────────────────
+  if (projectFocus === 'header' && vm.activeProject !== undefined && !vm.activeProject.isArchived) {
+    commands['edit-project'] = {
+      id: 'edit-project',
+      label: 'edit',
+      group: 'state',
+      key: 'e',
+      action: { type: 'set-mode', mode: { type: 'editing-project', formValue: vm.activeProject.name } },
     }
   }
 

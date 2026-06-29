@@ -32,7 +32,7 @@ export type NavState =
   | { view: 'processing'; selected: number }
   | { view: 'waiting'; selected: number }
   | { view: 'pick-list'; selected: number }
-  | { view: 'project'; selected: number; activeProjectId: ProjectId; showCompleted: boolean }
+  | { view: 'project'; selected: number; activeProjectId: ProjectId; showCompleted: boolean; focus?: 'header' | 'tasks' }
   | { view: 'task'; activeTaskId: TaskId }
   | { view: 'picking-view'; selected: number }
   | { view: 'picking-agenda-for-task'; selected: number; activeTaskId: TaskId }
@@ -64,7 +64,7 @@ export type UIAction =
   | { type: 'navigate'; navState: NavState }
   | { type: 'set-nav'; navState: NavState }
   | { type: 'go-back'; steps?: number }
-  | { type: 'update-nav'; patch: { selected?: number; searchQuery?: string } }
+  | { type: 'update-nav'; patch: { selected?: number; searchQuery?: string; focus?: 'header' | 'tasks' } }
   | { type: 'set-mode'; mode: Mode }
   | { type: 'exit-mode' }
   | { type: 'update-mode'; formValue: string }

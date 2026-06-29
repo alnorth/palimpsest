@@ -33,6 +33,7 @@ function makeAppState(overrides: Partial<AppStateResult> = {}): AppStateResult {
     showCompleted: false,
     showArchived: false,
     showProject: false,
+    projectFocus: undefined,
   }
   return {
     ...base,

@@ -143,14 +143,20 @@ export function LoadedApp({ store, initialState, onLogout }: Props) {
   } else if (listItems.view === 'task' && activeTask !== undefined) {
     content = <TaskDetail task={activeTask} state={projState} commands={commands} dispatch={dispatch} />
   } else if (listItems.view === 'project') {
-    const stateCommands = (Object.values(commands) as Command[]).filter(c => c.group === 'state')
     content = (
       <Stack gap="sm">
-        {stateCommands.length > 0 && (
+        {activeProject !== undefined && (
           <Group gap="xs">
-            {stateCommands.map(c => (
-              <CommandButton key={c.id} command={c} dispatch={dispatch} />
-            ))}
+            {!activeProject.isArchived && (
+              <CommandButton
+                command={{ id: 'edit-project', label: 'edit name', group: 'state', key: 'e', action: { type: 'set-mode', mode: { type: 'editing-project', formValue: activeProject.name } } }}
+                dispatch={dispatch}
+              />
+            )}
+            <CommandButton
+              command={{ id: activeProject.isArchived ? 'unarchive-project' : 'archive-project', label: activeProject.isArchived ? 'unarchive' : 'archive', group: 'state', key: 'x', action: { type: activeProject.isArchived ? 'unarchive-project' : 'archive-project', projectId: activeProject.id } }}
+              dispatch={dispatch}
+            />
           </Group>
         )}
         <ItemList
@@ -258,7 +264,8 @@ export function LoadedApp({ store, initialState, onLogout }: Props) {
           title: 'Edit project',
           onSubmit(v: string) {
             const trimmed = v.trim()
-            if (trimmed && selectedProject !== undefined) dispatch({ type: 'edit-project', projectId: selectedProject.id, name: trimmed })
+            const project = selectedProject ?? activeProject
+            if (trimmed && project !== undefined) dispatch({ type: 'edit-project', projectId: project.id, name: trimmed })
             else exit()
           },
         }
