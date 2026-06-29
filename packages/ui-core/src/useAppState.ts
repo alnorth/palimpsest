@@ -1,4 +1,4 @@
-import { useMemo, useCallback, useReducer } from 'react'
+import { useMemo, useCallback, useReducer, useRef } from 'react'
 import {
   listTasks,
   createTask, updateTask, completeTask, uncompleteTask,
@@ -64,7 +64,11 @@ export function useAppState(store: PalimpsestStore, initialState: ProjectionStat
   const vm = useMemo(() => deriveViewModel(projState, uiState), [projState, uiState])
   const commands = useMemo(() => getCommands(vm), [vm])
 
+  const latestRef = useRef({ projState, uiState, vm })
+  latestRef.current = { projState, uiState, vm }
+
   const dispatch = useCallback((action: Action) => {
+    const { projState, uiState, vm } = latestRef.current
     if (action.type === 'move-up') {
       const cur = navSelected(uiState.navStack[uiState.navStack.length - 1])
       dispatchUI({ type: 'update-nav', patch: { selected: Math.max(0, cur - 1) } })
@@ -264,10 +268,10 @@ export function useAppState(store: PalimpsestStore, initialState: ProjectionStat
         }
       }
     })()
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [projState, uiState, vm])
+  }, [])
 
   const activate = useCallback((i: number) => {
+    const { vm } = latestRef.current
     if (vm.listItems.view === 'picking-view') {
       const item = vm.listItems.items[i]
       if (item !== undefined) {
@@ -327,11 +331,12 @@ export function useAppState(store: PalimpsestStore, initialState: ProjectionStat
         dispatch({ type: 'navigate', navState: { view: 'project', selected: 0, activeProjectId: item.project.id, showCompleted: false } })
       }
     }
-  }, [vm, dispatch])
+  }, [])
 
   const activateSelected = useCallback(() => {
+    const { uiState } = latestRef.current
     activate(navSelected(uiState.navStack[uiState.navStack.length - 1]))
-  }, [uiState, activate])
+  }, [])
 
   return { ...vm, projState, commands, dispatch, activate, activateSelected, syncState }
 }
