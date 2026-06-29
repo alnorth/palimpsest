@@ -230,12 +230,12 @@ describe('buildCommands — task.updated', () => {
     expect(commands[0]?.args.due).toEqual({ string: 'every monday' })
   })
 
-  it('both dueDate and dueDateExpression patched → expression wins (Todoist derives date from string)', () => {
+  it('both dueDate and dueDateExpression patched → sends both to anchor Todoist to palimpsest date', () => {
     const { commands } = buildCommands(
       updEvent('t1', { dueDate: '2026-08-04', dueDateExpression: 'every monday' }),
       stateWithTask('t1'),
     )
-    expect(commands[0]?.args.due).toEqual({ string: 'every monday' })
+    expect(commands[0]?.args.due).toEqual({ date: '2026-08-04', string: 'every monday' })
   })
 
   it('projectId patch → item_update + item_move', () => {
