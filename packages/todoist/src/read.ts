@@ -1,7 +1,6 @@
 import { buildStateFromConfig, PALIMPSEST_CONFIG } from 'palimpsest'
 import type { ProjectionState, Task, Project, SphereId, ProjectId, TaskId } from 'palimpsest'
-import { getProjects, getAllTasks } from './api.js'
-import type { TodoistTask, TodoistProject } from './api.js'
+import type { SyncItem, SyncProject } from './api.js'
 import {
   TODOIST_WORK_PROJECT_ID,
   TODOIST_PERSONAL_PROJECT_ID,
@@ -18,30 +17,29 @@ import {
 
 // ── Project helpers ───────────────────────────────────────────────────────────
 
-function buildProjectMap(raw: TodoistProject[]): Map<string, TodoistProject> {
+function buildProjectMap(raw: SyncProject[]): Map<string, SyncProject> {
   return new Map(raw.map(p => [p.id, p]))
 }
 
-// Walk up the parent chain to determine which top-level sphere project owns this project.
-function resolveSphereId(project: TodoistProject, byId: Map<string, TodoistProject>): SphereId | undefined {
-  let current: TodoistProject | undefined = project
+function resolveSphereId(project: SyncProject, byId: Map<string, SyncProject>): SphereId | undefined {
+  let current: SyncProject | undefined = project
   while (current !== undefined) {
-    if (current.parentId === TODOIST_WORK_PROJECT_ID)     return WORK_SPHERE_ID
-    if (current.parentId === TODOIST_PERSONAL_PROJECT_ID) return PERSONAL_SPHERE_ID
-    // Bail out of the Agendas subtree — those are not palimpsest projects
-    if (current.parentId === TODOIST_AGENDAS_ID) return undefined
-    current = current.parentId !== null ? byId.get(current.parentId) : undefined
+    if (current.parent_id === TODOIST_WORK_PROJECT_ID)     return WORK_SPHERE_ID
+    if (current.parent_id === TODOIST_PERSONAL_PROJECT_ID) return PERSONAL_SPHERE_ID
+    if (current.parent_id === TODOIST_AGENDAS_ID)          return undefined
+    current = current.parent_id !== null ? byId.get(current.parent_id) : undefined
   }
   return undefined
 }
 
 function buildPalimpsestProjects(
-  raw: TodoistProject[],
-  byId: Map<string, TodoistProject>,
+  raw: SyncProject[],
+  byId: Map<string, SyncProject>,
   now: string,
 ): Map<ProjectId, Project> {
   const projects = new Map<ProjectId, Project>()
   for (const p of raw) {
+    if (p.is_deleted) continue
     if (EXCLUDED_PROJECT_IDS.has(p.id)) continue
     const sphereId = resolveSphereId(p, byId)
     if (sphereId === undefined) continue
@@ -52,7 +50,7 @@ function buildPalimpsestProjects(
       name: p.name,
       createdAt: now,
       updatedAt: now,
-      ...(p.isArchived && { isArchived: true, archivedAt: now }),
+      ...(p.is_archived && { isArchived: true, archivedAt: now }),
     })
   }
   return projects
@@ -61,67 +59,55 @@ function buildPalimpsestProjects(
 // ── Task helpers ──────────────────────────────────────────────────────────────
 
 function resolveSphereFromTask(
-  task: TodoistTask,
-  byId: Map<string, TodoistProject>,
+  task: SyncItem,
+  byId: Map<string, SyncProject>,
 ): SphereId | undefined {
-  const proj = byId.get(task.projectId)
+  const proj = byId.get(task.project_id)
   if (proj === undefined) return undefined
 
   if (!FREE_FLOATING_PROJECT_IDS.has(proj.id)) {
-    // Project is a regular palimpsest project — sphere comes from its parent chain
-    const s = resolveSphereId(proj, byId)
-    return s
+    return resolveSphereId(proj, byId)
   }
 
-  // Free-floating project (Recurring, Future log, One Offs, Inbox):
-  // sphere is encoded in a label, or defaults to work for Inbox
+  // Free-floating project: sphere encoded in label, or default to work
   if (task.labels.includes('personal')) return PERSONAL_SPHERE_ID
-  return WORK_SPHERE_ID  // Inbox, work one-offs, or unlabelled recurring tasks
+  return WORK_SPHERE_ID
 }
 
 function resolveProjectId(
-  task: TodoistTask,
-  byId: Map<string, TodoistProject>,
+  task: SyncItem,
+  byId: Map<string, SyncProject>,
 ): ProjectId | undefined {
-  if (FREE_FLOATING_PROJECT_IDS.has(task.projectId)) return undefined
-  const proj = byId.get(task.projectId)
+  if (FREE_FLOATING_PROJECT_IDS.has(task.project_id)) return undefined
+  const proj = byId.get(task.project_id)
   if (proj === undefined || EXCLUDED_PROJECT_IDS.has(proj.id)) return undefined
-  return task.projectId as ProjectId
+  return task.project_id as ProjectId
 }
 
-function todoistPriorityToStarred(priority: number): boolean | undefined {
-  return priority === 4 ? true : undefined
-}
-
-function buildPalimpsestTask(t: TodoistTask, byId: Map<string, TodoistProject>): Task | undefined {
+function buildPalimpsestTask(t: SyncItem, byId: Map<string, SyncProject>): Task | undefined {
   const sphereId = resolveSphereFromTask(t, byId)
   if (sphereId === undefined) return undefined
 
   const projectId = resolveProjectId(t, byId)
 
-  // Agenda: first matching label
   let agendaId = undefined as typeof LABEL_TO_AGENDA_ID[string] | undefined
   for (const label of t.labels) {
     const id = LABEL_TO_AGENDA_ID[label]
     if (id !== undefined) { agendaId = id; break }
   }
 
-  // 'trello' label doubles as a waitingFor marker when 'waiting' is also present;
-  // in that case it is NOT a context.
+  // trello label is only ever used with waiting — never a context
   const isTrelloWait = t.labels.includes('waiting') && t.labels.includes('trello')
 
-  // Context: first matching label (skip 'trello' when it is the waitingFor marker)
   let contextId = undefined as typeof LABEL_TO_CONTEXT_ID[string] | undefined
   for (const label of t.labels) {
-    if (label === 'trello' && isTrelloWait) continue
     const id = LABEL_TO_CONTEXT_ID[label]
     if (id !== undefined) { contextId = id; break }
   }
 
-  const isNext = t.labels.includes('next') ? true : undefined
-  const isStarred = todoistPriorityToStarred(t.priority)
+  const isNext    = t.labels.includes('next')   ? true      : undefined
+  const isStarred = t.priority === 4             ? true      : undefined
 
-  // waitingFor
   let waitingFor: Task['waitingFor'] = undefined
   if (t.labels.includes('waiting')) {
     if (isTrelloWait) {
@@ -138,17 +124,15 @@ function buildPalimpsestTask(t: TodoistTask, byId: Map<string, TodoistProject>):
     }
   }
 
-  // Due date / recurrence
   let dueDate: string | undefined = undefined
   let dueDateExpression: string | undefined = undefined
   if (t.due !== null) {
     dueDate = t.due.date
-    if (t.due.isRecurring) {
+    if (t.due.is_recurring) {
       dueDateExpression = normaliseDueString(t.due.string)
     }
   }
 
-  // For structural waitingFor types the description holds a URL, not user content
   const isStructuralDescription = isTrelloWait || (t.labels.includes('project') && t.labels.includes('waiting'))
   const description = isStructuralDescription ? '' : t.description
 
@@ -157,8 +141,8 @@ function buildPalimpsestTask(t: TodoistTask, byId: Map<string, TodoistProject>):
     title: t.content,
     description,
     status: 'open',
-    createdAt: t.createdAt,
-    updatedAt: t.createdAt,
+    createdAt: t.added_at,
+    updatedAt: t.added_at,
     ...(projectId !== undefined          && { projectId }),
     ...(projectId === undefined          && { sphereId }),
     ...(agendaId !== undefined           && { agendaId }),
@@ -173,26 +157,76 @@ function buildPalimpsestTask(t: TodoistTask, byId: Map<string, TodoistProject>):
   return task
 }
 
-// ── Public API ────────────────────────────────────────────────────────────────
+// ── State builder ─────────────────────────────────────────────────────────────
 
-export async function fetchState(token: string): Promise<ProjectionState> {
-  const now = new Date().toISOString()
-
-  const [rawProjects, rawTasks] = await Promise.all([
-    getProjects(token),
-    getAllTasks(token),
-  ])
-
+export function buildState(
+  rawProjects: SyncProject[],
+  rawItems: SyncItem[],
+  now: string,
+): ProjectionState {
   const byId = buildProjectMap(rawProjects)
   const { spheres, agendas, contexts } = buildStateFromConfig(PALIMPSEST_CONFIG)
   const projects = buildPalimpsestProjects(rawProjects, byId, now)
 
   const tasks = new Map<TaskId, Task>()
-  for (const t of rawTasks) {
-    if (t.isCompleted) continue
+  for (const t of rawItems) {
+    if (t.checked || t.is_deleted) continue
     const task = buildPalimpsestTask(t, byId)
     if (task !== undefined) tasks.set(task.id, task)
   }
 
   return { spheres, agendas, contexts, projects, tasks }
+}
+
+// Apply an incremental Sync API delta to an existing state (mutates in place).
+export function applyDelta(
+  state: ProjectionState,
+  projects: SyncProject[],
+  items: SyncItem[],
+  now: string,
+): void {
+  // Rebuild project map from what we have so far (needed for sphere resolution)
+  const allProjects: SyncProject[] = []
+  for (const [, p] of state.projects) {
+    allProjects.push({
+      id: p.id,
+      name: p.name,
+      parent_id: null,   // unknown after initial load — rebuild map from delta projects
+      is_inbox_project: false,
+      is_archived: p.isArchived === true,
+      is_deleted: false,
+    })
+  }
+  // Delta projects override/supplement the stubs above
+  const byIdMutable = new Map(allProjects.map(p => [p.id, p]))
+  for (const p of projects) byIdMutable.set(p.id, p)
+
+  for (const p of projects) {
+    if (p.is_deleted) {
+      state.projects.delete(p.id as ProjectId)
+      continue
+    }
+    if (EXCLUDED_PROJECT_IDS.has(p.id)) continue
+    const sphereId = resolveSphereId(p, byIdMutable)
+    if (sphereId === undefined) continue
+    const id = p.id as ProjectId
+    state.projects.set(id, {
+      id,
+      sphereId,
+      name: p.name,
+      createdAt: now,
+      updatedAt: now,
+      ...(p.is_archived && { isArchived: true, archivedAt: now }),
+    })
+  }
+
+  for (const t of items) {
+    const taskId = t.id as TaskId
+    if (t.is_deleted || t.checked) {
+      state.tasks.delete(taskId)
+      continue
+    }
+    const task = buildPalimpsestTask(t, byIdMutable)
+    if (task !== undefined) state.tasks.set(taskId, task)
+  }
 }

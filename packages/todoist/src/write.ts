@@ -1,6 +1,6 @@
-import type { PalimpsestEvent, ProjectionState, Task, TaskId, ProjectId } from 'palimpsest'
+import type { PalimpsestEvent, ProjectionState } from 'palimpsest'
 import { CLEAR } from 'palimpsest'
-import { addTask, updateTask, closeTask, reopenTask, deleteTask, addProject, updateProject } from './api.js'
+import type { SyncCommand } from './api.js'
 import { computeLabels } from './labels.js'
 import {
   WORK_SPHERE_ID,
@@ -9,13 +9,27 @@ import {
   todoistProjectUrl,
 } from './mapping.js'
 
-// Returns the Todoist-assigned ID when an entity is created, so the caller
-// can substitute it for the palimpsest-generated nanoid in the event.
-export async function applyEventToTodoist(
+function uuid(): string {
+  return crypto.randomUUID()
+}
+
+// Build the due date args for a Sync API item_add / item_update command.
+function dueDateArgs(
+  dueString: string | undefined,
+  dueDate: string | undefined,
+): Record<string, unknown> {
+  if (dueString !== undefined) return { due: { string: dueString } }
+  if (dueDate   !== undefined) return { due: { date: dueDate } }
+  return {}
+}
+
+// Convert a palimpsest event into the Sync API commands needed to apply it.
+// Returns the array of commands plus the temp_id used for creation events (so
+// the caller can read the Todoist-assigned ID back from temp_id_mapping).
+export function buildCommands(
   event: PalimpsestEvent,
   state: ProjectionState,
-  token: string,
-): Promise<string | undefined> {
+): { commands: SyncCommand[]; tempId?: string } {
   switch (event.type) {
 
     case 'task.created': {
@@ -34,7 +48,6 @@ export async function applyEventToTodoist(
         ...(event.waitingFor !== undefined && { waitingFor: event.waitingFor }),
       })
 
-      // Structural waitingFor types encode their reference in the description field
       const description =
         event.waitingFor?.kind === 'project' ? todoistProjectUrl(event.waitingFor.projectId) :
         event.waitingFor?.kind === 'trello'  ? event.waitingFor.cardUrl :
@@ -42,44 +55,46 @@ export async function applyEventToTodoist(
 
       const priority = event.isStarred === true ? 4 : 1
 
-      const created = await addTask(token, {
-        content:   event.title,
-        projectId: todoistProjectId,
-        labels,
-        priority,
-        ...(description !== undefined && { description }),
-        ...(event.dueDateExpression !== undefined
-          ? { dueString: event.dueDateExpression }
-          : event.dueDate !== undefined
-          ? { dueDate: event.dueDate }
-          : {}),
-      })
-
-      return created.id
+      const tempId = uuid()
+      return {
+        tempId,
+        commands: [{
+          type: 'item_add',
+          uuid: uuid(),
+          temp_id: tempId,
+          args: {
+            content: event.title,
+            project_id: todoistProjectId,
+            labels,
+            priority,
+            ...(description !== undefined && { description }),
+            ...dueDateArgs(event.dueDateExpression, event.dueDate),
+          },
+        }],
+      }
     }
 
     case 'task.updated': {
       const task = state.tasks.get(event.taskId)
-      if (task === undefined) return undefined
+      if (task === undefined) return { commands: [] }
 
       const patch = event.patch
-      const updateArgs: Parameters<typeof updateTask>[2] = {}
+      const args: Record<string, unknown> = { id: String(event.taskId) }
 
-      if (patch.title       !== undefined) updateArgs.content     = patch.title
-      if (patch.description !== undefined) updateArgs.description = patch.description
+      if (patch.title       !== undefined) args['content']     = patch.title
+      if (patch.description !== undefined) args['description'] = patch.description
 
-      // Recompute the full label set from the post-patch task state
       if (
-        patch.isNext      !== undefined ||
-        patch.agendaId    !== undefined ||
-        patch.contextId   !== undefined ||
-        patch.waitingFor  !== undefined
+        patch.isNext     !== undefined ||
+        patch.agendaId   !== undefined ||
+        patch.contextId  !== undefined ||
+        patch.waitingFor !== undefined
       ) {
         const newAgendaId   = patch.agendaId   !== undefined ? (patch.agendaId   === CLEAR ? undefined : patch.agendaId)   : task.agendaId
         const newContextId  = patch.contextId  !== undefined ? (patch.contextId  === CLEAR ? undefined : patch.contextId)  : task.contextId
         const newIsNext     = patch.isNext     !== undefined ? (patch.isNext     === false  ? undefined : true)             : task.isNext
         const newWaitingFor = patch.waitingFor !== undefined ? (patch.waitingFor === CLEAR ? undefined : patch.waitingFor) : task.waitingFor
-        updateArgs.labels = computeLabels({
+        args['labels'] = computeLabels({
           ...(newIsNext     === true      && { isNext:     true }),
           ...(newAgendaId   !== undefined && { agendaId:   newAgendaId }),
           ...(newContextId  !== undefined && { contextId:  newContextId }),
@@ -88,107 +103,100 @@ export async function applyEventToTodoist(
       }
 
       if (patch.isStarred !== undefined) {
-        updateArgs.priority = patch.isStarred === true ? 4 : 1
+        args['priority'] = patch.isStarred === true ? 4 : 1
       }
 
-      // Structural waitingFor types encode their reference URL in the description field
       if (patch.waitingFor !== undefined) {
         if (patch.waitingFor !== CLEAR && patch.waitingFor.kind === 'project') {
-          updateArgs.description = todoistProjectUrl(patch.waitingFor.projectId)
+          args['description'] = todoistProjectUrl(patch.waitingFor.projectId)
         } else if (patch.waitingFor !== CLEAR && patch.waitingFor.kind === 'trello') {
-          updateArgs.description = patch.waitingFor.cardUrl
+          args['description'] = patch.waitingFor.cardUrl
         } else if (patch.description === undefined) {
-          // Changed or cleared waitingFor away from a structural kind — restore the task's own description
-          updateArgs.description = task.description
+          args['description'] = task.description
         }
       }
 
       if (patch.dueDate !== undefined && patch.dueDate !== CLEAR) {
-        updateArgs.dueDate = patch.dueDate
+        args['due'] = { date: patch.dueDate }
       }
       if (patch.dueDateExpression !== undefined && patch.dueDateExpression !== CLEAR) {
-        updateArgs.dueString = patch.dueDateExpression
+        args['due'] = { string: patch.dueDateExpression }
       }
 
-      // Moving a task between projects: Todoist REST v2 doesn't support projectId
-      // in task updates. This case would need the Sync API; skip for now.
-
-      if (Object.keys(updateArgs).length > 0) {
-        await updateTask(token, String(event.taskId), updateArgs)
+      // Moving to a different project
+      if (patch.projectId !== undefined && patch.projectId !== CLEAR) {
+        const commands: SyncCommand[] = []
+        if (Object.keys(args).length > 1) {
+          commands.push({ type: 'item_update', uuid: uuid(), args })
+        }
+        commands.push({
+          type: 'item_move',
+          uuid: uuid(),
+          args: { id: String(event.taskId), project_id: String(patch.projectId) },
+        })
+        return { commands }
       }
-      return undefined
+
+      if (Object.keys(args).length > 1) {
+        return { commands: [{ type: 'item_update', uuid: uuid(), args }] }
+      }
+      return { commands: [] }
     }
 
-    case 'task.completed': {
-      await closeTask(token, String(event.taskId))
-      return undefined
-    }
+    case 'task.completed':
+      return { commands: [{ type: 'item_close', uuid: uuid(), args: { id: String(event.taskId) } }] }
 
-    case 'task.uncompleted': {
-      await reopenTask(token, String(event.taskId))
-      return undefined
-    }
+    case 'task.uncompleted':
+      return { commands: [{ type: 'item_uncomplete', uuid: uuid(), args: { id: String(event.taskId) } }] }
 
-    case 'task.recurred': {
-      // Advance the due date directly rather than closing (which would let Todoist
-      // compute the next date — potentially different from what palimpsest computed).
-      await updateTask(token, String(event.taskId), { dueDate: event.newDueDate })
-      return undefined
-    }
+    case 'task.recurred':
+      return { commands: [{
+        type: 'item_update',
+        uuid: uuid(),
+        args: { id: String(event.taskId), due: { date: event.newDueDate } },
+      }] }
 
-    case 'task.deleted': {
-      await deleteTask(token, String(event.taskId))
-      return undefined
-    }
+    case 'task.deleted':
+      return { commands: [{ type: 'item_delete', uuid: uuid(), args: { id: String(event.taskId) } }] }
 
     case 'project.created': {
       const parentId = sphereParentProjectFor(event.sphereId)
-      const created = await addProject(token, { name: event.name, parentId })
-      return created.id
+      const tempId = uuid()
+      return {
+        tempId,
+        commands: [{
+          type: 'project_add',
+          uuid: uuid(),
+          temp_id: tempId,
+          args: { name: event.name, parent_id: parentId },
+        }],
+      }
     }
 
     case 'project.updated': {
       const patch = event.patch
       if (patch.name !== undefined) {
-        await updateProject(token, String(event.projectId), { name: patch.name })
+        return { commands: [{
+          type: 'project_update',
+          uuid: uuid(),
+          args: { id: String(event.projectId), name: patch.name },
+        }] }
       }
-      // sphereId changes would require reparenting — not supported in REST v2
-      return undefined
+      return { commands: [] }
     }
 
     case 'project.archived':
+      return { commands: [{
+        type: 'project_archive',
+        uuid: uuid(),
+        args: { id: String(event.projectId) },
+      }] }
+
     case 'project.unarchived':
-      // Todoist REST v2 has no archive endpoint; apply to in-memory state only
-      return undefined
+      return { commands: [{
+        type: 'project_unarchive',
+        uuid: uuid(),
+        args: { id: String(event.projectId) },
+      }] }
   }
-}
-
-// Substitute the palimpsest-generated nanoid with the Todoist-assigned ID in a
-// creation event, so the in-memory state uses stable Todoist IDs throughout.
-export function substituteCreatedId(event: PalimpsestEvent, todoistId: string): PalimpsestEvent {
-  if (event.type === 'task.created')    return { ...event, taskId:    todoistId as TaskId }
-  if (event.type === 'project.created') return { ...event, projectId: todoistId as ProjectId }
-  return event
-}
-
-// Apply any pending nanoid → todoistId substitutions to foreign-key fields
-// within an event (e.g. the projectId on a task.created that refers to a
-// project created earlier in the same batch).
-export function applyIdSubstitutions(
-  event: PalimpsestEvent,
-  subs: Map<string, string>,
-): PalimpsestEvent {
-  if (event.type === 'task.created' && event.projectId !== undefined) {
-    const sub = subs.get(event.projectId)
-    if (sub !== undefined) return { ...event, projectId: sub as ProjectId }
-  }
-  if (
-    event.type === 'task.updated' &&
-    event.patch.projectId !== undefined &&
-    event.patch.projectId !== CLEAR
-  ) {
-    const sub = subs.get(event.patch.projectId)
-    if (sub !== undefined) return { ...event, patch: { ...event.patch, projectId: sub as ProjectId } }
-  }
-  return event
 }

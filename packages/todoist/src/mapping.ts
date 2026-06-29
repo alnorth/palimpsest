@@ -60,7 +60,6 @@ export const LABEL_TO_CONTEXT_ID: Readonly<Record<string, ContextId>> = {
   quick:       'ctx-quick'       as ContextId,
   email:       'ctx-email'       as ContextId,
   anytime:     'ctx-anytime'     as ContextId,
-  trello:      'ctx-trello'      as ContextId,
   phone:       'ctx-phone'       as ContextId,
   laptop:      'ctx-laptop'      as ContextId,
   tools:       'ctx-tools'       as ContextId,

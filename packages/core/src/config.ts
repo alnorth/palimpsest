@@ -75,7 +75,6 @@ export const PALIMPSEST_CONFIG: SphereConfig[] = [
       { id: 'ctx-quick'      as ContextId, name: 'Quick',      key: 'q' },
       { id: 'ctx-email'      as ContextId, name: 'Email',      key: 'e' },
       { id: 'ctx-anytime'    as ContextId, name: 'Anytime',    key: 'y' },
-      { id: 'ctx-trello'     as ContextId, name: 'Trello',     key: 'r' },
     ],
   },
   {
