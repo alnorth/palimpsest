@@ -1,7 +1,5 @@
-import { PalimpsestStore } from 'palimpsest'
-import type { PalimpsestEvent, ProjectionState } from 'palimpsest'
-import { MemoryPendingEventStore } from './PendingEventStore.js'
-import type { PendingEventStore } from './PendingEventStore.js'
+import { PalimpsestStore, MemoryPendingEventStore } from 'palimpsest'
+import type { PalimpsestEvent, ProjectionState, PendingEventStore } from 'palimpsest'
 
 // Access document without requiring DOM lib — safe to call in Node.js environments
 function getDoc(): { addEventListener: Function; removeEventListener: Function; visibilityState: string } | undefined {

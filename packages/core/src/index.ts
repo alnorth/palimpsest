@@ -32,3 +32,5 @@ export {
 export { parseDueDate, addDays, nextWeekday, isValidExpression, nextDueDate } from './dateParser.js'
 export { buildStateFromConfig, PALIMPSEST_CONFIG } from './config.js'
 export { validateBatch } from './validation.js'
+export type { PendingEventStore } from './pendingEventStore.js'
+export { MemoryPendingEventStore } from './pendingEventStore.js'

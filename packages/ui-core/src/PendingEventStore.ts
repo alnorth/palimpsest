@@ -1,14 +1,3 @@
-import type { PalimpsestEvent } from 'palimpsest'
-
-export interface PendingEventStore {
-  load(): Promise<PalimpsestEvent[]>
-  save(unsyncedEvents: PalimpsestEvent[]): Promise<void>
-}
-
-export class MemoryPendingEventStore implements PendingEventStore {
-  async load(): Promise<PalimpsestEvent[]> {
-    return []
-  }
-
-  async save(_unsyncedEvents: PalimpsestEvent[]): Promise<void> {}
-}
+// Re-exported from core so consumers importing from palimpsest-ui-core continue to work.
+export type { PendingEventStore } from 'palimpsest'
+export { MemoryPendingEventStore } from 'palimpsest'

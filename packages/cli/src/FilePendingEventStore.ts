@@ -1,6 +1,6 @@
 import { readFileSync, writeFileSync, existsSync } from 'node:fs'
 import type { PalimpsestEvent } from 'palimpsest'
-import type { PendingEventStore } from 'palimpsest-ui-core'
+import type { PendingEventStore } from 'palimpsest'
 
 export class FilePendingEventStore implements PendingEventStore {
   constructor(private readonly filePath: string) {}
