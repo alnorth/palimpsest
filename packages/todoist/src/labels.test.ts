@@ -62,4 +62,21 @@ describe('computeLabels', () => {
     expect(computeLabels({ isNext: true, waitingFor: { kind: 'review' }, contextId: ctxQuick }))
       .toEqual(['next', 'waiting', 'nonagenda', 'quick'])
   })
+
+  it.each([
+    ['ctx-tools',    'tools',    'home'],
+    ['ctx-sewing',   'sewing',   'home'],
+    ['ctx-no-tools', 'notools',  'home'],
+    ['ctx-loft',     'loft',     'home'],
+  ])('%s adds %s + home', (contextId, label, parent) => {
+    expect(computeLabels({ contextId: contextId as ContextId })).toEqual([label, parent])
+  })
+
+  it.each([
+    ['ctx-phone',      'phone',      'admin'],
+    ['ctx-laptop',     'laptop',     'admin'],
+    ['ctx-deepthought','deepthought','admin'],
+  ])('%s adds %s + admin', (contextId, label, parent) => {
+    expect(computeLabels({ contextId: contextId as ContextId })).toEqual([label, parent])
+  })
 })

@@ -1,4 +1,5 @@
-import type { ProjectionState, Task, Project, SphereId, ProjectId, TaskId } from 'palimpsest'
+import type { ProjectionState, Task, Project, SphereId, ProjectId, TaskId, PalimpsestEvent, TaskPatch } from 'palimpsest'
+import { CLEAR, newEventId } from 'palimpsest'
 import type { SyncItem, SyncProject } from './api.js'
 import {
   TODOIST_WORK_PROJECT_ID,
@@ -120,7 +121,9 @@ function buildPalimpsestTask(t: SyncItem, byId: Map<string, SyncProject>): Task 
   let dueDateExpression: string | undefined = undefined
   if (t.due !== null) {
     dueDate = t.due.date
-    if (t.due.is_recurring) {
+    // Don't set dueDateExpression for checked tasks: checked + is_recurring means
+    // "completed forever" — the recurrence has ended. Clear it so task.completed works.
+    if (t.due.is_recurring && !t.checked) {
       dueDateExpression = t.due.string
     }
   }
@@ -153,77 +156,168 @@ function buildPalimpsestTask(t: SyncItem, byId: Map<string, SyncProject>): Task 
   return task
 }
 
-// ── State builder ─────────────────────────────────────────────────────────────
 
-export function buildState(
+function taskUpdatedPatch(existing: Task, task: Task): TaskPatch {
+  const patch: TaskPatch = {}
+  if (task.title       !== existing.title)       patch.title       = task.title
+  if (task.description !== existing.description) patch.description = task.description
+  if (task.projectId   !== existing.projectId)   patch.projectId   = task.projectId   ?? CLEAR
+  if (task.sphereId    !== existing.sphereId)    patch.sphereId    = task.sphereId    ?? CLEAR
+  if (task.agendaId    !== existing.agendaId)    patch.agendaId    = task.agendaId    ?? CLEAR
+  if (task.contextId   !== existing.contextId)   patch.contextId   = task.contextId   ?? CLEAR
+  if ((task.isNext    === true) !== (existing.isNext    === true)) patch.isNext    = task.isNext    === true
+  if ((task.isStarred === true) !== (existing.isStarred === true)) patch.isStarred = task.isStarred === true
+  if (JSON.stringify(task.waitingFor)  !== JSON.stringify(existing.waitingFor))  patch.waitingFor        = task.waitingFor        ?? CLEAR
+  if (task.dueDate           !== existing.dueDate)           patch.dueDate           = task.dueDate           ?? CLEAR
+  if (task.dueDateExpression !== existing.dueDateExpression) patch.dueDateExpression = task.dueDateExpression ?? CLEAR
+  return patch
+}
+
+function taskCreatedEvent(task: Task): Extract<PalimpsestEvent, { type: 'task.created' }> {
+  return {
+    id: newEventId(), type: 'task.created',
+    taskId: task.id, title: task.title, description: task.description,
+    occurredAt: task.createdAt,
+    ...(task.projectId         !== undefined && { projectId:         task.projectId }),
+    ...(task.sphereId          !== undefined && { sphereId:          task.sphereId }),
+    ...(task.agendaId          !== undefined && { agendaId:          task.agendaId }),
+    ...(task.contextId         !== undefined && { contextId:         task.contextId }),
+    ...(task.isNext            !== undefined && { isNext:            task.isNext }),
+    ...(task.isStarred         !== undefined && { isStarred:         task.isStarred }),
+    ...(task.waitingFor        !== undefined && { waitingFor:        task.waitingFor }),
+    ...(task.dueDate           !== undefined && { dueDate:           task.dueDate }),
+    ...(task.dueDateExpression !== undefined && { dueDateExpression: task.dueDateExpression }),
+  }
+}
+
+export function buildEvents(
   rawProjects: SyncProject[],
   rawItems: SyncItem[],
-  configState: ProjectionState,
-): ProjectionState {
+): PalimpsestEvent[] {
   const byId = buildProjectMap(rawProjects)
-  const { spheres, agendas, contexts } = configState
-  const projects = buildPalimpsestProjects(rawProjects, byId)
+  const events: PalimpsestEvent[] = []
 
-  const tasks = new Map<TaskId, Task>()
+  for (const p of buildPalimpsestProjects(rawProjects, byId).values()) {
+    events.push({
+      id: newEventId(), type: 'project.created',
+      projectId: p.id, sphereId: p.sphereId, name: p.name,
+      occurredAt: p.createdAt,
+    })
+    if (p.isArchived === true) {
+      events.push({
+        id: newEventId(), type: 'project.archived',
+        projectId: p.id, occurredAt: p.archivedAt ?? p.updatedAt,
+      })
+    }
+  }
+
   for (const t of rawItems) {
     if (t.is_deleted) continue
     const task = buildPalimpsestTask(t, byId)
-    if (task !== undefined) tasks.set(task.id, task)
+    if (task === undefined) continue
+
+    events.push(taskCreatedEvent(task))
+    // task.completed is a no-op on recurring tasks (projection guard), so skip those.
+    // In practice the Todoist Sync API never returns checked=true for a recurring task.
+    if (task.status === 'completed' && task.dueDateExpression === undefined) {
+      events.push({
+        id: newEventId(), type: 'task.completed',
+        taskId: task.id, occurredAt: task.completedAt ?? task.updatedAt,
+      })
+    }
   }
 
-  return { spheres, agendas, contexts, projects, tasks }
+  return events
 }
 
-// Apply an incremental Sync API delta to an existing state (mutates in place).
-export function applyDelta(
-  state: ProjectionState,
-  projects: SyncProject[],
-  items: SyncItem[],
-): void {
-  // Rebuild project map from what we have so far (needed for sphere resolution)
+export function buildDeltaEvents(
+  current: ProjectionState,
+  deltaProjects: SyncProject[],
+  deltaItems: SyncItem[],
+): PalimpsestEvent[] {
+  const events: PalimpsestEvent[] = []
+
+  // Rebuild project map for sphere resolution: stubs from current state + full delta projects.
+  // parent_id is set to the sphere container so resolveSphereId can resolve it in one step.
   const allProjects: SyncProject[] = []
-  for (const [, p] of state.projects) {
+  for (const [, p] of current.projects) {
     allProjects.push({
-      id: p.id,
-      name: p.name,
-      parent_id: null,   // unknown after initial load — rebuild map from delta projects
-      is_inbox_project: false,
-      is_archived: p.isArchived === true,
-      is_deleted: false,
-      created_at: p.createdAt,
-      updated_at: p.updatedAt,
+      id: p.id, name: p.name,
+      parent_id: p.sphereId === PERSONAL_SPHERE_ID ? TODOIST_PERSONAL_PROJECT_ID : TODOIST_WORK_PROJECT_ID,
+      is_inbox_project: false, is_archived: p.isArchived === true,
+      is_deleted: false, created_at: p.createdAt, updated_at: p.updatedAt,
     })
   }
-  // Delta projects override/supplement the stubs above
-  const byIdMutable = new Map(allProjects.map(p => [p.id, p]))
-  for (const p of projects) byIdMutable.set(p.id, p)
+  const byId = new Map(allProjects.map(p => [p.id, p]))
+  for (const p of deltaProjects) byId.set(p.id, p)
 
-  for (const p of projects) {
+  for (const p of deltaProjects) {
     if (p.is_deleted) {
-      state.projects.delete(p.id as ProjectId)
+      if (current.projects.has(p.id as ProjectId)) {
+        events.push({ id: newEventId(), type: 'project.archived', projectId: p.id as ProjectId, occurredAt: p.updated_at })
+      }
       continue
     }
     if (EXCLUDED_PROJECT_IDS.has(p.id)) continue
-    const sphereId = resolveSphereId(p, byIdMutable)
+    const sphereId = resolveSphereId(p, byId)
     if (sphereId === undefined) continue
-    const id = p.id as ProjectId
-    state.projects.set(id, {
-      id,
-      sphereId,
-      name: p.name,
-      createdAt: p.created_at,
-      updatedAt: p.updated_at,
-      ...(p.is_archived && { isArchived: true, archivedAt: p.updated_at }),
-    })
+    const projectId = p.id as ProjectId
+
+    if (current.projects.has(projectId)) {
+      events.push({
+        id: newEventId(), type: 'project.updated',
+        projectId, patch: { name: p.name, sphereId },
+        occurredAt: p.updated_at,
+      })
+      const existing = current.projects.get(projectId)
+      if (p.is_archived && existing?.isArchived !== true) {
+        events.push({ id: newEventId(), type: 'project.archived', projectId, occurredAt: p.updated_at })
+      } else if (!p.is_archived && existing?.isArchived === true) {
+        events.push({ id: newEventId(), type: 'project.unarchived', projectId, occurredAt: p.updated_at })
+      }
+    } else {
+      events.push({
+        id: newEventId(), type: 'project.created',
+        projectId, sphereId, name: p.name, occurredAt: p.created_at,
+      })
+      if (p.is_archived) {
+        events.push({ id: newEventId(), type: 'project.archived', projectId, occurredAt: p.updated_at })
+      }
+    }
   }
 
-  for (const t of items) {
+  for (const t of deltaItems) {
     const taskId = t.id as TaskId
     if (t.is_deleted) {
-      state.tasks.delete(taskId)
+      if (current.tasks.has(taskId)) {
+        events.push({ id: newEventId(), type: 'task.deleted', taskId, occurredAt: t.updated_at })
+      }
       continue
     }
-    const task = buildPalimpsestTask(t, byIdMutable)
-    if (task !== undefined) state.tasks.set(taskId, task)
+    const task = buildPalimpsestTask(t, byId)
+    if (task === undefined) continue
+
+    const existing = current.tasks.get(taskId)
+
+    if (existing === undefined) {
+      events.push(taskCreatedEvent(task))
+      if (task.status === 'completed' && task.dueDateExpression === undefined) {
+        events.push({ id: newEventId(), type: 'task.completed', taskId, occurredAt: task.completedAt ?? task.updatedAt })
+      }
+    } else {
+      const patch = taskUpdatedPatch(existing, task)
+      if (Object.keys(patch).length > 0) {
+        events.push({ id: newEventId(), type: 'task.updated', taskId, occurredAt: task.updatedAt, patch })
+      }
+      const wasCompleted = existing.status === 'completed'
+      const isCompleted  = task.status === 'completed'
+      if (isCompleted && !wasCompleted && task.dueDateExpression === undefined) {
+        events.push({ id: newEventId(), type: 'task.completed', taskId, occurredAt: task.completedAt ?? task.updatedAt })
+      } else if (!isCompleted && wasCompleted) {
+        events.push({ id: newEventId(), type: 'task.uncompleted', taskId, occurredAt: task.updatedAt })
+      }
+    }
   }
+
+  return events
 }

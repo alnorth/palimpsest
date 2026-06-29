@@ -1,5 +1,6 @@
 export type { Task, Project, Sphere, Agenda, Context, TaskStatus, WaitingFor } from './types.js'
 export type { TaskId, ProjectId, SphereId, AgendaId, ContextId, EventId } from './ids.js'
+export { newEventId } from './ids.js'
 export type {
   PalimpsestEvent,
   ProjectCreatedEvent, ProjectUpdatedEvent, ProjectArchivedEvent, ProjectUnarchivedEvent,

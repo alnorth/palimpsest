@@ -30,7 +30,7 @@ function makeBackendStore(apiUrl: string, authToken: string): PalimpsestStore {
 function makeTodoistStore(todoistToken: string): PalimpsestStore {
   return new TodoistStore(todoistToken, {
     pendingStore: new LocalStoragePendingEventStore('palimpsest_todoist_pending'),
-    configState,
+    initialState: configState,
   })
 }
 

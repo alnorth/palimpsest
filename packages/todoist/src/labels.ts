@@ -35,7 +35,14 @@ export function computeLabels(task: TaskLabelFields): string[] {
   }
 
   const contextLabel = task.contextId !== undefined ? CONTEXT_ID_TO_LABEL[task.contextId] : undefined
-  if (contextLabel !== undefined) labels.push(contextLabel)
+  if (contextLabel !== undefined) {
+    labels.push(contextLabel)
+    if (HOME_CONTEXTS.has(contextLabel))  labels.push('home')
+    if (ADMIN_CONTEXTS.has(contextLabel)) labels.push('admin')
+  }
 
   return labels
 }
+
+const HOME_CONTEXTS  = new Set(['tools', 'sewing', 'notools', 'loft'])
+const ADMIN_CONTEXTS = new Set(['phone', 'laptop', 'deepthought'])

@@ -32,8 +32,8 @@ function makeTaskEvent(): PalimpsestEvent {
   }
 }
 
-function makeStore(configState = baseState) {
-  return new TodoistStore('fake-token', { configState })
+function makeStore(initialState = baseState) {
+  return new TodoistStore('fake-token', { initialState })
 }
 
 beforeEach(() => {
@@ -93,6 +93,29 @@ describe('syncState', () => {
       const store = makeStore()
       await store.appendEvents([makeTaskEvent()])
       expect(store.syncState.unsyncedCount).toBe(1)
+    })
+  })
+
+  describe('readAllEvents', () => {
+    it('returns pending events before any sync', async () => {
+      const store = makeStore()
+      await store.appendEvents([makeTaskEvent()])
+      const events = await store.readAllEvents()
+      expect(events).toHaveLength(1)
+      expect(events[0]?.type).toBe('task.created')
+    })
+
+    it('returns base events from Todoist after a full sync', async () => {
+      vi.mocked(api.syncRead).mockResolvedValue({
+        sync_token: 'tok2',
+        full_sync: true,
+        projects: [],
+        items: [],
+      })
+      const store = makeStore()
+      await store.refresh()
+      const events = await store.readAllEvents()
+      expect(Array.isArray(events)).toBe(true)
     })
   })
 

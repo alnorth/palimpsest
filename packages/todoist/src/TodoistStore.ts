@@ -1,85 +1,62 @@
-import { PollingStore, applyEvent, createEmptyState, project } from 'palimpsest'
-import type { PalimpsestEvent, ProjectionState, TaskId, ProjectId, PendingEventStore } from 'palimpsest'
+import { PollingStore, project, createEmptyState } from 'palimpsest'
+import type { PalimpsestEvent, ProjectionState, ProjectId, PendingEventStore } from 'palimpsest'
 import { syncRead, syncWrite } from './api.js'
 import type { SyncCommand } from './api.js'
-import { buildState, applyDelta } from './read.js'
+import { buildEvents, buildDeltaEvents } from './read.js'
 import { buildCommands } from './write.js'
 
 export class TodoistStore extends PollingStore {
-  private currentState: ProjectionState
+  private baseEvents: PalimpsestEvent[] = []
   private readonly configState: ProjectionState
-  private syncToken = '*'
 
   constructor(
     private readonly token: string,
-    opts: { syncIntervalMs?: number; pendingStore?: PendingEventStore; configState?: ProjectionState } = {},
+    opts: { syncIntervalMs?: number; pendingStore?: PendingEventStore; initialState?: ProjectionState } = {},
   ) {
     super(opts)
-    this.configState = opts.configState ?? createEmptyState()
-    this.currentState = this.configState
+    this.configState = opts.initialState ?? createEmptyState()
   }
 
-  override readAllEvents(): Promise<PalimpsestEvent[]> {
-    throw new Error('TodoistStore does not support readAllEvents')
-  }
-
-  override async getState(): Promise<ProjectionState> {
-    return project(await this.pendingStore.load(), this.currentState)
+  override async readAllEvents(): Promise<PalimpsestEvent[]> {
+    const pending = await this.pendingStore.load()
+    return [...this.baseEvents, ...pending]
   }
 
   override async sync(): Promise<void> {
     const pending = await this.pendingStore.load()
 
     if (pending.length > 0) {
+      const currentState = project(this.baseEvents, this.configState)
       const allCommands: SyncCommand[] = []
-      // tempId → nanoid (source id from the event) for later substitution
-      const tempToSourceId = new Map<string, string>()
-      // nanoid → temp_id, built during the first pass so that cross-batch foreign-key
-      // references (e.g. task.created pointing at a project created earlier in the same
-      // batch) use the temp_id that Todoist resolves within the batch, not the nanoid.
+      // nanoid → temp_id so that cross-batch foreign-key references (e.g. task.created
+      // pointing at a project created earlier in the same batch) use the temp_id that
+      // Todoist resolves within the batch, not the nanoid.
       const nanoidToTempId = new Map<string, string>()
-      // nanoid → todoistId substitutions discovered after the write
-      const subs = new Map<string, string>()
 
       for (const raw of pending) {
         const event = applySourceIdSubs(raw, nanoidToTempId)
-        const { commands, tempId } = buildCommands(event, this.currentState)
+        const { commands, tempId } = buildCommands(event, currentState)
         allCommands.push(...commands)
         if (tempId !== undefined) {
           const sourceId = event.type === 'task.created'    ? String(event.taskId)
                          : event.type === 'project.created' ? String(event.projectId)
                          : undefined
           if (sourceId !== undefined) {
-            tempToSourceId.set(tempId, sourceId)
             nanoidToTempId.set(sourceId, tempId)
           }
         }
       }
 
       if (allCommands.length > 0) {
-        let writeRes
         try {
-          writeRes = await syncWrite(this.token, allCommands)
+          await syncWrite(this.token, allCommands)
         } catch (err) {
           this.health = 'error'
           this.syncError = err instanceof Error ? err.message : String(err)
           return
         }
-        for (const [tempId, todoistId] of Object.entries(writeRes.temp_id_mapping)) {
-          const sourceId = tempToSourceId.get(tempId)
-          if (sourceId !== undefined) subs.set(sourceId, todoistId)
-        }
       }
 
-      for (const raw of pending) {
-        const event = applySourceIdSubs(raw, subs)
-        const sub = getCreatedEntitySub(event, subs)
-        if (sub !== undefined) {
-          applyEvent(this.currentState, substituteCreatedId(event, sub))
-        } else {
-          applyEvent(this.currentState, event)
-        }
-      }
       await this.pendingStore.save([])
     }
 
@@ -93,14 +70,17 @@ export class TodoistStore extends PollingStore {
     }
     this.syncToken = readRes.sync_token
     if (readRes.full_sync) {
-      this.currentState = buildState(readRes.projects, readRes.items, this.configState)
+      this.baseEvents = buildEvents(readRes.projects, readRes.items)
     } else {
-      applyDelta(this.currentState, readRes.projects, readRes.items)
+      const currentBase = project(this.baseEvents, this.configState)
+      const newEvents = buildDeltaEvents(currentBase, readRes.projects, readRes.items)
+      this.baseEvents.push(...newEvents)
     }
     this.health = 'idle'
     this.syncError = undefined
   }
 
+  private syncToken = '*'
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -114,17 +94,5 @@ function applySourceIdSubs(event: PalimpsestEvent, subs: Map<string, string>): P
     const sub = subs.get(String(event.patch.projectId))
     if (sub !== undefined) return { ...event, patch: { ...event.patch, projectId: sub as ProjectId } }
   }
-  return event
-}
-
-function getCreatedEntitySub(event: PalimpsestEvent, subs: Map<string, string>): string | undefined {
-  if (event.type === 'task.created')    return subs.get(String(event.taskId))
-  if (event.type === 'project.created') return subs.get(String(event.projectId))
-  return undefined
-}
-
-function substituteCreatedId(event: PalimpsestEvent, todoistId: string): PalimpsestEvent {
-  if (event.type === 'task.created')    return { ...event, taskId:    todoistId as TaskId }
-  if (event.type === 'project.created') return { ...event, projectId: todoistId as ProjectId }
   return event
 }
