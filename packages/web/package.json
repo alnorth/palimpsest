@@ -14,6 +14,7 @@
     "@mantine/core": "^9.4.0",
     "@mantine/hooks": "^9.4.0",
     "palimpsest": "*",
+    "palimpsest-todoist": "*",
     "palimpsest-ui-core": "*",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"

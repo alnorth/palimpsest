@@ -7,19 +7,25 @@ import TextInput from 'ink-text-input'
 import { FilePalimpsestStore, CLEAR, buildStateFromConfig, PALIMPSEST_CONFIG, createEmptyState, isValidExpression } from 'palimpsest'
 import type { PalimpsestStore, ProjectionState } from 'palimpsest'
 import { useAppState, ClientPalimpsestStore, parseDueDate, getDueDatePreview, getRecurrencePreview, handleKey, getTaskDetailFields, isMainListItems } from 'palimpsest-ui-core'
+import { TodoistStore } from 'palimpsest-todoist'
 import { FilePendingEventStore } from './FilePendingEventStore.js'
 import type { View } from 'palimpsest-ui-core'
 import { homedir } from 'node:os'
 import { join, dirname } from 'node:path'
 import { mkdirSync } from 'node:fs'
 
+const todoistToken = process.env['PALIMPSEST_TODOIST_TOKEN']
 const apiUrl = process.env['PALIMPSEST_API_URL']
 const authToken = process.env['PALIMPSEST_AUTH_TOKEN']
 
 const configState = { ...createEmptyState(), ...buildStateFromConfig(PALIMPSEST_CONFIG) }
 
 let store: PalimpsestStore
-if (apiUrl !== undefined && authToken !== undefined) {
+if (todoistToken !== undefined) {
+  const pendingPath = join(homedir(), '.palimpsest', 'todoist-pending.json')
+  mkdirSync(dirname(pendingPath), { recursive: true })
+  store = new TodoistStore(todoistToken, { pendingStore: new FilePendingEventStore(pendingPath) })
+} else if (apiUrl !== undefined && authToken !== undefined) {
   const pendingPath = join(homedir(), '.palimpsest', 'pending.json')
   store = new ClientPalimpsestStore(
     async (clientSeq, events) => {
