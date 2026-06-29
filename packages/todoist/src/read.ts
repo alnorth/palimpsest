@@ -33,7 +33,6 @@ function resolveSphereId(project: SyncProject, byId: Map<string, SyncProject>): 
 function buildPalimpsestProjects(
   raw: SyncProject[],
   byId: Map<string, SyncProject>,
-  now: string,
 ): Map<ProjectId, Project> {
   const projects = new Map<ProjectId, Project>()
   for (const p of raw) {
@@ -46,9 +45,9 @@ function buildPalimpsestProjects(
       id,
       sphereId,
       name: p.name,
-      createdAt: now,
-      updatedAt: now,
-      ...(p.is_archived && { isArchived: true, archivedAt: now }),
+      createdAt: p.created_at,
+      updatedAt: p.updated_at,
+      ...(p.is_archived && { isArchived: true, archivedAt: p.updated_at }),
     })
   }
   return projects
@@ -159,12 +158,11 @@ function buildPalimpsestTask(t: SyncItem, byId: Map<string, SyncProject>): Task 
 export function buildState(
   rawProjects: SyncProject[],
   rawItems: SyncItem[],
-  now: string,
   configState: ProjectionState,
 ): ProjectionState {
   const byId = buildProjectMap(rawProjects)
   const { spheres, agendas, contexts } = configState
-  const projects = buildPalimpsestProjects(rawProjects, byId, now)
+  const projects = buildPalimpsestProjects(rawProjects, byId)
 
   const tasks = new Map<TaskId, Task>()
   for (const t of rawItems) {
@@ -181,7 +179,6 @@ export function applyDelta(
   state: ProjectionState,
   projects: SyncProject[],
   items: SyncItem[],
-  now: string,
 ): void {
   // Rebuild project map from what we have so far (needed for sphere resolution)
   const allProjects: SyncProject[] = []
@@ -193,6 +190,8 @@ export function applyDelta(
       is_inbox_project: false,
       is_archived: p.isArchived === true,
       is_deleted: false,
+      created_at: p.createdAt,
+      updated_at: p.updatedAt,
     })
   }
   // Delta projects override/supplement the stubs above
@@ -212,9 +211,9 @@ export function applyDelta(
       id,
       sphereId,
       name: p.name,
-      createdAt: now,
-      updatedAt: now,
-      ...(p.is_archived && { isArchived: true, archivedAt: now }),
+      createdAt: p.created_at,
+      updatedAt: p.updated_at,
+      ...(p.is_archived && { isArchived: true, archivedAt: p.updated_at }),
     })
   }
 

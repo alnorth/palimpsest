@@ -28,7 +28,6 @@ export class TodoistStore extends PollingStore {
   }
 
   override async sync(): Promise<void> {
-    const now = new Date().toISOString()
     const pending = await this.pendingStore.load()
 
     if (pending.length > 0) {
@@ -94,9 +93,9 @@ export class TodoistStore extends PollingStore {
     }
     this.syncToken = readRes.sync_token
     if (readRes.full_sync) {
-      this.currentState = buildState(readRes.projects, readRes.items, now, this.configState)
+      this.currentState = buildState(readRes.projects, readRes.items, this.configState)
     } else {
-      applyDelta(this.currentState, readRes.projects, readRes.items, now)
+      applyDelta(this.currentState, readRes.projects, readRes.items)
     }
     this.health = 'idle'
     this.syncError = undefined

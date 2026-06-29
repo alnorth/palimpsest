@@ -31,6 +31,8 @@ export interface SyncProject {
   is_inbox_project: boolean
   is_archived: boolean
   is_deleted: boolean
+  created_at: string        // ISO 8601
+  updated_at: string        // ISO 8601
 }
 
 export interface SyncReadResponse {

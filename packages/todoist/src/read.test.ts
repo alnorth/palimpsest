@@ -16,7 +16,6 @@ import type { ProjectId, TaskId } from 'palimpsest'
 
 const CONFIG_STATE = { ...createEmptyState(), ...buildStateFromConfig(PALIMPSEST_CONFIG) }
 
-const NOW = '2026-06-29T12:00:00.000Z'
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
 
@@ -27,6 +26,8 @@ function makeProject(overrides: Partial<SyncProject> & { id: string }): SyncProj
     is_inbox_project: false,
     is_archived: false,
     is_deleted: false,
+    created_at: '2026-01-01T00:00:00.000Z',
+    updated_at: '2026-02-01T00:00:00.000Z',
     ...overrides,
   }
 }
@@ -62,7 +63,7 @@ const CONTAINERS: SyncProject[] = [
 
 describe('buildState — projects', () => {
   it('excludes container/meta projects', () => {
-    const state = buildState(CONTAINERS, [], NOW, CONFIG_STATE)
+    const state = buildState(CONTAINERS, [], CONFIG_STATE)
     expect(state.projects.size).toBe(0)
   })
 
@@ -71,7 +72,7 @@ describe('buildState — projects', () => {
       ...CONTAINERS,
       makeProject({ id: 'proj1', name: 'Widgets', parent_id: TODOIST_WORK_PROJECT_ID }),
     ]
-    const state = buildState(projects, [], NOW, CONFIG_STATE)
+    const state = buildState(projects, [], CONFIG_STATE)
     expect(state.projects.get('proj1' as ProjectId)).toMatchObject({
       id: 'proj1',
       sphereId: WORK_SPHERE_ID,
@@ -84,7 +85,7 @@ describe('buildState — projects', () => {
       ...CONTAINERS,
       makeProject({ id: 'proj2', name: 'Garden', parent_id: TODOIST_PERSONAL_PROJECT_ID }),
     ]
-    const state = buildState(projects, [], NOW, CONFIG_STATE)
+    const state = buildState(projects, [], CONFIG_STATE)
     expect(state.projects.get('proj2' as ProjectId)?.sphereId).toBe(PERSONAL_SPHERE_ID)
   })
 
@@ -93,7 +94,7 @@ describe('buildState — projects', () => {
       ...CONTAINERS,
       makeProject({ id: 'proj3', name: 'Gone', parent_id: TODOIST_WORK_PROJECT_ID, is_deleted: true }),
     ]
-    const state = buildState(projects, [], NOW, CONFIG_STATE)
+    const state = buildState(projects, [], CONFIG_STATE)
     expect(state.projects.has('proj3' as ProjectId)).toBe(false)
   })
 
@@ -102,7 +103,7 @@ describe('buildState — projects', () => {
       ...CONTAINERS,
       makeProject({ id: 'proj4', name: 'Old', parent_id: TODOIST_WORK_PROJECT_ID, is_archived: true }),
     ]
-    const state = buildState(projects, [], NOW, CONFIG_STATE)
+    const state = buildState(projects, [], CONFIG_STATE)
     expect(state.projects.get('proj4' as ProjectId)?.isArchived).toBe(true)
   })
 
@@ -111,7 +112,7 @@ describe('buildState — projects', () => {
       ...CONTAINERS,
       makeProject({ id: 'agProj', name: 'Jim', parent_id: TODOIST_AGENDAS_ID }),
     ]
-    const state = buildState(projects, [], NOW, CONFIG_STATE)
+    const state = buildState(projects, [], CONFIG_STATE)
     expect(state.projects.has('agProj' as ProjectId)).toBe(false)
   })
 })
@@ -120,19 +121,19 @@ describe('buildState — projects', () => {
 
 describe('buildState — task sphere resolution', () => {
   it('work one-offs task → work sphere, no projectId', () => {
-    const state = buildState(CONTAINERS, [makeItem({ id: 't1', project_id: TODOIST_WORK_ONEOFFS_ID })], NOW, CONFIG_STATE)
+    const state = buildState(CONTAINERS, [makeItem({ id: 't1', project_id: TODOIST_WORK_ONEOFFS_ID })], CONFIG_STATE)
     const task = state.tasks.get('t1' as TaskId)
     expect(task?.sphereId).toBe(WORK_SPHERE_ID)
     expect(task?.projectId).toBeUndefined()
   })
 
   it('personal one-offs task → personal sphere via personal label', () => {
-    const state = buildState(CONTAINERS, [makeItem({ id: 't1', project_id: TODOIST_WORK_ONEOFFS_ID, labels: ['personal'] })], NOW, CONFIG_STATE)
+    const state = buildState(CONTAINERS, [makeItem({ id: 't1', project_id: TODOIST_WORK_ONEOFFS_ID, labels: ['personal'] })], CONFIG_STATE)
     expect(state.tasks.get('t1' as TaskId)?.sphereId).toBe(PERSONAL_SPHERE_ID)
   })
 
   it('inbox task defaults to work sphere', () => {
-    const state = buildState(CONTAINERS, [makeItem({ id: 't1', project_id: TODOIST_INBOX_ID })], NOW, CONFIG_STATE)
+    const state = buildState(CONTAINERS, [makeItem({ id: 't1', project_id: TODOIST_INBOX_ID })], CONFIG_STATE)
     expect(state.tasks.get('t1' as TaskId)?.sphereId).toBe(WORK_SPHERE_ID)
   })
 
@@ -141,7 +142,7 @@ describe('buildState — task sphere resolution', () => {
       ...CONTAINERS,
       makeProject({ id: 'proj1', parent_id: TODOIST_WORK_PROJECT_ID }),
     ]
-    const state = buildState(projects, [makeItem({ id: 't1', project_id: 'proj1' })], NOW, CONFIG_STATE)
+    const state = buildState(projects, [makeItem({ id: 't1', project_id: 'proj1' })], CONFIG_STATE)
     const task = state.tasks.get('t1' as TaskId)
     expect(task?.projectId).toBe('proj1')
     expect(task?.sphereId).toBeUndefined()
@@ -150,14 +151,14 @@ describe('buildState — task sphere resolution', () => {
   it('includes completed tasks with status completed', () => {
     const state = buildState(CONTAINERS, [
       makeItem({ id: 't1', checked: true, completed_at: '2026-06-01T10:00:00.000Z' }),
-    ], NOW, CONFIG_STATE)
+    ], CONFIG_STATE)
     const task = state.tasks.get('t1' as TaskId)
     expect(task?.status).toBe('completed')
     expect(task?.completedAt).toBe('2026-06-01T10:00:00.000Z')
   })
 
   it('skips deleted tasks', () => {
-    const state = buildState(CONTAINERS, [makeItem({ id: 't1', is_deleted: true })], NOW, CONFIG_STATE)
+    const state = buildState(CONTAINERS, [makeItem({ id: 't1', is_deleted: true })], CONFIG_STATE)
     expect(state.tasks.has('t1' as TaskId)).toBe(false)
   })
 })
@@ -168,34 +169,34 @@ describe('buildState — task field mapping', () => {
   const baseProjects = [...CONTAINERS]
 
   it('priority 4 → isStarred', () => {
-    const state = buildState(baseProjects, [makeItem({ id: 't1', priority: 4 })], NOW, CONFIG_STATE)
+    const state = buildState(baseProjects, [makeItem({ id: 't1', priority: 4 })], CONFIG_STATE)
     expect(state.tasks.get('t1' as TaskId)?.isStarred).toBe(true)
   })
 
   it('priority 1 → no isStarred', () => {
-    const state = buildState(baseProjects, [makeItem({ id: 't1', priority: 1 })], NOW, CONFIG_STATE)
+    const state = buildState(baseProjects, [makeItem({ id: 't1', priority: 1 })], CONFIG_STATE)
     expect(state.tasks.get('t1' as TaskId)?.isStarred).toBeUndefined()
   })
 
   it('next label → isNext', () => {
-    const state = buildState(baseProjects, [makeItem({ id: 't1', labels: ['next'] })], NOW, CONFIG_STATE)
+    const state = buildState(baseProjects, [makeItem({ id: 't1', labels: ['next'] })], CONFIG_STATE)
     expect(state.tasks.get('t1' as TaskId)?.isNext).toBe(true)
   })
 
   it('agenda label → agendaId', () => {
-    const state = buildState(baseProjects, [makeItem({ id: 't1', labels: ['jim'] })], NOW, CONFIG_STATE)
+    const state = buildState(baseProjects, [makeItem({ id: 't1', labels: ['jim'] })], CONFIG_STATE)
     expect(state.tasks.get('t1' as TaskId)?.agendaId).toBe('agenda-jim')
   })
 
   it('context label → contextId', () => {
-    const state = buildState(baseProjects, [makeItem({ id: 't1', labels: ['quick'] })], NOW, CONFIG_STATE)
+    const state = buildState(baseProjects, [makeItem({ id: 't1', labels: ['quick'] })], CONFIG_STATE)
     expect(state.tasks.get('t1' as TaskId)?.contextId).toBe('ctx-quick')
   })
 
   it('due date (non-recurring)', () => {
     const state = buildState(baseProjects, [
       makeItem({ id: 't1', due: { date: '2026-07-01', is_recurring: false, string: 'Jul 1' } }),
-    ], NOW, CONFIG_STATE)
+    ], CONFIG_STATE)
     const task = state.tasks.get('t1' as TaskId)
     expect(task?.dueDate).toBe('2026-07-01')
     expect(task?.dueDateExpression).toBeUndefined()
@@ -204,7 +205,7 @@ describe('buildState — task field mapping', () => {
   it('recurring due date → dueDate + dueDateExpression', () => {
     const state = buildState(baseProjects, [
       makeItem({ id: 't1', due: { date: '2026-07-07', is_recurring: true, string: 'every monday' } }),
-    ], NOW, CONFIG_STATE)
+    ], CONFIG_STATE)
     const task = state.tasks.get('t1' as TaskId)
     expect(task?.dueDate).toBe('2026-07-07')
     expect(task?.dueDateExpression).toBe('every monday')
@@ -213,12 +214,12 @@ describe('buildState — task field mapping', () => {
   it('due string stored verbatim including ! modifier', () => {
     const state = buildState(baseProjects, [
       makeItem({ id: 't1', due: { date: '2026-07-07', is_recurring: true, string: 'every! monday' } }),
-    ], NOW, CONFIG_STATE)
+    ], CONFIG_STATE)
     expect(state.tasks.get('t1' as TaskId)?.dueDateExpression).toBe('every! monday')
   })
 
   it('description preserved for normal tasks', () => {
-    const state = buildState(baseProjects, [makeItem({ id: 't1', description: 'some notes' })], NOW, CONFIG_STATE)
+    const state = buildState(baseProjects, [makeItem({ id: 't1', description: 'some notes' })], CONFIG_STATE)
     expect(state.tasks.get('t1' as TaskId)?.description).toBe('some notes')
   })
 })
@@ -229,22 +230,22 @@ describe('buildState — waitingFor', () => {
   const baseProjects = [...CONTAINERS]
 
   it('waiting label alone → waitingFor review', () => {
-    const state = buildState(baseProjects, [makeItem({ id: 't1', labels: ['waiting'] })], NOW, CONFIG_STATE)
+    const state = buildState(baseProjects, [makeItem({ id: 't1', labels: ['waiting'] })], CONFIG_STATE)
     expect(state.tasks.get('t1' as TaskId)?.waitingFor).toEqual({ kind: 'review' })
   })
 
   it('waiting + nonagenda → waitingFor review even with no agenda', () => {
-    const state = buildState(baseProjects, [makeItem({ id: 't1', labels: ['waiting', 'nonagenda'] })], NOW, CONFIG_STATE)
+    const state = buildState(baseProjects, [makeItem({ id: 't1', labels: ['waiting', 'nonagenda'] })], CONFIG_STATE)
     expect(state.tasks.get('t1' as TaskId)?.waitingFor).toEqual({ kind: 'review' })
   })
 
   it('waiting + agenda label → waitingFor agenda', () => {
-    const state = buildState(baseProjects, [makeItem({ id: 't1', labels: ['waiting', 'jim'] })], NOW, CONFIG_STATE)
+    const state = buildState(baseProjects, [makeItem({ id: 't1', labels: ['waiting', 'jim'] })], CONFIG_STATE)
     expect(state.tasks.get('t1' as TaskId)?.waitingFor).toEqual({ kind: 'agenda', agendaId: 'agenda-jim' })
   })
 
   it('waiting + agenda + nonagenda → waitingFor review (nonagenda overrides)', () => {
-    const state = buildState(baseProjects, [makeItem({ id: 't1', labels: ['waiting', 'jim', 'nonagenda'] })], NOW, CONFIG_STATE)
+    const state = buildState(baseProjects, [makeItem({ id: 't1', labels: ['waiting', 'jim', 'nonagenda'] })], CONFIG_STATE)
     expect(state.tasks.get('t1' as TaskId)?.waitingFor).toEqual({ kind: 'review' })
   })
 
@@ -255,7 +256,7 @@ describe('buildState — waitingFor', () => {
         labels: ['waiting', 'project'],
         description: 'https://todoist.com/app/project/6JJ9prC5CQMwjRP4',
       }),
-    ], NOW, CONFIG_STATE)
+    ], CONFIG_STATE)
     expect(state.tasks.get('t1' as TaskId)?.waitingFor).toEqual({
       kind: 'project',
       projectId: '6JJ9prC5CQMwjRP4',
@@ -266,7 +267,7 @@ describe('buildState — waitingFor', () => {
     const cardUrl = 'https://trello.com/c/abc123/my-card'
     const state = buildState(baseProjects, [
       makeItem({ id: 't1', labels: ['waiting', 'trello'], description: cardUrl }),
-    ], NOW, CONFIG_STATE)
+    ], CONFIG_STATE)
     const task = state.tasks.get('t1' as TaskId)
     expect(task?.waitingFor).toEqual({ kind: 'trello', cardUrl })
     // description must be cleared — it holds the URL, not user content
@@ -276,7 +277,7 @@ describe('buildState — waitingFor', () => {
   it('waiting + trello: trello is NOT treated as a context', () => {
     const state = buildState(baseProjects, [
       makeItem({ id: 't1', labels: ['waiting', 'trello'], description: 'https://trello.com/c/x' }),
-    ], NOW, CONFIG_STATE)
+    ], CONFIG_STATE)
     expect(state.tasks.get('t1' as TaskId)?.contextId).toBeUndefined()
   })
 
@@ -287,7 +288,7 @@ describe('buildState — waitingFor', () => {
         labels: ['waiting', 'project'],
         description: 'https://todoist.com/app/project/6JJ9prC5CQMwjRP4',
       }),
-    ], NOW, CONFIG_STATE)
+    ], CONFIG_STATE)
     expect(state.tasks.get('t1' as TaskId)?.description).toBe('')
   })
 })
@@ -296,39 +297,39 @@ describe('buildState — waitingFor', () => {
 
 describe('applyDelta', () => {
   it('adds a new project', () => {
-    const state = buildState(CONTAINERS, [], NOW, CONFIG_STATE)
-    applyDelta(state, [makeProject({ id: 'pNew', parent_id: TODOIST_WORK_PROJECT_ID })], [], NOW)
+    const state = buildState(CONTAINERS, [], CONFIG_STATE)
+    applyDelta(state, [makeProject({ id: 'pNew', parent_id: TODOIST_WORK_PROJECT_ID })], [])
     expect(state.projects.has('pNew' as ProjectId)).toBe(true)
   })
 
   it('removes a deleted project', () => {
     const projects = [...CONTAINERS, makeProject({ id: 'pDel', parent_id: TODOIST_WORK_PROJECT_ID })]
-    const state = buildState(projects, [], NOW, CONFIG_STATE)
-    applyDelta(state, [makeProject({ id: 'pDel', parent_id: TODOIST_WORK_PROJECT_ID, is_deleted: true })], [], NOW)
+    const state = buildState(projects, [], CONFIG_STATE)
+    applyDelta(state, [makeProject({ id: 'pDel', parent_id: TODOIST_WORK_PROJECT_ID, is_deleted: true })], [])
     expect(state.projects.has('pDel' as ProjectId)).toBe(false)
   })
 
   it('adds a new task', () => {
-    const state = buildState(CONTAINERS, [], NOW, CONFIG_STATE)
-    applyDelta(state, [], [makeItem({ id: 'tNew' })], NOW)
+    const state = buildState(CONTAINERS, [], CONFIG_STATE)
+    applyDelta(state, [], [makeItem({ id: 'tNew' })])
     expect(state.tasks.has('tNew' as TaskId)).toBe(true)
   })
 
   it('marks a completed task as completed', () => {
-    const state = buildState(CONTAINERS, [makeItem({ id: 't1' })], NOW, CONFIG_STATE)
-    applyDelta(state, [], [makeItem({ id: 't1', checked: true, completed_at: '2026-06-01T10:00:00.000Z' })], NOW)
+    const state = buildState(CONTAINERS, [makeItem({ id: 't1' })], CONFIG_STATE)
+    applyDelta(state, [], [makeItem({ id: 't1', checked: true, completed_at: '2026-06-01T10:00:00.000Z' })])
     expect(state.tasks.get('t1' as TaskId)?.status).toBe('completed')
   })
 
   it('removes a deleted task', () => {
-    const state = buildState(CONTAINERS, [makeItem({ id: 't1' })], NOW, CONFIG_STATE)
-    applyDelta(state, [], [makeItem({ id: 't1', is_deleted: true })], NOW)
+    const state = buildState(CONTAINERS, [makeItem({ id: 't1' })], CONFIG_STATE)
+    applyDelta(state, [], [makeItem({ id: 't1', is_deleted: true })])
     expect(state.tasks.has('t1' as TaskId)).toBe(false)
   })
 
   it('updates an existing task (title change)', () => {
-    const state = buildState(CONTAINERS, [makeItem({ id: 't1', content: 'Old title' })], NOW, CONFIG_STATE)
-    applyDelta(state, [], [makeItem({ id: 't1', content: 'New title' })], NOW)
+    const state = buildState(CONTAINERS, [makeItem({ id: 't1', content: 'Old title' })], CONFIG_STATE)
+    applyDelta(state, [], [makeItem({ id: 't1', content: 'New title' })])
     expect(state.tasks.get('t1' as TaskId)?.title).toBe('New title')
   })
 })
