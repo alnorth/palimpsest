@@ -11,6 +11,7 @@ class SpyPendingStore implements PendingEventStore {
   saved: PalimpsestEvent[] | undefined
   private current: PalimpsestEvent[]
   constructor(initial: PalimpsestEvent[] = []) { this.current = initial }
+  get size(): number { return this.current.length }
   async load(): Promise<PalimpsestEvent[]> { return this.current }
   async save(events: PalimpsestEvent[]): Promise<void> { this.saved = events; this.current = events }
 }

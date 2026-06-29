@@ -36,7 +36,6 @@ export type SyncFn = (clientSeq: number, events: PalimpsestEvent[]) => Promise<S
 export class ClientPalimpsestStore extends PollingStore {
   private baseEvents: PalimpsestEvent[] = []
   private baseSeq = 0
-  private pendingCount = 0
 
   private health: SyncHealth = 'idle'
   private conflicts: PendingConflict[] = []
@@ -45,7 +44,7 @@ export class ClientPalimpsestStore extends PollingStore {
   get syncState(): SyncState {
     return {
       health: this.health,
-      unsyncedCount: this.pendingCount,
+      unsyncedCount: this.pendingStore.size,
       pendingConflicts: this.conflicts,
       lastError: this.syncError,
     }
@@ -59,7 +58,6 @@ export class ClientPalimpsestStore extends PollingStore {
   }
 
   override async init(): Promise<void> {
-    this.pendingCount = (await this.pendingStore.load()).length
     const response = await this.sync()
     if (response === undefined) {
       throw new Error(this.syncError ?? 'Connection failed')
@@ -68,11 +66,6 @@ export class ClientPalimpsestStore extends PollingStore {
 
   override async readAllEvents(): Promise<PalimpsestEvent[]> {
     return [...this.baseEvents, ...await this.pendingStore.load()]
-  }
-
-  protected override async doAppend(events: PalimpsestEvent[]): Promise<void> {
-    this.pendingCount += events.length
-    await super.doAppend(events)
   }
 
   override async refresh(): Promise<void> {
@@ -106,7 +99,6 @@ export class ClientPalimpsestStore extends PollingStore {
       this.baseSeq = response.serverSeq
       if (hadUnsynced) {
         this.baseEvents = [...this.baseEvents, ...unsyncedEvents]
-        this.pendingCount = 0
         await this.pendingStore.save([])
       }
       this.health = 'idle'
