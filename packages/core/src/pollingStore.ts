@@ -56,10 +56,10 @@ export abstract class PollingStore extends PalimpsestStore {
     this.syncIntervalMs = opts.syncIntervalMs ?? 30_000
   }
 
-  protected abstract doRefresh(): Promise<void>
+  abstract sync(): Promise<void>
 
   override async init(): Promise<void> {
-    await this.refresh()
+    await this.sync()
     if (this.health === 'error') {
       throw new Error(this.syncError ?? 'Connection failed')
     }
@@ -71,7 +71,7 @@ export abstract class PollingStore extends PalimpsestStore {
     if (this.syncing) return
     this.syncing = true
     try {
-      await this.doRefresh()
+      await this.sync()
     } finally {
       this.syncing = false
     }

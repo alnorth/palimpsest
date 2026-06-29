@@ -1,4 +1,4 @@
-import { PollingStore, applyEvent, createEmptyState } from 'palimpsest'
+import { PollingStore, applyEvent, createEmptyState, project } from 'palimpsest'
 import type { PalimpsestEvent, ProjectionState, TaskId, ProjectId, PendingEventStore } from 'palimpsest'
 import { syncRead, syncWrite } from './api.js'
 import type { SyncCommand } from './api.js'
@@ -22,10 +22,12 @@ export class TodoistStore extends PollingStore {
   }
 
   override async getState(): Promise<ProjectionState> {
-    return this.currentState
+    const pending = await this.pendingStore.load()
+    if (pending.length === 0) return this.currentState
+    return project(pending, this.currentState)
   }
 
-  async sync(): Promise<void> {
+  override async sync(): Promise<void> {
     const now = new Date().toISOString()
     const pending = await this.pendingStore.load()
 
@@ -98,10 +100,6 @@ export class TodoistStore extends PollingStore {
     }
     this.health = 'idle'
     this.syncError = undefined
-  }
-
-  protected override async doRefresh(): Promise<void> {
-    await this.sync()
   }
 
 }

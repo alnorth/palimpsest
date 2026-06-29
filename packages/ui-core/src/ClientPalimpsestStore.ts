@@ -28,11 +28,7 @@ export class ClientPalimpsestStore extends PollingStore {
     return [...this.baseEvents, ...await this.pendingStore.load()]
   }
 
-  protected override async doRefresh(): Promise<void> {
-    await this.sync()
-  }
-
-  async sync(): Promise<SyncResponse | undefined> {
+  override async sync(): Promise<void> {
     const unsyncedEvents = await this.pendingStore.load()
     let response: SyncResponse
     try {
@@ -40,7 +36,7 @@ export class ClientPalimpsestStore extends PollingStore {
     } catch (err) {
       this.health = 'error'
       this.syncError = err instanceof Error ? err.message : String(err)
-      return undefined
+      return
     }
 
     const hadUnsynced = unsyncedEvents.length > 0
@@ -65,7 +61,5 @@ export class ClientPalimpsestStore extends PollingStore {
         conflictingEvents: response.conflictingEvents ?? [],
       }]
     }
-
-    return response
   }
 }
