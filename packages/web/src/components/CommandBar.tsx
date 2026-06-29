@@ -1,5 +1,5 @@
 import React from 'react'
-import { Group, Text } from '@mantine/core'
+import { Group, Stack, Text } from '@mantine/core'
 import type { Command, CommandId } from 'palimpsest-ui-core'
 
 interface Props {
@@ -16,16 +16,26 @@ export function CommandBar({ commands, canGoBack }: Props) {
   if (canGoBack) navHints.push('esc back')
 
   return (
-    <Group gap="lg" wrap="wrap" visibleFrom="sm">
-      {stateCommands.map(c => (
-        <Text key={c.key} size="xs" c="dimmed">{c.key} {c.label}</Text>
-      ))}
-      {createCommands.map(c => (
-        <Text key={c.key} size="xs" c="dimmed">{c.key} {c.label}</Text>
-      ))}
-      {navHints.map(hint => (
-        <Text key={hint} size="xs" c="dimmed">{hint}</Text>
-      ))}
-    </Group>
+    <Stack gap={2} visibleFrom="sm">
+      {stateCommands.length > 0 && (
+        <Group gap="lg" wrap="wrap">
+          {stateCommands.map(c => (
+            <Text key={c.key} size="xs" c="dimmed">{c.key} {c.label}</Text>
+          ))}
+        </Group>
+      )}
+      {createCommands.length > 0 && (
+        <Group gap="lg" wrap="wrap">
+          {createCommands.map(c => (
+            <Text key={c.key} size="xs" c="dimmed">{c.key} {c.label}</Text>
+          ))}
+        </Group>
+      )}
+      <Group gap="lg" wrap="wrap">
+        {navHints.map(hint => (
+          <Text key={hint} size="xs" c="dimmed">{hint}</Text>
+        ))}
+      </Group>
+    </Stack>
   )
 }
