@@ -126,12 +126,14 @@ export function buildCommands(
         args['due'] = { string: patch.dueDateExpression }
       }
 
-      // Moving to a different project
+      const commands: SyncCommand[] = []
+
+      if (Object.keys(args).length > 1) {
+        commands.push({ type: 'item_update', uuid: uuid(), args })
+      }
+
+      // Moving to a different (real) project
       if (patch.projectId !== undefined && patch.projectId !== CLEAR) {
-        const commands: SyncCommand[] = []
-        if (Object.keys(args).length > 1) {
-          commands.push({ type: 'item_update', uuid: uuid(), args })
-        }
         commands.push({
           type: 'item_move',
           uuid: uuid(),
@@ -140,10 +142,28 @@ export function buildCommands(
         return { commands }
       }
 
-      if (Object.keys(args).length > 1) {
-        return { commands: [{ type: 'item_update', uuid: uuid(), args }] }
+      // For free-floating tasks, keep the task in the correct container
+      // (One-Offs / Future Log / Recurring) whenever due date state changes.
+      if (task.projectId === undefined && (patch.dueDate !== undefined || patch.dueDateExpression !== undefined)) {
+        const sphereId = task.sphereId ?? WORK_SPHERE_ID
+        const newExpression = patch.dueDateExpression !== undefined
+          ? (patch.dueDateExpression === CLEAR ? undefined : patch.dueDateExpression)
+          : task.dueDateExpression
+        const newDueDate = patch.dueDate !== undefined
+          ? (patch.dueDate === CLEAR ? undefined : patch.dueDate)
+          : task.dueDate
+        const newContainer = freeFloatingProjectFor(sphereId, {
+          ...(newExpression !== undefined && { dueDateExpression: newExpression }),
+          ...(newDueDate    !== undefined && { dueDate:           newDueDate }),
+        })
+        commands.push({
+          type: 'item_move',
+          uuid: uuid(),
+          args: { id: String(event.taskId), project_id: newContainer },
+        })
       }
-      return { commands: [] }
+
+      return { commands }
     }
 
     case 'task.completed':

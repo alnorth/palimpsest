@@ -10,6 +10,8 @@ import {
   TODOIST_PERSONAL_ONEOFFS_ID,
   TODOIST_WORK_PROJECT_ID,
   TODOIST_PERSONAL_PROJECT_ID,
+  TODOIST_RECURRING_ID,
+  TODOIST_FUTURE_LOG_ID,
 } from './mapping.js'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -241,13 +243,12 @@ describe('buildCommands — task.updated', () => {
     expect(commands.some(c => c.type === 'item_move')).toBe(true)
   })
 
-  it('no-op patch → no commands', () => {
-    // Patch with only CLEAR values for dueDate/dueDateExpression — these are skipped
+  it('patch with no content fields → no item_update command', () => {
     const { commands } = buildCommands(
       updEvent('t1', { dueDate: CLEAR }),
       stateWithTask('t1'),
     )
-    expect(commands).toHaveLength(0)
+    expect(commands.every(c => c.type !== 'item_update')).toBe(true)
   })
 
   it('isNext patch → labels recomputed', () => {
@@ -256,6 +257,94 @@ describe('buildCommands — task.updated', () => {
       stateWithTask('t1'),
     )
     expect(commands[0]?.args.labels).toContain('next')
+  })
+
+  // ── Free-floating container moves ─────────────────────────────────────────
+
+  it('adding dueDate to undated free-floating task → item_move to Future Log', () => {
+    const { commands } = buildCommands(
+      updEvent('t1', { dueDate: '2026-12-01' }),
+      stateWithTask('t1'), // no dueDate, no dueDateExpression → One-Offs
+    )
+    const move = commands.find(c => c.type === 'item_move')
+    expect(move?.args.project_id).toBe(TODOIST_FUTURE_LOG_ID)
+  })
+
+  it('adding dueDateExpression to undated free-floating task → item_move to Recurring', () => {
+    const { commands } = buildCommands(
+      updEvent('t1', { dueDateExpression: 'every monday' }),
+      stateWithTask('t1'),
+    )
+    const move = commands.find(c => c.type === 'item_move')
+    expect(move?.args.project_id).toBe(TODOIST_RECURRING_ID)
+  })
+
+  it('adding dueDateExpression to Future Log task → item_move to Recurring', () => {
+    const { commands } = buildCommands(
+      updEvent('t1', { dueDateExpression: 'every monday' }),
+      stateWithTask('t1', { dueDate: '2026-12-01' }), // Future Log
+    )
+    const move = commands.find(c => c.type === 'item_move')
+    expect(move?.args.project_id).toBe(TODOIST_RECURRING_ID)
+  })
+
+  it('clearing dueDateExpression on Recurring task that has a dueDate → item_move to Future Log', () => {
+    const { commands } = buildCommands(
+      updEvent('t1', { dueDateExpression: CLEAR }),
+      stateWithTask('t1', { dueDate: '2026-12-01', dueDateExpression: 'every monday' }),
+    )
+    const move = commands.find(c => c.type === 'item_move')
+    expect(move?.args.project_id).toBe(TODOIST_FUTURE_LOG_ID)
+  })
+
+  it('clearing dueDate on Future Log task → item_move to One-Offs', () => {
+    const { commands } = buildCommands(
+      updEvent('t1', { dueDate: CLEAR }),
+      stateWithTask('t1', { dueDate: '2026-12-01' }),
+    )
+    const move = commands.find(c => c.type === 'item_move')
+    expect(move?.args.project_id).toBe(TODOIST_WORK_ONEOFFS_ID)
+  })
+
+  it('clearing dueDateExpression on Recurring task with no other dueDate → item_move to One-Offs', () => {
+    const { commands } = buildCommands(
+      updEvent('t1', { dueDateExpression: CLEAR }),
+      stateWithTask('t1', { dueDateExpression: 'every monday' }),
+    )
+    const move = commands.find(c => c.type === 'item_move')
+    expect(move?.args.project_id).toBe(TODOIST_WORK_ONEOFFS_ID)
+  })
+
+  it('changing dueDate on Future Log task → item_move to Future Log (idempotent)', () => {
+    const { commands } = buildCommands(
+      updEvent('t1', { dueDate: '2027-01-01' }),
+      stateWithTask('t1', { dueDate: '2026-12-01' }),
+    )
+    const move = commands.find(c => c.type === 'item_move')
+    expect(move?.args.project_id).toBe(TODOIST_FUTURE_LOG_ID)
+  })
+
+  it('container move + title change → both item_update and item_move', () => {
+    const { commands } = buildCommands(
+      updEvent('t1', { title: 'New title', dueDate: '2026-12-01' }),
+      stateWithTask('t1'),
+    )
+    expect(commands.some(c => c.type === 'item_update')).toBe(true)
+    expect(commands.some(c => c.type === 'item_move')).toBe(true)
+    expect(commands[0]?.type).toBe('item_update') // update before move
+  })
+
+  it('task with projectId does not get container move', () => {
+    const state = createEmptyState()
+    state.tasks.set('t1' as TaskId, {
+      id: 't1' as TaskId, title: 'Task', description: '', status: 'open',
+      createdAt: '', updatedAt: '', projectId: 'proj1' as ProjectId,
+    } as any)
+    const { commands } = buildCommands(
+      updEvent('t1', { dueDate: '2026-12-01' }),
+      state,
+    )
+    expect(commands.every(c => c.type !== 'item_move')).toBe(true)
   })
 })
 
