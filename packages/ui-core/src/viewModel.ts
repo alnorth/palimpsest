@@ -377,7 +377,7 @@ export function deriveViewModel(projState: ProjectionState, uiState: UIState): V
     : view === 'picking-waiting-project' ? `Waiting for project${taskSuffix}`
     : ''
 
-  const showProject = view === 'dashboard' || view === 'tasks' || view === 'waiting' || view === 'pick-list'
+  const showProject = view === 'dashboard' || view === 'tasks' || view === 'waiting' || view === 'pick-list' || view === 'processing'
 
   return {
     spheres,
