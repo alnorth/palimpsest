@@ -24,13 +24,6 @@ export class ClientPalimpsestStore extends PollingStore {
     super(opts)
   }
 
-  override async init(): Promise<void> {
-    const response = await this.sync()
-    if (response === undefined) {
-      throw new Error(this.syncError ?? 'Connection failed')
-    }
-  }
-
   override async readAllEvents(): Promise<PalimpsestEvent[]> {
     return [...this.baseEvents, ...await this.pendingStore.load()]
   }

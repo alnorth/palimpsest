@@ -17,18 +17,6 @@ export class TodoistStore extends PollingStore {
     this.currentState = opts.initialState ?? createEmptyState()
   }
 
-  override async init(): Promise<void> {
-    const pending = await this.pendingStore.load()
-    const now = new Date().toISOString()
-    const res = await syncRead(this.token, '*')
-    this.syncToken = res.sync_token
-    this.currentState = buildState(res.projects, res.items, now)
-    if (pending.length > 0) {
-      await this.flush(pending)
-      await this.pendingStore.save([])
-    }
-  }
-
   override readAllEvents(): Promise<PalimpsestEvent[]> {
     return Promise.resolve([])
   }
@@ -37,77 +25,83 @@ export class TodoistStore extends PollingStore {
     return this.currentState
   }
 
-  private async flush(events: PalimpsestEvent[]): Promise<void> {
-    const allCommands: SyncCommand[] = []
-    // tempId → nanoid (source id from the event) for later substitution
-    const tempToSourceId = new Map<string, string>()
-    // nanoid → temp_id, built during the first pass so that cross-batch foreign-key
-    // references (e.g. task.created pointing at a project created earlier in the same
-    // batch) use the temp_id that Todoist resolves within the batch, not the nanoid.
-    const nanoidToTempId = new Map<string, string>()
-    // nanoid → todoistId substitutions discovered after the write
-    const subs = new Map<string, string>()
+  async sync(): Promise<void> {
+    const now = new Date().toISOString()
+    const pending = await this.pendingStore.load()
 
-    // First pass: build commands, substituting nanoids with temp_ids for cross-references
-    for (const raw of events) {
-      const event = applySourceIdSubs(raw, nanoidToTempId)
-      const { commands, tempId } = buildCommands(event, this.currentState)
-      allCommands.push(...commands)
+    if (pending.length > 0) {
+      const allCommands: SyncCommand[] = []
+      // tempId → nanoid (source id from the event) for later substitution
+      const tempToSourceId = new Map<string, string>()
+      // nanoid → temp_id, built during the first pass so that cross-batch foreign-key
+      // references (e.g. task.created pointing at a project created earlier in the same
+      // batch) use the temp_id that Todoist resolves within the batch, not the nanoid.
+      const nanoidToTempId = new Map<string, string>()
+      // nanoid → todoistId substitutions discovered after the write
+      const subs = new Map<string, string>()
 
-      if (tempId !== undefined) {
-        const sourceId = event.type === 'task.created'    ? String(event.taskId)
-                       : event.type === 'project.created' ? String(event.projectId)
-                       : undefined
-        if (sourceId !== undefined) {
-          tempToSourceId.set(tempId, sourceId)
-          nanoidToTempId.set(sourceId, tempId)
+      for (const raw of pending) {
+        const event = applySourceIdSubs(raw, nanoidToTempId)
+        const { commands, tempId } = buildCommands(event, this.currentState)
+        allCommands.push(...commands)
+        if (tempId !== undefined) {
+          const sourceId = event.type === 'task.created'    ? String(event.taskId)
+                         : event.type === 'project.created' ? String(event.projectId)
+                         : undefined
+          if (sourceId !== undefined) {
+            tempToSourceId.set(tempId, sourceId)
+            nanoidToTempId.set(sourceId, tempId)
+          }
         }
       }
-    }
 
-    // Send all commands in one batch
-    if (allCommands.length > 0) {
-      const res = await syncWrite(this.token, allCommands)
-      // Build nanoid → todoistId substitution map from temp_id_mapping
-      for (const [tempId, todoistId] of Object.entries(res.temp_id_mapping)) {
-        const sourceId = tempToSourceId.get(tempId)
-        if (sourceId !== undefined) subs.set(sourceId, todoistId)
+      if (allCommands.length > 0) {
+        let writeRes
+        try {
+          writeRes = await syncWrite(this.token, allCommands)
+        } catch (err) {
+          this.health = 'error'
+          this.syncError = err instanceof Error ? err.message : String(err)
+          return
+        }
+        for (const [tempId, todoistId] of Object.entries(writeRes.temp_id_mapping)) {
+          const sourceId = tempToSourceId.get(tempId)
+          if (sourceId !== undefined) subs.set(sourceId, todoistId)
+        }
       }
-    }
 
-    // Second pass: apply events to local state with resolved IDs
-    for (const raw of events) {
-      const event = applySourceIdSubs(raw, subs)
-      const sub = getCreatedEntitySub(event, subs)
-      if (sub !== undefined) {
-        applyEvent(this.currentState, substituteCreatedId(event, sub))
-      } else {
-        applyEvent(this.currentState, event)
+      for (const raw of pending) {
+        const event = applySourceIdSubs(raw, subs)
+        const sub = getCreatedEntitySub(event, subs)
+        if (sub !== undefined) {
+          applyEvent(this.currentState, substituteCreatedId(event, sub))
+        } else {
+          applyEvent(this.currentState, event)
+        }
       }
+      await this.pendingStore.save([])
     }
-  }
 
-  protected override async doRefresh(): Promise<void> {
-    const now = new Date().toISOString()
+    let readRes
     try {
-      const pending = await this.pendingStore.load()
-      if (pending.length > 0) {
-        await this.flush(pending)
-        await this.pendingStore.save([])
-      }
-      const res = await syncRead(this.token, this.syncToken)
-      this.syncToken = res.sync_token
-      if (res.full_sync) {
-        this.currentState = buildState(res.projects, res.items, now)
-      } else {
-        applyDelta(this.currentState, res.projects, res.items, now)
-      }
-      this.health = 'idle'
-      this.syncError = undefined
+      readRes = await syncRead(this.token, this.syncToken)
     } catch (err) {
       this.health = 'error'
       this.syncError = err instanceof Error ? err.message : String(err)
+      return
     }
+    this.syncToken = readRes.sync_token
+    if (readRes.full_sync) {
+      this.currentState = buildState(readRes.projects, readRes.items, now)
+    } else {
+      applyDelta(this.currentState, readRes.projects, readRes.items, now)
+    }
+    this.health = 'idle'
+    this.syncError = undefined
+  }
+
+  protected override async doRefresh(): Promise<void> {
+    await this.sync()
   }
 
 }

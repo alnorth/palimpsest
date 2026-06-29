@@ -58,6 +58,13 @@ export abstract class PollingStore extends PalimpsestStore {
 
   protected abstract doRefresh(): Promise<void>
 
+  override async init(): Promise<void> {
+    await this.refresh()
+    if (this.health === 'error') {
+      throw new Error(this.syncError ?? 'Connection failed')
+    }
+  }
+
   private syncing = false
 
   async refresh(): Promise<void> {
