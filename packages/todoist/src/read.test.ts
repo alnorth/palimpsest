@@ -98,13 +98,26 @@ describe('buildState — projects', () => {
     expect(state.projects.has('proj3' as ProjectId)).toBe(false)
   })
 
+  it('maps created_at and updated_at to project timestamps', () => {
+    const projects = [
+      ...CONTAINERS,
+      makeProject({ id: 'proj4', parent_id: TODOIST_WORK_PROJECT_ID, created_at: '2024-03-01T10:00:00.000Z', updated_at: '2025-06-15T08:30:00.000Z' }),
+    ]
+    const state = buildState(projects, [], CONFIG_STATE)
+    const proj = state.projects.get('proj4' as ProjectId)
+    expect(proj?.createdAt).toBe('2024-03-01T10:00:00.000Z')
+    expect(proj?.updatedAt).toBe('2025-06-15T08:30:00.000Z')
+  })
+
   it('marks archived projects', () => {
     const projects = [
       ...CONTAINERS,
-      makeProject({ id: 'proj4', name: 'Old', parent_id: TODOIST_WORK_PROJECT_ID, is_archived: true }),
+      makeProject({ id: 'proj5', name: 'Old', parent_id: TODOIST_WORK_PROJECT_ID, is_archived: true, updated_at: '2025-01-20T12:00:00.000Z' }),
     ]
     const state = buildState(projects, [], CONFIG_STATE)
-    expect(state.projects.get('proj4' as ProjectId)?.isArchived).toBe(true)
+    const proj = state.projects.get('proj5' as ProjectId)
+    expect(proj?.isArchived).toBe(true)
+    expect(proj?.archivedAt).toBe('2025-01-20T12:00:00.000Z')
   })
 
   it('excludes Agendas sub-projects', () => {
@@ -300,6 +313,14 @@ describe('applyDelta', () => {
     const state = buildState(CONTAINERS, [], CONFIG_STATE)
     applyDelta(state, [makeProject({ id: 'pNew', parent_id: TODOIST_WORK_PROJECT_ID })], [])
     expect(state.projects.has('pNew' as ProjectId)).toBe(true)
+  })
+
+  it('maps timestamps from delta project', () => {
+    const state = buildState(CONTAINERS, [], CONFIG_STATE)
+    applyDelta(state, [makeProject({ id: 'pNew', parent_id: TODOIST_WORK_PROJECT_ID, created_at: '2024-03-01T10:00:00.000Z', updated_at: '2025-06-15T08:30:00.000Z' })], [])
+    const proj = state.projects.get('pNew' as ProjectId)
+    expect(proj?.createdAt).toBe('2024-03-01T10:00:00.000Z')
+    expect(proj?.updatedAt).toBe('2025-06-15T08:30:00.000Z')
   })
 
   it('removes a deleted project', () => {
