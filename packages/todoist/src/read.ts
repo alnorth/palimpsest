@@ -10,7 +10,6 @@ import {
   PERSONAL_SPHERE_ID,
   LABEL_TO_AGENDA_ID,
   LABEL_TO_CONTEXT_ID,
-  normaliseDueString,
   extractProjectIdFromUrl,
 } from './mapping.js'
 
@@ -123,7 +122,7 @@ function buildPalimpsestTask(t: SyncItem, byId: Map<string, SyncProject>): Task 
   if (t.due !== null) {
     dueDate = t.due.date
     if (t.due.is_recurring) {
-      dueDateExpression = normaliseDueString(t.due.string)
+      dueDateExpression = t.due.string
     }
   }
 

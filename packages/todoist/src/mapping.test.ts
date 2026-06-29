@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vitest'
 import {
-  normaliseDueString,
   todoistProjectUrl,
   extractProjectIdFromUrl,
   sphereLabelFor,
@@ -17,24 +16,6 @@ import {
   PERSONAL_SPHERE_ID,
 } from './mapping.js'
 import type { ProjectId } from 'palimpsest'
-
-describe('normaliseDueString', () => {
-  it('preserves ! modifier (dateParser handles it natively)', () => {
-    expect(normaliseDueString('every! 3 weeks')).toBe('every! 3 weeks')
-  })
-
-  it('preserves ! even with surrounding spaces collapsed', () => {
-    expect(normaliseDueString('every!  monday')).toBe('every! monday')
-  })
-
-  it('collapses extra spaces', () => {
-    expect(normaliseDueString('every  day')).toBe('every day')
-  })
-
-  it('leaves a normal expression unchanged', () => {
-    expect(normaliseDueString('every monday')).toBe('every monday')
-  })
-})
 
 describe('todoistProjectUrl', () => {
   it('builds correct URL', () => {

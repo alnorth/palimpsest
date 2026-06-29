@@ -209,7 +209,7 @@ describe('buildState — task field mapping', () => {
     expect(task?.dueDateExpression).toBe('every monday')
   })
 
-  it('preserves ! in recurring due string (dateParser handles it natively)', () => {
+  it('due string stored verbatim including ! modifier', () => {
     const state = buildState(baseProjects, [
       makeItem({ id: 't1', due: { date: '2026-07-07', is_recurring: true, string: 'every! monday' } }),
     ], NOW, CONFIG_STATE)
