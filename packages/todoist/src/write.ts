@@ -114,7 +114,14 @@ export function buildCommands(
       }
 
       if (patch.dueDate !== undefined && patch.dueDate !== CLEAR) {
-        args['due'] = { date: patch.dueDate }
+        // Preserve the existing dueDateExpression when only the date is changing,
+        // so Todoist doesn't wipe out the recurring rule from the due object.
+        const effectiveExpression = patch.dueDateExpression !== undefined
+          ? (patch.dueDateExpression === CLEAR ? undefined : patch.dueDateExpression)
+          : task.dueDateExpression
+        args['due'] = effectiveExpression !== undefined
+          ? { date: patch.dueDate, string: effectiveExpression }
+          : { date: patch.dueDate }
       }
       if (patch.dueDateExpression !== undefined && patch.dueDateExpression !== CLEAR) {
         args['due'] = { string: patch.dueDateExpression }
