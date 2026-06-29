@@ -54,13 +54,17 @@ export interface SyncWriteResponse {
 // ── Request helpers ───────────────────────────────────────────────────────────
 
 async function post<T>(token: string, body: Record<string, unknown>): Promise<T> {
+  const params = new URLSearchParams()
+  for (const [key, value] of Object.entries(body)) {
+    params.set(key, typeof value === 'string' ? value : JSON.stringify(value))
+  }
   const res = await fetch(SYNC_URL, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
+      'Content-Type': 'application/x-www-form-urlencoded',
     },
-    body: JSON.stringify(body),
+    body: params.toString(),
   })
   if (!res.ok) {
     const text = await res.text().catch(() => '')
