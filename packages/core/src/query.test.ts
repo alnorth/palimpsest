@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { createEmptyState, project } from './projection.js'
 import { buildStateFromConfig } from './config.js'
 import { createProject, createTask } from './commands.js'
-import { listTasksBySphere, listTasksByProject, listOpenTasks, getTaskSphereId } from './query.js'
+import { listTasksBySphere, listOpenTasks, getTaskSphereId } from './query.js'
 import type { SphereId, ProjectId, TaskId } from './ids.js'
 import type { PalimpsestEvent } from './events.js'
 
@@ -46,14 +46,6 @@ describe('listTasksBySphere', () => {
   })
 })
 
-describe('listTasksByProject', () => {
-  it('returns only tasks in the given project', () => {
-    const { state, projId, task1Id, task2Id } = setup()
-    const tasks = listTasksByProject(state, projId)
-    expect(tasks.map(t => t.id)).toContain(task1Id)
-    expect(tasks.map(t => t.id)).not.toContain(task2Id)
-  })
-})
 
 describe('listOpenTasks', () => {
   it('returns only open tasks', () => {

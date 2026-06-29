@@ -195,7 +195,7 @@ export function deriveViewModel(projState: ProjectionState, uiState: UIState): V
 
   const projectTasks: Task[] = activeProjectId !== undefined
     ? (() => {
-        const result = listTasks(projState, { projectId: activeProjectId, status: showCompleted ? 'completed' : 'open' })
+        const result = listTasks(projState, { projectId: activeProjectId, status: showCompleted ? 'completed' : 'open', showArchivedProjects: true })
         if (showCompleted) result.sort((a, b) => (b.completedAt ?? '').localeCompare(a.completedAt ?? ''))
         return result
       })()
