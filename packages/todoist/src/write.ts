@@ -113,11 +113,19 @@ export function buildCommands(
         }
       }
 
-      if (patch.dueDate !== undefined && patch.dueDate !== CLEAR) {
-        args['due'] = { date: patch.dueDate }
-      }
-      if (patch.dueDateExpression !== undefined && patch.dueDateExpression !== CLEAR) {
-        args['due'] = { string: patch.dueDateExpression }
+      const newExpression = patch.dueDateExpression !== undefined && patch.dueDateExpression !== CLEAR
+        ? patch.dueDateExpression : undefined
+      const newDate = patch.dueDate !== undefined && patch.dueDate !== CLEAR
+        ? patch.dueDate : undefined
+      // When only the date changes, carry the existing expression forward so
+      // Todoist doesn't wipe it out. When both change, newExpression wins.
+      const effectiveExpression = newExpression ?? (newDate !== undefined ? task.dueDateExpression : undefined)
+
+      if (newExpression !== undefined || newDate !== undefined) {
+        args['due'] = {
+          ...(newDate          !== undefined && { date:   newDate }),
+          ...(effectiveExpression !== undefined && { string: effectiveExpression }),
+        }
       }
 
       const commands: SyncCommand[] = []
