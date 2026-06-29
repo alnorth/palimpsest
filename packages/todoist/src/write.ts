@@ -84,8 +84,12 @@ export function buildCommands(
       const patch = event.patch
       const args: Record<string, unknown> = { id: String(event.taskId) }
 
-      if (patch.title       !== undefined) args['content']     = patch.title
-      if (patch.description !== undefined) args['description'] = patch.description
+      if (patch.title !== undefined) args['content'] = patch.title
+      const hasStructuralDescription =
+        task.waitingFor?.kind === 'trello' || task.waitingFor?.kind === 'project'
+      if (patch.description !== undefined && !hasStructuralDescription) {
+        args['description'] = patch.description
+      }
 
       if (
         patch.isNext     !== undefined ||
