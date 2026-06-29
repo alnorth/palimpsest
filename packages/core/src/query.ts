@@ -42,7 +42,7 @@ export function listTasks(state: ProjectionState, filter?: TaskFilter): Task[] {
     tasks = tasks.filter(t => getTaskSphereId(state, t) === sid)
   }
   if (filter?.isWaiting    !== undefined) tasks = tasks.filter(t => filter.isWaiting ? t.waitingFor !== undefined : t.waitingFor === undefined)
-  if (filter?.isActionable === true)      tasks = tasks.filter(t => t.projectId === undefined || t.isNext === true)
+  if (filter?.isActionable === true)      tasks = tasks.filter(t => t.status === 'open' && (t.projectId === undefined || t.isNext === true))
   if (filter?.isStarred   !== undefined) tasks = tasks.filter(t => filter.isStarred  ? t.isStarred  === true      : t.isStarred  !== true)
   if (filter?.hasProject  !== undefined) tasks = tasks.filter(t => filter.hasProject  ? t.projectId  !== undefined : t.projectId  === undefined)
   if (filter?.hasDueDate  !== undefined) tasks = tasks.filter(t => filter.hasDueDate  ? t.dueDate    !== undefined : t.dueDate    === undefined)
