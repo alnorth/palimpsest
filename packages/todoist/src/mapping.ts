@@ -92,6 +92,17 @@ export function oneOffsProjectFor(sphereId: SphereId): string {
   return sphereId === PERSONAL_SPHERE_ID ? TODOIST_PERSONAL_ONEOFFS_ID : TODOIST_WORK_ONEOFFS_ID
 }
 
+// Todoist container project for a new free-floating task, based on due date state.
+// Recurring > Future Log > One-Offs (sphere-specific).
+export function freeFloatingProjectFor(
+  sphereId: SphereId,
+  opts: { dueDate?: string; dueDateExpression?: string },
+): string {
+  if (opts.dueDateExpression !== undefined) return TODOIST_RECURRING_ID
+  if (opts.dueDate !== undefined)           return TODOIST_FUTURE_LOG_ID
+  return oneOffsProjectFor(sphereId)
+}
+
 // Todoist parent project for new projects in a sphere
 export function sphereParentProjectFor(sphereId: SphereId): string {
   return sphereId === PERSONAL_SPHERE_ID ? TODOIST_PERSONAL_PROJECT_ID : TODOIST_WORK_PROJECT_ID

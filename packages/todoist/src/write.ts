@@ -4,7 +4,7 @@ import type { SyncCommand } from './api.js'
 import { computeLabels } from './labels.js'
 import {
   WORK_SPHERE_ID,
-  oneOffsProjectFor,
+  freeFloatingProjectFor,
   sphereParentProjectFor,
   todoistProjectUrl,
 } from './mapping.js'
@@ -39,7 +39,10 @@ export function buildCommands(
 
       const todoistProjectId = event.projectId !== undefined
         ? String(event.projectId)
-        : oneOffsProjectFor(sphereId)
+        : freeFloatingProjectFor(sphereId, {
+            ...(event.dueDate           !== undefined && { dueDate:           event.dueDate }),
+            ...(event.dueDateExpression !== undefined && { dueDateExpression: event.dueDateExpression }),
+          })
 
       const labels = computeLabels({
         ...(event.isNext     === true      && { isNext:     true }),
