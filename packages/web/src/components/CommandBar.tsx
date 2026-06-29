@@ -7,6 +7,17 @@ interface Props {
   canGoBack: boolean
 }
 
+function CommandGroup({ hints }: { hints: string[] }) {
+  if (hints.length === 0) return null
+  return (
+    <Group gap="lg" wrap="wrap">
+      {hints.map(hint => (
+        <Text key={hint} size="xs" c="dimmed">{hint}</Text>
+      ))}
+    </Group>
+  )
+}
+
 export function CommandBar({ commands, canGoBack }: Props) {
   const allCommands = Object.values(commands)
   const stateCommands = allCommands.filter(c => c.group === 'state')
@@ -17,25 +28,9 @@ export function CommandBar({ commands, canGoBack }: Props) {
 
   return (
     <Stack gap={2} visibleFrom="sm">
-      {stateCommands.length > 0 && (
-        <Group gap="lg" wrap="wrap">
-          {stateCommands.map(c => (
-            <Text key={c.key} size="xs" c="dimmed">{c.key} {c.label}</Text>
-          ))}
-        </Group>
-      )}
-      {createCommands.length > 0 && (
-        <Group gap="lg" wrap="wrap">
-          {createCommands.map(c => (
-            <Text key={c.key} size="xs" c="dimmed">{c.key} {c.label}</Text>
-          ))}
-        </Group>
-      )}
-      <Group gap="lg" wrap="wrap">
-        {navHints.map(hint => (
-          <Text key={hint} size="xs" c="dimmed">{hint}</Text>
-        ))}
-      </Group>
+      <CommandGroup hints={stateCommands.map(c => `${c.key} ${c.label}`)} />
+      <CommandGroup hints={createCommands.map(c => `${c.key} ${c.label}`)} />
+      <CommandGroup hints={navHints} />
     </Stack>
   )
 }
