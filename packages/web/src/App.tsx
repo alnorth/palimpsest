@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react'
-import { Center, Text } from '@mantine/core'
+import { Center, Text, Button, Stack } from '@mantine/core'
 import { ClientPalimpsestStore, LocalStoragePendingEventStore } from 'palimpsest-ui-core'
 import { buildStateFromConfig, createEmptyState, PALIMPSEST_CONFIG } from 'palimpsest'
 import type { PalimpsestStore, ProjectionState } from 'palimpsest'
@@ -40,6 +40,7 @@ export function App() {
   const [manualApiUrl, setManualApiUrl] = useState(() => localStorage.getItem('palimpsest_api_url'))
   const [todoistToken, setTodoistToken] = useState(() => localStorage.getItem('palimpsest_todoist_token'))
   const [initialState, setInitialState] = useState<ProjectionState | undefined>(undefined)
+  const [initError, setInitError] = useState<string | undefined>(undefined)
 
   useEffect(() => {
     fetch('/config.json')
@@ -57,13 +58,12 @@ export function App() {
   }, [todoistToken, apiUrl, authToken])
 
   useEffect(() => {
-    if (store === null) { setInitialState(undefined); return }
+    if (store === null) { setInitialState(undefined); setInitError(undefined); return }
     let cancelled = false
-    void store.init()
-      .catch(() => {})
+    store.init()
       .then(() => store.getState())
       .then(state => { if (!cancelled) setInitialState(state) })
-      .catch(() => { if (!cancelled) setInitialState(configState) })
+      .catch(err => { if (!cancelled) setInitError(err instanceof Error ? err.message : 'Connection failed') })
     return () => { cancelled = true }
   }, [store])
 
@@ -88,14 +88,6 @@ export function App() {
     )
   }
 
-  if (initialState === undefined) {
-    return (
-      <Center h="100vh">
-        <Text c="dimmed">Connecting…</Text>
-      </Center>
-    )
-  }
-
   function handleLogout() {
     localStorage.removeItem('palimpsest_todoist_token')
     localStorage.removeItem('palimpsest_auth_token')
@@ -104,6 +96,28 @@ export function App() {
     setAuthToken(null)
     setManualApiUrl(null)
     setInitialState(undefined)
+    setInitError(undefined)
+  }
+
+  if (initError !== undefined) {
+    return (
+      <Center h="100vh">
+        <Stack align="center" gap="md">
+          <Text c="red" style={{ fontFamily: 'monospace' }}>{initError}</Text>
+          <Button variant="subtle" color="red" size="sm" onClick={handleLogout} style={{ fontFamily: 'monospace' }}>
+            Log out
+          </Button>
+        </Stack>
+      </Center>
+    )
+  }
+
+  if (initialState === undefined) {
+    return (
+      <Center h="100vh">
+        <Text c="dimmed">Connecting…</Text>
+      </Center>
+    )
   }
 
   return <LoadedApp store={store!} initialState={initialState} onLogout={handleLogout} />

@@ -50,17 +50,28 @@ if (todoistToken !== undefined) {
 
 function App() {
   const [initialState, setInitialState] = useState<ProjectionState | undefined>(undefined)
+  const [initError, setInitError] = useState<string | undefined>(undefined)
   const { rows: termRows } = useWindowSize()
 
   useEffect(() => {
     let cancelled = false
-    void store.init()
-      .catch(() => {})
+    store.init()
       .then(() => store.getState())
       .then(state => { if (!cancelled) setInitialState(state) })
-      .catch(() => { if (!cancelled) setInitialState(configState) })
+      .catch(err => { if (!cancelled) setInitError(err instanceof Error ? err.message : 'Connection failed') })
     return () => { cancelled = true }
   }, [])
+
+  if (initError !== undefined) {
+    return (
+      <Box flexDirection="column" height={termRows} paddingX={1}>
+        <Box paddingTop={1}><Text bold color="cyan">Palimpsest</Text></Box>
+        <Box flexGrow={1} flexDirection="column" paddingTop={1}>
+          <Text color="red">Error: {initError}</Text>
+        </Box>
+      </Box>
+    )
+  }
 
   if (initialState === undefined) {
     return (

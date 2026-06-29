@@ -1,4 +1,4 @@
-import { PalimpsestStore, applyEvent, createEmptyState, MemoryPendingEventStore, buildStateFromConfig, PALIMPSEST_CONFIG } from 'palimpsest'
+import { PalimpsestStore, applyEvent, createEmptyState, MemoryPendingEventStore } from 'palimpsest'
 import type { PalimpsestEvent, ProjectionState, TaskId, ProjectId, PendingEventStore } from 'palimpsest'
 import { syncRead, syncWrite } from './api.js'
 import type { SyncCommand } from './api.js'
@@ -9,10 +9,8 @@ function getDoc(): { addEventListener: Function; removeEventListener: Function; 
   return typeof (globalThis as any).document !== 'undefined' ? (globalThis as any).document : undefined
 }
 
-const CONFIG_STATE: ProjectionState = { ...createEmptyState(), ...buildStateFromConfig(PALIMPSEST_CONFIG) }
-
 export class TodoistStore extends PalimpsestStore {
-  private currentState: ProjectionState
+  private currentState: ProjectionState = createEmptyState()
   private syncToken = '*'
   private pollTimer: ReturnType<typeof setInterval> | undefined
   private readonly syncIntervalMs: number
@@ -20,12 +18,11 @@ export class TodoistStore extends PalimpsestStore {
 
   constructor(
     private readonly token: string,
-    opts: { syncIntervalMs?: number; pendingStore?: PendingEventStore; initialState?: ProjectionState } = {},
+    opts: { syncIntervalMs?: number; pendingStore?: PendingEventStore } = {},
   ) {
     super()
     this.syncIntervalMs = opts.syncIntervalMs ?? 30_000
     this.pendingStore = opts.pendingStore ?? new MemoryPendingEventStore()
-    this.currentState = opts.initialState ?? CONFIG_STATE
   }
 
   override async init(): Promise<void> {
