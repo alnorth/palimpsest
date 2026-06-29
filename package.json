@@ -6,7 +6,7 @@
   ],
   "scripts": {
     "build": "npm run build --workspaces",
-    "test": "npm run test --workspace=packages/core",
+    "test": "npm run test --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces",
     "dev": "npm run dev --workspace=packages/cli",
     "dev:web": "npm run dev --workspace=packages/web",

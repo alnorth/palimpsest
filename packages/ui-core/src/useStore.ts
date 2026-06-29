@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import type { PalimpsestStore, ProjectionState } from 'palimpsest'
-import type { SyncState } from './ClientPalimpsestStore.js'
-import { INITIAL_SYNC_STATE } from './ClientPalimpsestStore.js'
+import type { SyncState } from 'palimpsest'
+import { INITIAL_SYNC_STATE } from 'palimpsest'
 
 interface HasSyncState {
   readonly syncState: SyncState

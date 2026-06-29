@@ -175,16 +175,19 @@ export function applyEvent(state: ProjectionState, event: PalimpsestEvent): Proj
   }
 }
 
+export function cloneState(state: ProjectionState): ProjectionState {
+  return {
+    spheres:  new Map(state.spheres),
+    agendas:  new Map(state.agendas),
+    contexts: new Map(state.contexts),
+    projects: new Map(state.projects),
+    tasks:    new Map(state.tasks),
+  }
+}
+
 export function project(events: readonly PalimpsestEvent[], initialState?: ProjectionState): ProjectionState {
-  const startState = initialState !== undefined
-    ? {
-        spheres:  new Map(initialState.spheres),
-        agendas:  new Map(initialState.agendas),
-        contexts: new Map(initialState.contexts),
-        projects: new Map(initialState.projects),
-        tasks:    new Map(initialState.tasks),
-      }
-    : createEmptyState()
+  if (events.length === 0) return initialState ?? createEmptyState()
+  const startState = initialState !== undefined ? cloneState(initialState) : createEmptyState()
   return events.reduce(
     (state, event) => applyEvent(state, event),
     startState,

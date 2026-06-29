@@ -15,8 +15,11 @@ export type {
 export type { TaskFilter } from './query.js'
 export type { SphereConfig, AgendaConfig, ContextConfig } from './config.js'
 
-export { project, applyEvent, createEmptyState } from './projection.js'
+export { project, applyEvent, createEmptyState, cloneState } from './projection.js'
 export { PalimpsestStore, FilePalimpsestStore } from './store.js'
+export { PollingStore } from './pollingStore.js'
+export type { SyncHealth, PendingConflict, SyncState } from './pollingStore.js'
+export { INITIAL_SYNC_STATE } from './pollingStore.js'
 export {
   createProject, updateProject, archiveProject, unarchiveProject,
   createTask, updateTask, completeTask, uncompleteTask, deleteTask, postponeTask, finishRecurringTask,
@@ -32,3 +35,5 @@ export {
 export { parseDueDate, addDays, nextWeekday, isValidExpression, nextDueDate } from './dateParser.js'
 export { buildStateFromConfig, PALIMPSEST_CONFIG } from './config.js'
 export { validateBatch } from './validation.js'
+export type { PendingEventStore } from './pendingEventStore.js'
+export { MemoryPendingEventStore } from './pendingEventStore.js'

@@ -1,14 +1,15 @@
 import React, { useState, useEffect, useMemo } from 'react'
-import { Center, Text } from '@mantine/core'
+import { Center, Text, Button, Stack } from '@mantine/core'
 import { ClientPalimpsestStore, LocalStoragePendingEventStore } from 'palimpsest-ui-core'
 import { buildStateFromConfig, createEmptyState, PALIMPSEST_CONFIG } from 'palimpsest'
 import type { PalimpsestStore, ProjectionState } from 'palimpsest'
+import { TodoistStore } from 'palimpsest-todoist'
 import { SetupScreen } from './SetupScreen.js'
 import { LoadedApp } from './LoadedApp.js'
 
 const configState = { ...createEmptyState(), ...buildStateFromConfig(PALIMPSEST_CONFIG) }
 
-function makeStore(apiUrl: string, authToken: string): PalimpsestStore {
+function makeBackendStore(apiUrl: string, authToken: string): PalimpsestStore {
   return new ClientPalimpsestStore(
     async (clientSeq, events) => {
       const res = await fetch(`${apiUrl}/sync`, {
@@ -26,12 +27,21 @@ function makeStore(apiUrl: string, authToken: string): PalimpsestStore {
   )
 }
 
+function makeTodoistStore(todoistToken: string): PalimpsestStore {
+  return new TodoistStore(todoistToken, {
+    pendingStore: new LocalStoragePendingEventStore('palimpsest_todoist_pending'),
+    configState,
+  })
+}
+
 export function App() {
   // undefined = still fetching, null = not available (local dev), string = from deployment
   const [configApiUrl, setConfigApiUrl] = useState<string | null | undefined>(undefined)
   const [authToken, setAuthToken] = useState(() => localStorage.getItem('palimpsest_auth_token'))
   const [manualApiUrl, setManualApiUrl] = useState(() => localStorage.getItem('palimpsest_api_url'))
+  const [todoistToken, setTodoistToken] = useState(() => localStorage.getItem('palimpsest_todoist_token'))
   const [initialState, setInitialState] = useState<ProjectionState | undefined>(undefined)
+  const [initError, setInitError] = useState<string | undefined>(undefined)
 
   useEffect(() => {
     fetch('/config.json')
@@ -42,19 +52,19 @@ export function App() {
 
   const apiUrl = configApiUrl ?? manualApiUrl
 
-  const store = useMemo(
-    () => (apiUrl && authToken ? makeStore(apiUrl, authToken) : null),
-    [apiUrl, authToken],
-  )
+  const store = useMemo((): PalimpsestStore | null => {
+    if (todoistToken) return makeTodoistStore(todoistToken)
+    if (apiUrl && authToken) return makeBackendStore(apiUrl, authToken)
+    return null
+  }, [todoistToken, apiUrl, authToken])
 
   useEffect(() => {
-    if (store === null) { setInitialState(undefined); return }
+    if (store === null) { setInitialState(undefined); setInitError(undefined); return }
     let cancelled = false
-    void store.init()
-      .catch(() => {})
+    store.init()
       .then(() => store.getState())
       .then(state => { if (!cancelled) setInitialState(state) })
-      .catch(() => { if (!cancelled) setInitialState(configState) })
+      .catch(err => { if (!cancelled) setInitError(err instanceof Error ? err.message : 'Connection failed') })
     return () => { cancelled = true }
   }, [store])
 
@@ -66,15 +76,40 @@ export function App() {
     )
   }
 
-  if (!apiUrl || !authToken) {
+  if (!todoistToken && (!apiUrl || !authToken)) {
     return (
       <SetupScreen
         configApiUrl={configApiUrl}
         onSave={() => {
+          setTodoistToken(localStorage.getItem('palimpsest_todoist_token'))
           setAuthToken(localStorage.getItem('palimpsest_auth_token'))
           if (configApiUrl === null) setManualApiUrl(localStorage.getItem('palimpsest_api_url'))
         }}
       />
+    )
+  }
+
+  function handleLogout() {
+    localStorage.removeItem('palimpsest_todoist_token')
+    localStorage.removeItem('palimpsest_auth_token')
+    localStorage.removeItem('palimpsest_api_url')
+    setTodoistToken(null)
+    setAuthToken(null)
+    setManualApiUrl(null)
+    setInitialState(undefined)
+    setInitError(undefined)
+  }
+
+  if (initError !== undefined) {
+    return (
+      <Center h="100vh">
+        <Stack align="center" gap="md">
+          <Text c="red" style={{ fontFamily: 'monospace' }}>{initError}</Text>
+          <Button variant="subtle" color="red" size="sm" onClick={handleLogout} style={{ fontFamily: 'monospace' }}>
+            Log out
+          </Button>
+        </Stack>
+      </Center>
     )
   }
 
@@ -86,5 +121,5 @@ export function App() {
     )
   }
 
-  return <LoadedApp store={store!} initialState={initialState} />
+  return <LoadedApp store={store!} initialState={initialState} onLogout={handleLogout} />
 }

@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
 import { useStore } from './useStore.js'
 import { ClientPalimpsestStore } from './ClientPalimpsestStore.js'
-import { INITIAL_SYNC_STATE } from './ClientPalimpsestStore.js'
+import { INITIAL_SYNC_STATE } from 'palimpsest'
 import { createEmptyState, buildStateFromConfig } from 'palimpsest'
 import { PalimpsestStore } from 'palimpsest'
 import type { ProjectionState, SphereId } from 'palimpsest'
@@ -81,7 +81,7 @@ describe('useStore', () => {
         { initialState },
       )
       const { result } = renderHook(() => useStore(store, initialState))
-      await act(async () => { await store.sync() })
+      await act(async () => { await store.refresh() })
       expect(result.current.syncState.health).toBe('error')
       expect(result.current.syncState.lastError).toBe('network')
     })

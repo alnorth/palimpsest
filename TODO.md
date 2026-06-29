@@ -14,11 +14,13 @@
 - [x] Fix web app display of starred and next tasks.
 - [x] Update the web app so it can be used on mobile without all the keyboard shortcuts.
 - [x] Pick list screen for choosing work to do, separated by contexts.
-- [x] Track what a task is waiting for.
 - [ ] Agenda view listing tasks for a particular agenda, separated by isWaiting.
+- [ ] Spend some time optimising React rendering and the updates of store state.
 - [ ] Search across tasks and projects.
+- [x] Track what a task is waiting for.
 - [x] Build the problem lists into the ui-core.
 - [x] Expose problem lists in the TUI.
+- [ ] Think through how to handle Someday / Maybe and Soon lists.
 - [ ] Implement a script that imports events from a Todoist export or the sync API.
 - [ ] Show the day of the week when showing due dates in the TUI. Maybe replace the current date display with the day-of-week when it's in the next week. And have "Today", "Tomorrow" for those days too.
 - [x] In the TUI, show the recurrence expression for a task.
@@ -26,14 +28,14 @@
 - [x] Think through how a task inbox will work.
 - [ ] Display the first line of a task's description under it in the TUI.
 - [ ] Merge this into my dashboard webapp in some way.
-- [ ] Connection errors on intial sync should show an error message, rather than failing silently.
+- [x] Connection errors on intial sync should show an error message, rather than failing silently.
 - [x] When there's a form value then pressing Esc should clear it rather than go back.
 - [x] Add a top-level view for showing all the waiting fors.
 - [ ] Add all projects and one off tasks views to facilitate weekly reviews.
 - [ ] Show in the task detail view whether the task is completed or not.
-- [ ] Add the ability to upload files to tasks and projects.
-- [ ] Integrate Trello data into the back end.
-- [ ] Add Trello data into the front ends.
-- [ ] Add Trello problems to the Processing screen from https://github.com/alnorth/dashboard/blob/0dcdb8f322f5b8fbd71c979d9b24533b4e9a85ac/website/src/Contexts/FilteredListsContext.jsx#L132.
-- [ ] Add the ability to move a task/project from one sphere to another. Would need to clear the agendas and contexts.
-- [ ] Massively improve test coverage of all packages.
+- [ ] When moving down a list we need to scroll to keep the selected item in view.
+- [ ] Make webapp available offline.
+- [ ] Cache the event data locally so it can be accessed offline, and to speed up initial startup.
+- [ ] Add a description field for projects.
+- [ ] Add a way of turning tasks into projects.
+- [ ] Make URLs in descriptions clickable.

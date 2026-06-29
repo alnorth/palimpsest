@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { ClientPalimpsestStore } from './ClientPalimpsestStore.js'
-import type { PendingEventStore } from './PendingEventStore.js'
+import type { PendingEventStore } from 'palimpsest'
 import { createEmptyState, buildStateFromConfig } from 'palimpsest'
 import type { PalimpsestEvent, TaskId, SphereId, EventId } from 'palimpsest'
 
@@ -9,9 +9,11 @@ const testInitialState = { ...createEmptyState(), ...buildStateFromConfig([{ id:
 
 class SpyPendingStore implements PendingEventStore {
   saved: PalimpsestEvent[] | undefined
-  constructor(private initial: PalimpsestEvent[] = []) {}
-  async load(): Promise<PalimpsestEvent[]> { return this.initial }
-  async save(events: PalimpsestEvent[]): Promise<void> { this.saved = events }
+  private current: PalimpsestEvent[]
+  constructor(initial: PalimpsestEvent[] = []) { this.current = initial }
+  get size(): number { return this.current.length }
+  async load(): Promise<PalimpsestEvent[]> { return this.current }
+  async save(events: PalimpsestEvent[]): Promise<void> { this.saved = events; this.current = events }
 }
 
 let eventCounter = 0
@@ -109,7 +111,7 @@ describe('ClientPalimpsestStore', () => {
       const store = new ClientPalimpsestStore(syncFn, { initialState: testInitialState })
       const listener = vi.fn()
       store.subscribe(listener)
-      await store.sync()
+      await store.refresh()
       expect(listener).toHaveBeenCalled()
     })
 
@@ -299,7 +301,7 @@ describe('ClientPalimpsestStore', () => {
       const store = new ClientPalimpsestStore(vi.fn().mockRejectedValue(new Error('network')), { initialState: testInitialState })
       const listener = vi.fn()
       store.subscribe(listener)
-      await store.sync()
+      await store.refresh()
       expect(listener).toHaveBeenCalled()
     })
 

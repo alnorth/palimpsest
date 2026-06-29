@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { MemoryPendingEventStore } from './PendingEventStore.js'
+import { MemoryPendingEventStore } from 'palimpsest'
 import type { PalimpsestEvent, TaskId, SphereId, EventId } from 'palimpsest'
 
 function makeTaskEvent(): PalimpsestEvent {
@@ -20,9 +20,17 @@ describe('MemoryPendingEventStore', () => {
     expect(await store.load()).toEqual([])
   })
 
-  it('save is a no-op', async () => {
+  it('load returns what was saved', async () => {
+    const store = new MemoryPendingEventStore()
+    const ev = makeTaskEvent()
+    await store.save([ev])
+    expect(await store.load()).toEqual([ev])
+  })
+
+  it('load returns empty after saving empty array', async () => {
     const store = new MemoryPendingEventStore()
     await store.save([makeTaskEvent()])
+    await store.save([])
     expect(await store.load()).toEqual([])
   })
 })

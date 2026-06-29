@@ -1,8 +1,8 @@
 import React, { useState } from 'react'
 import { AppShell, Group, Text, ScrollArea, Badge, Burger, Button, Stack, Modal, TextInput, Textarea } from '@mantine/core'
 import type { PalimpsestStore, ProjectionState, Task } from 'palimpsest'
-import { CLEAR, isValidExpression } from 'palimpsest'
-import { useAppState, parseDueDate, getDueDatePreview, getRecurrencePreview, isMainListItems } from 'palimpsest-ui-core'
+import { CLEAR, isValidExpression, parseDueDate } from 'palimpsest'
+import { useAppState, getDueDatePreview, getRecurrencePreview, isMainListItems } from 'palimpsest-ui-core'
 import type { Command } from 'palimpsest-ui-core'
 import { CommandButton } from './components/CommandButton.js'
 import { useKeyboard } from './useKeyboard.js'
@@ -18,6 +18,7 @@ import { ViewPicker, AgendaPicker, WaitingAgendaPicker, ContextPicker, DueDatePi
 interface Props {
   store: PalimpsestStore
   initialState: ProjectionState
+  onLogout: () => void
 }
 
 function FormModal({ opened, onClose, title, placeholder, preview, value, onChange, onSubmit, multiline }: {
@@ -69,7 +70,7 @@ function FormModal({ opened, onClose, title, placeholder, preview, value, onChan
   )
 }
 
-export function LoadedApp({ store, initialState }: Props) {
+export function LoadedApp({ store, initialState, onLogout }: Props) {
   const appState = useAppState(store, initialState)
   const {
     view, mode, formValue, activeTask, activeProject,
@@ -282,6 +283,7 @@ export function LoadedApp({ store, initialState }: Props) {
         activeSphere={activeSphere}
         currentView={view}
         dispatch={dispatch}
+        onLogout={onLogout}
       />
       <AppShell.Header px="md">
         <Group h="100%" justify="space-between">

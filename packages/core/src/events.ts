@@ -51,8 +51,8 @@ export interface TaskCreatedEvent extends EventBase {
   sphereId?: SphereId
   agendaId?: AgendaId
   contextId?: ContextId
-  isNext?: boolean
-  isStarred?: boolean
+  isNext?: true
+  isStarred?: true
   waitingFor?: WaitingFor
   dueDate?: string
   dueDateExpression?: string
