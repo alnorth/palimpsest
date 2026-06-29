@@ -11,6 +11,7 @@ export interface TaskMetaItem {
 export interface TaskDetailField {
   label: string
   value: string
+  href?: string
 }
 
 function localToday(): string {
@@ -110,7 +111,8 @@ export function getTaskDetailFields(task: Task, state: ProjectionState): TaskDet
   const wf = resolveWaiting(task, state)
   if (wf !== undefined) {
     const wfValue = wf.kind === 'review' ? 'for review' : wf.kind === 'trello' ? wf.cardUrl : wf.name
-    fields.push({ label: 'waiting    ', value: wfValue })
+    const href = wf.kind === 'trello' ? wf.cardUrl : undefined
+    fields.push({ label: 'waiting    ', value: wfValue, ...(href !== undefined && { href }) })
   }
   return fields
 }
