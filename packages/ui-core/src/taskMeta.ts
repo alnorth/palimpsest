@@ -25,12 +25,13 @@ export function formatDateTime(iso: string): string {
   return `${d.getDate()} ${MONTHS[d.getMonth()]} ${h}:${m}`
 }
 
-type ResolvedWaiting = { kind: 'review' } | { kind: 'agenda' | 'project'; name: string }
+type ResolvedWaiting = { kind: 'review' } | { kind: 'agenda' | 'project'; name: string } | { kind: 'trello'; cardUrl: string }
 
 function resolveWaiting(task: Task, state: ProjectionState): ResolvedWaiting | undefined {
   const wf = task.waitingFor
   if (wf === undefined) return undefined
   if (wf.kind === 'review') return { kind: 'review' }
+  if (wf.kind === 'trello') return { kind: 'trello', cardUrl: wf.cardUrl }
   if (wf.kind === 'agenda') {
     const a = getAgenda(state, wf.agendaId)
     return { kind: 'agenda', name: a !== undefined ? `${AGENDA_PREFIX}${a.title}` : `${AGENDA_PREFIX}?` }
@@ -48,7 +49,8 @@ export function getTaskRowMeta(
   if (task.description) items.push({ text: '¶' })
   const wf = resolveWaiting(task, state)
   if (wf !== undefined) {
-    items.push({ text: wf.kind === 'review' ? 'w/ review' : `w/ ${wf.name}` })
+    const wfText = wf.kind === 'review' ? 'w/ review' : wf.kind === 'trello' ? 'w/ Trello' : `w/ ${wf.name}`
+    items.push({ text: wfText })
   }
   if (opts?.showProject === true && task.projectId !== undefined) {
     const p = getProject(state, task.projectId)
@@ -107,7 +109,8 @@ export function getTaskDetailFields(task: Task, state: ProjectionState): TaskDet
   }
   const wf = resolveWaiting(task, state)
   if (wf !== undefined) {
-    fields.push({ label: 'waiting    ', value: wf.kind === 'review' ? 'for review' : wf.name })
+    const wfValue = wf.kind === 'review' ? 'for review' : wf.kind === 'trello' ? wf.cardUrl : wf.name
+    fields.push({ label: 'waiting    ', value: wfValue })
   }
   return fields
 }
