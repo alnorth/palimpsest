@@ -42,12 +42,16 @@ export class TodoistStore extends PalimpsestStore {
     const allCommands: SyncCommand[] = []
     // tempId → nanoid (source id from the event) for later substitution
     const tempToSourceId = new Map<string, string>()
+    // nanoid → temp_id, built during the first pass so that cross-batch foreign-key
+    // references (e.g. task.created pointing at a project created earlier in the same
+    // batch) use the temp_id that Todoist resolves within the batch, not the nanoid.
+    const nanoidToTempId = new Map<string, string>()
     // nanoid → todoistId substitutions discovered after the write
     const subs = new Map<string, string>()
 
-    // First pass: build commands, applying any already-known substitutions
+    // First pass: build commands, substituting nanoids with temp_ids for cross-references
     for (const raw of events) {
-      const event = applySourceIdSubs(raw, subs)
+      const event = applySourceIdSubs(raw, nanoidToTempId)
       const { commands, tempId } = buildCommands(event, this.currentState)
       allCommands.push(...commands)
 
@@ -55,7 +59,10 @@ export class TodoistStore extends PalimpsestStore {
         const sourceId = event.type === 'task.created'    ? String(event.taskId)
                        : event.type === 'project.created' ? String(event.projectId)
                        : undefined
-        if (sourceId !== undefined) tempToSourceId.set(tempId, sourceId)
+        if (sourceId !== undefined) {
+          tempToSourceId.set(tempId, sourceId)
+          nanoidToTempId.set(sourceId, tempId)
+        }
       }
     }
 

@@ -62,16 +62,14 @@ function resolveSphereFromTask(
   task: SyncItem,
   byId: Map<string, SyncProject>,
 ): SphereId | undefined {
+  // Free-floating projects encode sphere in a label — no byId lookup needed
+  if (FREE_FLOATING_PROJECT_IDS.has(task.project_id)) {
+    if (task.labels.includes('personal')) return PERSONAL_SPHERE_ID
+    return WORK_SPHERE_ID
+  }
   const proj = byId.get(task.project_id)
   if (proj === undefined) return undefined
-
-  if (!FREE_FLOATING_PROJECT_IDS.has(proj.id)) {
-    return resolveSphereId(proj, byId)
-  }
-
-  // Free-floating project: sphere encoded in label, or default to work
-  if (task.labels.includes('personal')) return PERSONAL_SPHERE_ID
-  return WORK_SPHERE_ID
+  return resolveSphereId(proj, byId)
 }
 
 function resolveProjectId(
