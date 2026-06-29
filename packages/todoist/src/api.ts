@@ -34,6 +34,7 @@ export interface SyncProject {
 export interface SyncReadResponse {
   sync_token: string
   full_sync: boolean
+  full_sync_date_utc?: string   // present on initial full sync only
   items: SyncItem[]
   projects: SyncProject[]
 }
