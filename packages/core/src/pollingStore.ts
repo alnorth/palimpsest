@@ -27,6 +27,7 @@ export abstract class PollingStore extends PalimpsestStore {
   protected override async doAppend(events: PalimpsestEvent[]): Promise<void> {
     const pending = await this.pendingStore.load()
     await this.pendingStore.save([...pending, ...events])
+    this.notify()
     this.scheduleSync()
   }
 
