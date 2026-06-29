@@ -1,7 +1,7 @@
 // Todoist Sync API v9 — single endpoint for reading and writing.
 // https://developer.todoist.com/sync/v9/
 
-const SYNC_URL = 'https://api.todoist.com/sync/v9/sync'
+const SYNC_URL = 'https://api.todoist.com/api/v1/sync'
 
 // ── Response types ────────────────────────────────────────────────────────────
 
@@ -81,6 +81,7 @@ export function syncRead(token: string, syncToken: string): Promise<SyncReadResp
   return post<SyncReadResponse>(token, {
     sync_token: syncToken,
     resource_types: ['projects', 'items'],
+    commands: [],
   })
 }
 
