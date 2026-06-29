@@ -26,6 +26,7 @@ export function uiReducer(state: UIState, action: UIAction): UIState {
       if (action.patch.searchQuery !== undefined && (last.view === 'picking-project-for-task' || last.view === 'picking-waiting-project')) {
         next.searchQuery = action.patch.searchQuery
       }
+      if (action.patch.focus !== undefined && last.view === 'project') next.focus = action.patch.focus
       return { ...state, navStack: [...state.navStack.slice(0, -1), next as typeof last] }
     }
 

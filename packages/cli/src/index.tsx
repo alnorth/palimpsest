@@ -93,7 +93,7 @@ function LoadedApp({ initialState }: { initialState: ProjectionState }) {
     view, mode, formValue, activeTask, activeProject,
     activeSphere, projectStats, listItems, currentTask, selectedItem, selectedProject, spheres, subtitle,
     searchQuery, projState, commands, dispatch, activate, activateSelected, canGoBack, showCompleted, showArchived, showProject,
-    syncState,
+    syncState, projectFocus,
   } = appState
 
   const { health: syncHealth, unsyncedCount, pendingConflicts, lastError: lastSyncError } = syncState
@@ -171,8 +171,9 @@ function LoadedApp({ initialState }: { initialState: ProjectionState }) {
 
   function handleEditProjectSubmit(name: string) {
     const trimmed = name.trim()
-    if (trimmed && selectedProject !== undefined) {
-      dispatch({ type: 'edit-project', projectId: selectedProject.id, name: trimmed })
+    const project = selectedProject ?? activeProject
+    if (trimmed && project !== undefined) {
+      dispatch({ type: 'edit-project', projectId: project.id, name: trimmed })
     } else {
       dispatch({ type: 'exit-mode' })
     }
@@ -304,15 +305,25 @@ function LoadedApp({ initialState }: { initialState: ProjectionState }) {
         </Box>
       )
     })() : isMainListItems(listItems) ? (
-      <ItemList
-        groups={listItems.groups}
-        selectedItem={selectedItem}
-        state={projState}
-        projectStats={projectStats}
-        showProject={showProject}
-        showArchived={showArchived}
-        emptyMessage={listItems.emptyMessage}
-      />
+      <Box flexDirection="column">
+        {view === 'project' && activeProject !== undefined && (
+          <Box marginBottom={1}>
+            {projectFocus === 'header'
+              ? <Text bold color="cyan">▶ {activeProject.name}{activeProject.isArchived ? <Text dimColor> (archived)</Text> : null}</Text>
+              : <Text dimColor>  {activeProject.name}{activeProject.isArchived ? ' (archived)' : ''}</Text>
+            }
+          </Box>
+        )}
+        <ItemList
+          groups={listItems.groups}
+          selectedItem={selectedItem}
+          state={projState}
+          projectStats={projectStats}
+          showProject={showProject}
+          showArchived={showArchived}
+          emptyMessage={listItems.emptyMessage}
+        />
+      </Box>
     ) : null
     const onChangeFormValue = (v: string) => dispatch({ type: 'update-mode', formValue: v })
     footer = mode?.type === 'adding' ? (

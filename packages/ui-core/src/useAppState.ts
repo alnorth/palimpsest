@@ -66,12 +66,22 @@ export function useAppState(store: PalimpsestStore, initialState: ProjectionStat
 
   const dispatch = useCallback((action: Action) => {
     if (action.type === 'move-up') {
-      const cur = navSelected(uiState.navStack[uiState.navStack.length - 1])
+      const currentNav = uiState.navStack[uiState.navStack.length - 1]
+      if (currentNav?.view === 'project' && (currentNav.focus ?? 'header') === 'tasks' && navSelected(currentNav) === 0) {
+        dispatchUI({ type: 'update-nav', patch: { focus: 'header' } })
+        return
+      }
+      const cur = navSelected(currentNav)
       dispatchUI({ type: 'update-nav', patch: { selected: Math.max(0, cur - 1) } })
       return
     }
     if (action.type === 'move-down') {
-      const cur = navSelected(uiState.navStack[uiState.navStack.length - 1])
+      const currentNav = uiState.navStack[uiState.navStack.length - 1]
+      if (currentNav?.view === 'project' && (currentNav.focus ?? 'header') === 'header') {
+        dispatchUI({ type: 'update-nav', patch: { focus: 'tasks', selected: 0 } })
+        return
+      }
+      const cur = navSelected(currentNav)
       const listLength = vm.listItems.groups.reduce((sum, g) => sum + g.items.length, 0)
       dispatchUI({ type: 'update-nav', patch: { selected: Math.min(Math.max(0, listLength - 1), cur + 1) } })
       return

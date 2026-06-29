@@ -105,6 +105,7 @@ export interface ViewModel {
   showCompleted: boolean
   showArchived: boolean
   showProject: boolean
+  projectFocus: 'header' | 'tasks' | undefined
 }
 
 function searchProjects(projState: ProjectionState, activeSphere: Sphere | undefined, searchQuery: string): Project[] {
@@ -118,6 +119,7 @@ export function deriveViewModel(projState: ProjectionState, uiState: UIState): V
   const { view } = currentNav
   const selected = 'selected' in currentNav ? currentNav.selected : 0
   const activeProjectId = currentNav.view === 'project' ? currentNav.activeProjectId : undefined
+  const projectFocus: 'header' | 'tasks' | undefined = currentNav.view === 'project' ? (currentNav.focus ?? 'header') : undefined
   const activeTaskId = 'activeTaskId' in currentNav ? currentNav.activeTaskId : undefined
   const showCompleted = 'showCompleted' in currentNav ? currentNav.showCompleted : false
   const showArchived = 'showArchived' in currentNav ? currentNav.showArchived : false
@@ -347,12 +349,13 @@ export function deriveViewModel(projState: ProjectionState, uiState: UIState): V
     }
   })()
 
-  const selectedItem: ListItem | undefined = isMainListItems(listItems) ? listItems.selectedItem : undefined
+  const selectedItem: ListItem | undefined = projectFocus === 'header' ? undefined : isMainListItems(listItems) ? listItems.selectedItem : undefined
 
   const selectedProject: Project | undefined = selectedItem?.kind === 'project' ? selectedItem.project : undefined
 
   const currentTask: Task | undefined =
-    listItems.view === 'task' ? activeTask
+    projectFocus === 'header' ? undefined
+    : listItems.view === 'task' ? activeTask
     : selectedItem !== undefined ? (selectedItem.kind === 'task' ? selectedItem.task : undefined)
     : isPickerView ? activeTask
     : undefined
@@ -400,5 +403,6 @@ export function deriveViewModel(projState: ProjectionState, uiState: UIState): V
     showCompleted,
     showArchived,
     showProject,
+    projectFocus,
   }
 }

@@ -219,11 +219,11 @@ describe('commands — project view', () => {
     expect(ids).not.toContain('add-task')
   })
 
-  it('includes toggle-next for open tasks', () => {
+  it('includes toggle-next for open tasks when focus is on tasks', () => {
     const { projState, sphere, proj } = buildTestState()
     const uiState = makeUIState({
       currentSphereId: sphere.id,
-      navStack: [{ view: 'project' as const, selected: 0, activeProjectId: proj.id, showCompleted: false }],
+      navStack: [{ view: 'project' as const, selected: 0, activeProjectId: proj.id, showCompleted: false, focus: 'tasks' }],
     })
     const ids = commandIds(projState, uiState)
     expect(ids).toContain('toggle-next')
