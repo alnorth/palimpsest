@@ -20,6 +20,7 @@ export interface SyncItem {
   checked: boolean
   is_deleted: boolean
   added_at: string        // ISO 8601
+  updated_at: string      // ISO 8601
   completed_at: string | null
 }
 

@@ -138,7 +138,7 @@ function buildPalimpsestTask(t: SyncItem, byId: Map<string, SyncProject>): Task 
     description,
     status: t.checked ? 'completed' : 'open',
     createdAt: t.added_at,
-    updatedAt: completedAt ?? t.added_at,
+    updatedAt: t.updated_at,
     ...(completedAt !== undefined && { completedAt }),
     ...(projectId !== undefined          && { projectId }),
     ...(projectId === undefined          && { sphereId }),

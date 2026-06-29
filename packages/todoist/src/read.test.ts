@@ -42,6 +42,7 @@ function makeItem(overrides: Partial<SyncItem> & { id: string }): SyncItem {
     checked: false,
     is_deleted: false,
     added_at: '2026-01-01T00:00:00.000Z',
+    updated_at: '2026-02-01T00:00:00.000Z',
     completed_at: null,
     ...overrides,
   }
