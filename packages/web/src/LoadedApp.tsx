@@ -99,6 +99,7 @@ export function LoadedApp({ store, initialState, onLogout }: Props) {
   }
 
   const toggleCmd = commands['toggle-completed'] ?? commands['toggle-archived']
+  const archiveCmd = commands['archive-project'] ?? commands['unarchive-project']
 
   const titleText = view.startsWith('picking-')
     ? subtitle
@@ -143,7 +144,7 @@ export function LoadedApp({ store, initialState, onLogout }: Props) {
   } else if (listItems.view === 'task' && activeTask !== undefined) {
     content = <TaskDetail task={activeTask} state={projState} commands={commands} dispatch={dispatch} />
   } else if (listItems.view === 'project') {
-    const stateCommands = (Object.values(commands) as Command[]).filter(c => c.group === 'state')
+    const stateCommands = (Object.values(commands) as Command[]).filter(c => c.group === 'state' && c.id !== 'archive-project' && c.id !== 'unarchive-project')
     content = (
       <Stack gap="sm">
         {stateCommands.length > 0 && (
@@ -292,6 +293,16 @@ export function LoadedApp({ store, initialState, onLogout }: Props) {
             <Text fw={700}>{titleText}</Text>
           </Group>
           <Group gap="sm">
+            {archiveCmd !== undefined && (
+              <Button
+                variant="subtle"
+                size="xs"
+                onClick={() => dispatch(archiveCmd.action)}
+                style={{ fontFamily: 'monospace' }}
+              >
+                {archiveCmd.label}
+              </Button>
+            )}
             {toggleCmd !== undefined && (
               <Button
                 variant="subtle"
