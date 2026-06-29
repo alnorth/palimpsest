@@ -9,6 +9,7 @@ import { VIEW_CONFIG, navStateForTopLevelView } from 'palimpsest-ui-core'
 //   /:sphereId/projects
 //   /:sphereId/processing
 //   /:sphereId/waiting
+//   /:sphereId/pick-list
 //   /:sphereId/projects/:projectId
 //   /:sphereId/tasks/:taskId
 //
@@ -22,19 +23,15 @@ interface Params {
   dispatch: (action: Action) => void
 }
 
-function assertNever(x: never): never {
-  throw new Error('Unhandled view: ' + String(x))
-}
 
-function topLevelViewToPath(view: TopLevelView, sphereId: SphereId): string | null {
+function topLevelViewToPath(view: TopLevelView, sphereId: SphereId): string {
   switch (view) {
     case 'dashboard':   return `/${sphereId}/dashboard`
     case 'tasks':       return `/${sphereId}/tasks`
     case 'projects':    return `/${sphereId}/projects`
     case 'processing':  return `/${sphereId}/processing`
     case 'waiting':     return `/${sphereId}/waiting`
-    case 'pick-list':   return null
-    default:            return assertNever(view)
+    case 'pick-list':   return `/${sphereId}/pick-list`
   }
 }
 
