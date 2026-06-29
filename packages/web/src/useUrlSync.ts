@@ -1,12 +1,14 @@
 import { useEffect } from 'react'
 import type { SphereId, TaskId, ProjectId } from 'palimpsest'
-import type { View, NavState, Action } from 'palimpsest-ui-core'
+import type { View, TopLevelView, NavState, Action } from 'palimpsest-ui-core'
 import { VIEW_CONFIG, navStateForTopLevelView } from 'palimpsest-ui-core'
 
 // URL schema:
 //   /:sphereId/dashboard
 //   /:sphereId/tasks
 //   /:sphereId/projects
+//   /:sphereId/processing
+//   /:sphereId/waiting
 //   /:sphereId/projects/:projectId
 //   /:sphereId/tasks/:taskId
 //
@@ -20,6 +22,26 @@ interface Params {
   dispatch: (action: Action) => void
 }
 
+function assertNever(x: never): never {
+  throw new Error('Unhandled view: ' + String(x))
+}
+
+function topLevelViewToPath(view: TopLevelView, sphereId: SphereId): string | null {
+  switch (view) {
+    case 'dashboard':   return `/${sphereId}/dashboard`
+    case 'tasks':       return `/${sphereId}/tasks`
+    case 'projects':    return `/${sphereId}/projects`
+    case 'processing':  return `/${sphereId}/processing`
+    case 'waiting':     return `/${sphereId}/waiting`
+    case 'pick-list':   return null
+    default:            return assertNever(view)
+  }
+}
+
+function isPickingView(view: View): view is Extract<View, `picking-${string}`> {
+  return view.startsWith('picking-')
+}
+
 function toPath(
   view: View,
   sphereId: SphereId | undefined,
@@ -27,16 +49,10 @@ function toPath(
   activeProjectId: ProjectId | undefined,
 ): string | null {
   if (sphereId === undefined) return null
-  switch (view) {
-    case 'dashboard': return `/${sphereId}/dashboard`
-    case 'tasks':     return `/${sphereId}/tasks`
-    case 'projects':  return `/${sphereId}/projects`
-    case 'processing': return `/${sphereId}/processing`
-    case 'waiting':   return `/${sphereId}/waiting`
-    case 'project':   return activeProjectId !== undefined ? `/${sphereId}/projects/${activeProjectId}` : null
-    case 'task':      return activeTaskId !== undefined ? `/${sphereId}/tasks/${activeTaskId}` : null
-    default:          return null // picking-* views — leave URL alone
-  }
+  if (view === 'project') return activeProjectId !== undefined ? `/${sphereId}/projects/${activeProjectId}` : null
+  if (view === 'task') return activeTaskId !== undefined ? `/${sphereId}/tasks/${activeTaskId}` : null
+  if (isPickingView(view)) return null
+  return topLevelViewToPath(view, sphereId)
 }
 
 function applyPath(pathname: string, dispatch: (action: Action) => void): void {
