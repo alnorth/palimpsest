@@ -1,10 +1,5 @@
-import { PalimpsestStore, MemoryPendingEventStore } from 'palimpsest'
+import { PollingStore } from 'palimpsest'
 import type { PalimpsestEvent, ProjectionState, PendingEventStore } from 'palimpsest'
-
-// Access document without requiring DOM lib — safe to call in Node.js environments
-function getDoc(): { addEventListener: Function; removeEventListener: Function; visibilityState: string } | undefined {
-  return typeof (globalThis as any).document !== 'undefined' ? (globalThis as any).document : undefined
-}
 
 export type SyncStatus = 'ok' | 'conflict' | 'rerun'
 export type SyncHealth = 'idle' | 'error' | 'conflict'
@@ -38,14 +33,11 @@ export const INITIAL_SYNC_STATE: SyncState = {
 
 export type SyncFn = (clientSeq: number, events: PalimpsestEvent[]) => Promise<SyncResponse>
 
-export class ClientPalimpsestStore extends PalimpsestStore {
+export class ClientPalimpsestStore extends PollingStore {
   private baseEvents: PalimpsestEvent[] = []
   private baseSeq = 0
   private unsyncedEvents: PalimpsestEvent[] = []
-  private syncTimer: ReturnType<typeof setInterval> | undefined
   private debounceTimer: ReturnType<typeof setTimeout> | undefined
-  private readonly syncIntervalMs: number
-  private readonly pendingStore: PendingEventStore
 
   private health: SyncHealth = 'idle'
   private conflicts: PendingConflict[] = []
@@ -64,14 +56,15 @@ export class ClientPalimpsestStore extends PalimpsestStore {
     private readonly syncFn: SyncFn,
     opts: { syncIntervalMs?: number; pendingStore?: PendingEventStore; initialState?: ProjectionState } = {},
   ) {
-    super(opts.initialState)
-    this.syncIntervalMs = opts.syncIntervalMs ?? 30_000
-    this.pendingStore = opts.pendingStore ?? new MemoryPendingEventStore()
+    super(opts)
   }
 
   override async init(): Promise<void> {
     this.unsyncedEvents = await this.pendingStore.load()
-    await this.sync()
+    const response = await this.sync()
+    if (response === undefined) {
+      throw new Error(this.syncError ?? 'Connection failed')
+    }
   }
 
   override async readAllEvents(): Promise<PalimpsestEvent[]> {
@@ -82,6 +75,10 @@ export class ClientPalimpsestStore extends PalimpsestStore {
     this.unsyncedEvents = [...this.unsyncedEvents, ...events]
     void this.pendingStore.save(this.unsyncedEvents)
     this.scheduleSync()
+  }
+
+  override async refresh(): Promise<void> {
+    await this.sync()
   }
 
   async sync(): Promise<SyncResponse | undefined> {
@@ -132,19 +129,9 @@ export class ClientPalimpsestStore extends PalimpsestStore {
     return response
   }
 
-  override start(): void {
-    this.syncTimer = setInterval(() => { void this.sync() }, this.syncIntervalMs)
-    getDoc()?.addEventListener('visibilitychange', this.onVisibilityChange)
-  }
-
   override stop(): void {
-    if (this.syncTimer !== undefined) clearInterval(this.syncTimer)
+    super.stop()
     if (this.debounceTimer !== undefined) clearTimeout(this.debounceTimer)
-    getDoc()?.removeEventListener('visibilitychange', this.onVisibilityChange)
-  }
-
-  private readonly onVisibilityChange = (): void => {
-    if (getDoc()?.visibilityState === 'visible') void this.sync()
   }
 
   private scheduleSync(): void {

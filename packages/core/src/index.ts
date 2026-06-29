@@ -17,6 +17,7 @@ export type { SphereConfig, AgendaConfig, ContextConfig } from './config.js'
 
 export { project, applyEvent, createEmptyState } from './projection.js'
 export { PalimpsestStore, FilePalimpsestStore } from './store.js'
+export { PollingStore } from './pollingStore.js'
 export {
   createProject, updateProject, archiveProject, unarchiveProject,
   createTask, updateTask, completeTask, uncompleteTask, deleteTask, postponeTask, finishRecurringTask,
