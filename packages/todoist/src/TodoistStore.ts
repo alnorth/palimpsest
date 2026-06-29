@@ -15,7 +15,6 @@ export class TodoistStore extends PalimpsestStore {
   private pollTimer: ReturnType<typeof setInterval> | undefined
   private readonly syncIntervalMs: number
   private readonly pendingStore: PendingEventStore
-  private pendingEvents: PalimpsestEvent[] = []
 
   constructor(
     private readonly token: string,
@@ -27,13 +26,14 @@ export class TodoistStore extends PalimpsestStore {
   }
 
   override async init(): Promise<void> {
-    this.pendingEvents = await this.pendingStore.load()
+    const pending = await this.pendingStore.load()
     const now = new Date().toISOString()
     const res = await syncRead(this.token, '*')
     this.syncToken = res.sync_token
     this.currentState = buildState(res.projects, res.items, now)
-    if (this.pendingEvents.length > 0) {
-      await this.flush()
+    if (pending.length > 0) {
+      await this.flush(pending)
+      await this.pendingStore.save([])
     }
   }
 
@@ -46,12 +46,12 @@ export class TodoistStore extends PalimpsestStore {
   }
 
   protected override async doAppend(events: PalimpsestEvent[]): Promise<void> {
-    this.pendingEvents = [...this.pendingEvents, ...events]
-    void this.pendingStore.save(this.pendingEvents)
+    await this.pendingStore.save(events)
     await this.flush(events)
+    await this.pendingStore.save([])
   }
 
-  private async flush(events: PalimpsestEvent[] = this.pendingEvents): Promise<void> {
+  private async flush(events: PalimpsestEvent[]): Promise<void> {
     const allCommands: SyncCommand[] = []
     // tempId → nanoid (source id from the event) for later substitution
     const tempToSourceId = new Map<string, string>()
@@ -99,10 +99,6 @@ export class TodoistStore extends PalimpsestStore {
         applyEvent(this.currentState, event)
       }
     }
-
-    // All events successfully sent — remove them from the pending store
-    this.pendingEvents = this.pendingEvents.filter(e => !events.includes(e))
-    void this.pendingStore.save(this.pendingEvents)
   }
 
   async refresh(): Promise<void> {
