@@ -2,7 +2,6 @@ import { PollingStore } from 'palimpsest'
 import type { PalimpsestEvent, ProjectionState, PendingEventStore } from 'palimpsest'
 
 export type SyncStatus = 'ok' | 'conflict' | 'rerun'
-export type SyncHealth = 'idle' | 'error' | 'conflict'
 
 export interface SyncResponse {
   status: SyncStatus
@@ -12,43 +11,11 @@ export interface SyncResponse {
   conflictingEvents?: PalimpsestEvent[]
 }
 
-export interface PendingConflict {
-  reason: string
-  conflictingEvents: PalimpsestEvent[]
-}
-
-export interface SyncState {
-  health: SyncHealth
-  unsyncedCount: number
-  pendingConflicts: PendingConflict[]
-  lastError: string | undefined
-}
-
-export const INITIAL_SYNC_STATE: SyncState = {
-  health: 'idle',
-  unsyncedCount: 0,
-  pendingConflicts: [],
-  lastError: undefined,
-}
-
 export type SyncFn = (clientSeq: number, events: PalimpsestEvent[]) => Promise<SyncResponse>
 
 export class ClientPalimpsestStore extends PollingStore {
   private baseEvents: PalimpsestEvent[] = []
   private baseSeq = 0
-
-  private health: SyncHealth = 'idle'
-  private conflicts: PendingConflict[] = []
-  private syncError: string | undefined
-
-  get syncState(): SyncState {
-    return {
-      health: this.health,
-      unsyncedCount: this.pendingStore.size,
-      pendingConflicts: this.conflicts,
-      lastError: this.syncError,
-    }
-  }
 
   constructor(
     private readonly syncFn: SyncFn,
@@ -83,14 +50,11 @@ export class ClientPalimpsestStore extends PollingStore {
       return undefined
     }
 
-    const hadMissed = response.missedEvents.length > 0
     const hadUnsynced = unsyncedEvents.length > 0
 
     if (response.missedEvents.length > 0) {
       this.baseEvents = [...this.baseEvents, ...response.missedEvents]
     }
-
-    const prevHealth = this.health
 
     if (response.status === 'ok') {
       this.baseSeq = response.serverSeq

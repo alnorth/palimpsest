@@ -8,11 +8,45 @@ function getDoc(): { addEventListener: Function; removeEventListener: Function; 
   return typeof (globalThis as any).document !== 'undefined' ? (globalThis as any).document : undefined
 }
 
+export type SyncHealth = 'idle' | 'error' | 'conflict'
+
+export interface PendingConflict {
+  reason: string
+  conflictingEvents: PalimpsestEvent[]
+}
+
+export interface SyncState {
+  health: SyncHealth
+  unsyncedCount: number
+  pendingConflicts: PendingConflict[]
+  lastError: string | undefined
+}
+
+export const INITIAL_SYNC_STATE: SyncState = {
+  health: 'idle',
+  unsyncedCount: 0,
+  pendingConflicts: [],
+  lastError: undefined,
+}
+
 export abstract class PollingStore extends PalimpsestStore {
   protected readonly pendingStore: PendingEventStore
   protected readonly syncIntervalMs: number
   private pollTimer: ReturnType<typeof setInterval> | undefined
   private debounceTimer: ReturnType<typeof setTimeout> | undefined
+
+  protected health: SyncHealth = 'idle'
+  protected conflicts: PendingConflict[] = []
+  protected syncError: string | undefined
+
+  get syncState(): SyncState {
+    return {
+      health: this.health,
+      unsyncedCount: this.pendingStore.size,
+      pendingConflicts: this.conflicts,
+      lastError: this.syncError,
+    }
+  }
 
   protected constructor(
     opts: { pendingStore?: PendingEventStore; syncIntervalMs?: number; initialState?: ProjectionState } = {},
