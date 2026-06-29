@@ -206,7 +206,7 @@ export function deriveViewModel(projState: ProjectionState, uiState: UIState): V
     : undefined
 
   const actionableTasks: Task[] = activeSphere !== undefined
-    ? listTasks(projState, { sphereId: activeSphere.id, status: 'open', isActionable: true, isWaiting: false, hasDueDate: false, hasAgenda: false, hasContext: false })
+    ? listTasks(projState, { sphereId: activeSphere.id, isActionable: true, isWaiting: false, hasDueDate: false, hasAgenda: false, hasContext: false })
     : []
 
   const projectsWithoutNext: Project[] = activeSphere !== undefined
@@ -268,7 +268,7 @@ export function deriveViewModel(projState: ProjectionState, uiState: UIState): V
       }
       case 'pick-list': {
         const eligible = activeSphere !== undefined
-          ? listTasks(projState, { sphereId: activeSphere.id, status: 'open', isActionable: true, hasContext: true })
+          ? listTasks(projState, { sphereId: activeSphere.id, isActionable: true, hasContext: true })
           : []
 
         const byContext = new Map<ContextId, Task[]>()
