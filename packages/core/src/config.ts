@@ -92,7 +92,6 @@ export const PALIMPSEST_CONFIG: SphereConfig[] = [
       { id: 'ctx-no-tools'    as ContextId, name: 'No tools',    key: 'n' },
       { id: 'ctx-loft'        as ContextId, name: 'Loft',        key: 'o' },
       { id: 'ctx-errands'     as ContextId, name: 'Errands',     key: 'e' },
-      { id: 'ctx-home'        as ContextId, name: 'Home',        key: 'h' },
       { id: 'ctx-daytime'     as ContextId, name: 'Daytime',     key: 'd' },
       { id: 'ctx-gaming'      as ContextId, name: 'Gaming',      key: 'g' },
       { id: 'ctx-weekdaytime' as ContextId, name: 'Weekdaytime', key: 'w' },

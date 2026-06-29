@@ -67,7 +67,6 @@ export const LABEL_TO_CONTEXT_ID: Readonly<Record<string, ContextId>> = {
   notools:     'ctx-no-tools'    as ContextId,
   loft:        'ctx-loft'        as ContextId,
   errands:     'ctx-errands'     as ContextId,
-  home:        'ctx-home'        as ContextId,
   daytime:     'ctx-daytime'     as ContextId,
   gaming:      'ctx-gaming'      as ContextId,
   weekdaytime: 'ctx-weekdaytime' as ContextId,
