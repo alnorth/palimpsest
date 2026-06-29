@@ -56,9 +56,6 @@ export function listOpenTasks(state: ProjectionState): Task[] {
   return listTasks(state, { status: 'open' })
 }
 
-export function listTasksByProject(state: ProjectionState, projectId: ProjectId): Task[] {
-  return listTasks(state, { projectId, status: 'open', showArchivedProjects: true })
-}
 
 export function listTasksBySphere(state: ProjectionState, sphereId: SphereId): Task[] {
   return listTasks(state, { sphereId, status: 'open' })
