@@ -68,7 +68,7 @@ export class ClientPalimpsestStore extends PollingStore {
     return [...this.baseEvents, ...await this.pendingStore.load()]
   }
 
-  override async refresh(): Promise<void> {
+  protected override async doRefresh(): Promise<void> {
     await this.sync()
   }
 

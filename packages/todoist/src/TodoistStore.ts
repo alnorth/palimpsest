@@ -92,7 +92,7 @@ export class TodoistStore extends PollingStore {
     }
   }
 
-  async refresh(): Promise<void> {
+  protected override async doRefresh(): Promise<void> {
     const now = new Date().toISOString()
     const res = await syncRead(this.token, this.syncToken)
     this.syncToken = res.sync_token

@@ -22,7 +22,19 @@ export abstract class PollingStore extends PalimpsestStore {
     this.syncIntervalMs = opts.syncIntervalMs ?? 30_000
   }
 
-  abstract refresh(): Promise<void>
+  protected abstract doRefresh(): Promise<void>
+
+  private syncing = false
+
+  async refresh(): Promise<void> {
+    if (this.syncing) return
+    this.syncing = true
+    try {
+      await this.doRefresh()
+    } finally {
+      this.syncing = false
+    }
+  }
 
   protected override async doAppend(events: PalimpsestEvent[]): Promise<void> {
     const pending = await this.pendingStore.load()
