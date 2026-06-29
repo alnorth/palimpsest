@@ -2,10 +2,10 @@ import type { AgendaId, ContextId, WaitingFor } from 'palimpsest'
 import { AGENDA_ID_TO_LABEL, CONTEXT_ID_TO_LABEL } from './mapping.js'
 
 interface TaskLabelFields {
-  isNext?: true
-  agendaId?: AgendaId
-  contextId?: ContextId
-  waitingFor?: WaitingFor
+  isNext?: true | undefined
+  agendaId?: AgendaId | undefined
+  contextId?: ContextId | undefined
+  waitingFor?: WaitingFor | undefined
 }
 
 // Compute the full Todoist label set for a task's current state.

@@ -44,12 +44,7 @@ export function buildCommands(
             ...(event.dueDateExpression !== undefined && { dueDateExpression: event.dueDateExpression }),
           })
 
-      const labels = computeLabels({
-        ...(event.isNext     === true      && { isNext:     true }),
-        ...(event.agendaId   !== undefined && { agendaId:   event.agendaId }),
-        ...(event.contextId  !== undefined && { contextId:  event.contextId }),
-        ...(event.waitingFor !== undefined && { waitingFor: event.waitingFor }),
-      })
+      const labels = computeLabels(event)
 
       const description =
         event.waitingFor?.kind === 'project' ? todoistProjectUrl(event.waitingFor.projectId) :
@@ -101,12 +96,7 @@ export function buildCommands(
         const newContextId  = patch.contextId  !== undefined ? (patch.contextId  === CLEAR ? undefined : patch.contextId)  : task.contextId
         const newIsNext     = patch.isNext     !== undefined ? (patch.isNext     === false  ? undefined : true)             : task.isNext
         const newWaitingFor = patch.waitingFor !== undefined ? (patch.waitingFor === CLEAR ? undefined : patch.waitingFor) : task.waitingFor
-        args['labels'] = computeLabels({
-          ...(newIsNext     === true      && { isNext:     true }),
-          ...(newAgendaId   !== undefined && { agendaId:   newAgendaId }),
-          ...(newContextId  !== undefined && { contextId:  newContextId }),
-          ...(newWaitingFor !== undefined && { waitingFor: newWaitingFor }),
-        })
+        args['labels'] = computeLabels({ isNext: newIsNext, agendaId: newAgendaId, contextId: newContextId, waitingFor: newWaitingFor })
       }
 
       if (patch.isStarred !== undefined) {

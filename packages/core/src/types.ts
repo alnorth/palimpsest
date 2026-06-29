@@ -21,8 +21,8 @@ export interface Task {
   dueDateExpression?: string
   agendaId?: AgendaId
   contextId?: ContextId
-  isNext?: boolean
-  isStarred?: boolean
+  isNext?: true
+  isStarred?: true
   waitingFor?: WaitingFor
   completedAt?: string
   lastRecurredAt?: string

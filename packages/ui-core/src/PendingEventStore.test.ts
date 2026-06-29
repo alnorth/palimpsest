@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { MemoryPendingEventStore } from './PendingEventStore.js'
+import { MemoryPendingEventStore } from 'palimpsest'
 import type { PalimpsestEvent, TaskId, SphereId, EventId } from 'palimpsest'
 
 function makeTaskEvent(): PalimpsestEvent {

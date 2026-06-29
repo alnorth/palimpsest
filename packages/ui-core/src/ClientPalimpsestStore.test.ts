@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { ClientPalimpsestStore } from './ClientPalimpsestStore.js'
-import type { PendingEventStore } from './PendingEventStore.js'
+import type { PendingEventStore } from 'palimpsest'
 import { createEmptyState, buildStateFromConfig } from 'palimpsest'
 import type { PalimpsestEvent, TaskId, SphereId, EventId } from 'palimpsest'
 
