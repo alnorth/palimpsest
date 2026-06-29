@@ -7,18 +7,20 @@ import { buildCommands } from './write.js'
 
 export class TodoistStore extends PollingStore {
   private currentState: ProjectionState
+  private readonly configState: ProjectionState
   private syncToken = '*'
 
   constructor(
     private readonly token: string,
-    opts: { syncIntervalMs?: number; pendingStore?: PendingEventStore; initialState?: ProjectionState } = {},
+    opts: { syncIntervalMs?: number; pendingStore?: PendingEventStore; configState?: ProjectionState } = {},
   ) {
     super(opts)
-    this.currentState = opts.initialState ?? createEmptyState()
+    this.configState = opts.configState ?? createEmptyState()
+    this.currentState = this.configState
   }
 
   override readAllEvents(): Promise<PalimpsestEvent[]> {
-    return Promise.resolve([])
+    throw new Error('TodoistStore does not support readAllEvents')
   }
 
   override async getState(): Promise<ProjectionState> {
@@ -92,7 +94,7 @@ export class TodoistStore extends PollingStore {
     }
     this.syncToken = readRes.sync_token
     if (readRes.full_sync) {
-      this.currentState = buildState(readRes.projects, readRes.items, now)
+      this.currentState = buildState(readRes.projects, readRes.items, now, this.configState)
     } else {
       applyDelta(this.currentState, readRes.projects, readRes.items, now)
     }

@@ -1,4 +1,3 @@
-import { buildStateFromConfig, PALIMPSEST_CONFIG } from 'palimpsest'
 import type { ProjectionState, Task, Project, SphereId, ProjectId, TaskId } from 'palimpsest'
 import type { SyncItem, SyncProject } from './api.js'
 import {
@@ -94,9 +93,6 @@ function buildPalimpsestTask(t: SyncItem, byId: Map<string, SyncProject>): Task 
     if (id !== undefined) { agendaId = id; break }
   }
 
-  // trello label is only ever used with waiting — never a context
-  const isTrelloWait = t.labels.includes('waiting') && t.labels.includes('trello')
-
   let contextId = undefined as typeof LABEL_TO_CONTEXT_ID[string] | undefined
   for (const label of t.labels) {
     const id = LABEL_TO_CONTEXT_ID[label]
@@ -108,7 +104,7 @@ function buildPalimpsestTask(t: SyncItem, byId: Map<string, SyncProject>): Task 
 
   let waitingFor: Task['waitingFor'] = undefined
   if (t.labels.includes('waiting')) {
-    if (isTrelloWait) {
+    if (t.labels.includes('trello')) {
       waitingFor = { kind: 'trello', cardUrl: t.description }
     } else if (t.labels.includes('project')) {
       const linkedProjectId = extractProjectIdFromUrl(t.description)
@@ -131,16 +127,20 @@ function buildPalimpsestTask(t: SyncItem, byId: Map<string, SyncProject>): Task 
     }
   }
 
-  const isStructuralDescription = isTrelloWait || (t.labels.includes('project') && t.labels.includes('waiting'))
+  const isStructuralDescription = t.labels.includes('waiting') &&
+    (t.labels.includes('trello') || t.labels.includes('project'))
   const description = isStructuralDescription ? '' : t.description
+
+  const completedAt = t.checked && t.completed_at != null ? t.completed_at : undefined
 
   const task: Task = {
     id: t.id as TaskId,
     title: t.content,
     description,
-    status: 'open',
+    status: t.checked ? 'completed' : 'open',
     createdAt: t.added_at,
-    updatedAt: t.added_at,
+    updatedAt: completedAt ?? t.added_at,
+    ...(completedAt !== undefined && { completedAt }),
     ...(projectId !== undefined          && { projectId }),
     ...(projectId === undefined          && { sphereId }),
     ...(agendaId !== undefined           && { agendaId }),
@@ -161,14 +161,15 @@ export function buildState(
   rawProjects: SyncProject[],
   rawItems: SyncItem[],
   now: string,
+  configState: ProjectionState,
 ): ProjectionState {
   const byId = buildProjectMap(rawProjects)
-  const { spheres, agendas, contexts } = buildStateFromConfig(PALIMPSEST_CONFIG)
+  const { spheres, agendas, contexts } = configState
   const projects = buildPalimpsestProjects(rawProjects, byId, now)
 
   const tasks = new Map<TaskId, Task>()
   for (const t of rawItems) {
-    if (t.checked || t.is_deleted) continue
+    if (t.is_deleted) continue
     const task = buildPalimpsestTask(t, byId)
     if (task !== undefined) tasks.set(task.id, task)
   }
@@ -220,7 +221,7 @@ export function applyDelta(
 
   for (const t of items) {
     const taskId = t.id as TaskId
-    if (t.is_deleted || t.checked) {
+    if (t.is_deleted) {
       state.tasks.delete(taskId)
       continue
     }

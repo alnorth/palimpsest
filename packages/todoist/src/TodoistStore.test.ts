@@ -32,8 +32,8 @@ function makeTaskEvent(): PalimpsestEvent {
   }
 }
 
-function makeStore(initialState = baseState) {
-  return new TodoistStore('fake-token', { initialState })
+function makeStore(configState = baseState) {
+  return new TodoistStore('fake-token', { configState })
 }
 
 beforeEach(() => {

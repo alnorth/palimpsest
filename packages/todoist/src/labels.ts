@@ -9,8 +9,8 @@ interface TaskLabelFields {
 }
 
 // Compute the full Todoist label set for a task's current state.
-// Sphere labels ('work' / 'personal') are NOT included here — they are only
-// applied to tasks written to the Recurring project, which we don't do.
+// Sphere labels ('work' / 'personal') are NOT included — callers that write
+// free-floating tasks must add the sphere label separately if needed.
 export function computeLabels(task: TaskLabelFields): string[] {
   const labels: string[] = []
 
