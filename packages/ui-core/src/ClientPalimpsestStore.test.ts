@@ -111,7 +111,7 @@ describe('ClientPalimpsestStore', () => {
       const store = new ClientPalimpsestStore(syncFn, { initialState: testInitialState })
       const listener = vi.fn()
       store.subscribe(listener)
-      await store.sync()
+      await store.refresh()
       expect(listener).toHaveBeenCalled()
     })
 
@@ -301,7 +301,7 @@ describe('ClientPalimpsestStore', () => {
       const store = new ClientPalimpsestStore(vi.fn().mockRejectedValue(new Error('network')), { initialState: testInitialState })
       const listener = vi.fn()
       store.subscribe(listener)
-      await store.sync()
+      await store.refresh()
       expect(listener).toHaveBeenCalled()
     })
 

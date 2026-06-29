@@ -81,7 +81,7 @@ describe('useStore', () => {
         { initialState },
       )
       const { result } = renderHook(() => useStore(store, initialState))
-      await act(async () => { await store.sync() })
+      await act(async () => { await store.refresh() })
       expect(result.current.syncState.health).toBe('error')
       expect(result.current.syncState.lastError).toBe('network')
     })

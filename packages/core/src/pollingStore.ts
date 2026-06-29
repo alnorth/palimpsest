@@ -34,6 +34,7 @@ export abstract class PollingStore extends PalimpsestStore {
     } finally {
       this.syncing = false
     }
+    this.notify()
   }
 
   protected override async doAppend(events: PalimpsestEvent[]): Promise<void> {

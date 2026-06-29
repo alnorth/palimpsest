@@ -78,11 +78,8 @@ export class ClientPalimpsestStore extends PollingStore {
     try {
       response = await this.syncFn(this.baseSeq, unsyncedEvents)
     } catch (err) {
-      const prevHealth = this.health
       this.health = 'error'
       this.syncError = err instanceof Error ? err.message : String(err)
-      if (this.health !== prevHealth) this.notify()
-      else this.notify()
       return undefined
     }
 
@@ -110,11 +107,6 @@ export class ClientPalimpsestStore extends PollingStore {
         reason: response.reason ?? 'conflict',
         conflictingEvents: response.conflictingEvents ?? [],
       }]
-    }
-
-    const healthChanged = this.health !== prevHealth
-    if (hadMissed || (hadUnsynced && response.status === 'ok') || healthChanged) {
-      this.notify()
     }
 
     return response

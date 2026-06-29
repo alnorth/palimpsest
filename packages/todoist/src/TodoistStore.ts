@@ -102,7 +102,6 @@ export class TodoistStore extends PollingStore {
     } else {
       applyDelta(this.currentState, res.projects, res.items, now)
     }
-    this.notify()
   }
 
 }
