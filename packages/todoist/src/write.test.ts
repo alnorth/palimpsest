@@ -368,13 +368,25 @@ describe('buildCommands — task lifecycle', () => {
     expect(commands[0]?.type).toBe('item_uncomplete')
   })
 
-  it('task.recurred → item_update with new due date', () => {
+  it('task.recurred → item_update_date_complete with new due date', () => {
+    const id = taskId()
+    const { commands } = buildCommands(
+      { type: 'task.recurred', id: evId(), occurredAt: '', taskId: id, newDueDate: '2026-07-14' },
+      stateWithTask(id, { dueDateExpression: 'every week' }),
+    )
+    expect(commands[0]?.type).toBe('item_update_date_complete')
+    expect(commands[0]?.args.due).toEqual({ date: '2026-07-14', string: 'every week' })
+    expect(commands[0]?.args.is_forward).toBe(1)
+  })
+
+  it('task.recurred → item_update_date_complete without expression when task not in state', () => {
     const { commands } = buildCommands(
       { type: 'task.recurred', id: evId(), occurredAt: '', taskId: taskId(), newDueDate: '2026-07-14' },
       baseState(),
     )
-    expect(commands[0]?.type).toBe('item_update')
+    expect(commands[0]?.type).toBe('item_update_date_complete')
     expect(commands[0]?.args.due).toEqual({ date: '2026-07-14' })
+    expect(commands[0]?.args.is_forward).toBe(1)
   })
 
   it('task.deleted → item_delete', () => {
