@@ -1,5 +1,5 @@
 import React from 'react'
-import { Stack, Text, Group } from '@mantine/core'
+import { Stack, Text, Group, Anchor } from '@mantine/core'
 import type { Task } from 'palimpsest'
 import type { ProjectionState } from 'palimpsest'
 import type { Action, Command, CommandId } from 'palimpsest-ui-core'
@@ -24,7 +24,9 @@ export function TaskDetail({ task, state, commands, dispatch }: Props) {
       }
       <Stack gap={2} mt="sm">
         {fields.map((f, i) => (
-          <Text key={i} size="sm" c="dimmed">{f.label}{f.value}</Text>
+          <Text key={i} size="sm" c="dimmed">{f.label}{f.href !== undefined
+            ? <Anchor href={f.href} target="_blank" rel="noopener noreferrer" size="sm">{f.value}</Anchor>
+            : f.value}</Text>
         ))}
       </Stack>
       {commands !== undefined && dispatch !== undefined && (Object.values(commands) as Command[]).some(c => c.group === 'state') && (

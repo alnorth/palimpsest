@@ -19,7 +19,7 @@ export interface PickerItem<T> {
   value: T
 }
 
-export type WaitingKind = 'clear' | 'review' | 'agenda' | 'project'
+export type WaitingKind = 'clear' | 'review' | 'agenda' | 'project' | 'trello'
 
 export type ViewPickerItem = PickerItem<TopLevelView>
 export type AgendaPickerItem = PickerItem<AgendaId | null>
@@ -34,6 +34,7 @@ const WAITING_KIND_LABELS: Record<WaitingFor['kind'], string> = {
   review: 'Review',
   agenda: 'Agenda',
   project: 'Project',
+  trello: 'Trello',
 }
 
 export const VIEW_CONFIG: ViewPickerItem[] = [

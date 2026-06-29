@@ -6,6 +6,7 @@ export type WaitingFor =
   | { kind: 'review' }
   | { kind: 'agenda'; agendaId: AgendaId }
   | { kind: 'project'; projectId: ProjectId }
+  | { kind: 'trello'; cardUrl: string }
 
 export interface Task {
   id: TaskId
