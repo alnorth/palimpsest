@@ -1,6 +1,6 @@
 import type { ProjectionState } from './projection.js'
 import type { PalimpsestEvent } from './events.js'
-import { applyEvent, project } from './projection.js'
+import { applyEvent } from './projection.js'
 
 function validateEvent(state: ProjectionState, event: PalimpsestEvent): void {
   switch (event.type) {
@@ -68,7 +68,13 @@ function validateEvent(state: ProjectionState, event: PalimpsestEvent): void {
 }
 
 export function validateBatch(initialState: ProjectionState, events: readonly PalimpsestEvent[]): void {
-  const state = project([], initialState)
+  const state: ProjectionState = {
+    spheres:  new Map(initialState.spheres),
+    agendas:  new Map(initialState.agendas),
+    contexts: new Map(initialState.contexts),
+    projects: new Map(initialState.projects),
+    tasks:    new Map(initialState.tasks),
+  }
   for (const event of events) {
     validateEvent(state, event)
     applyEvent(state, event)

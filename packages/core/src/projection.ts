@@ -176,6 +176,7 @@ export function applyEvent(state: ProjectionState, event: PalimpsestEvent): Proj
 }
 
 export function project(events: readonly PalimpsestEvent[], initialState?: ProjectionState): ProjectionState {
+  if (events.length === 0) return initialState ?? createEmptyState()
   const startState = initialState !== undefined
     ? {
         spheres:  new Map(initialState.spheres),

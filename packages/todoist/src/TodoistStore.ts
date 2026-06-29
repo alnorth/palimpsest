@@ -22,9 +22,7 @@ export class TodoistStore extends PollingStore {
   }
 
   override async getState(): Promise<ProjectionState> {
-    const pending = await this.pendingStore.load()
-    if (pending.length === 0) return this.currentState
-    return project(pending, this.currentState)
+    return project(await this.pendingStore.load(), this.currentState)
   }
 
   override async sync(): Promise<void> {
