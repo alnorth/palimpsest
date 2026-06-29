@@ -37,19 +37,6 @@ export class TodoistStore extends PollingStore {
     return this.currentState
   }
 
-  protected override async doAppend(events: PalimpsestEvent[]): Promise<void> {
-    await this.pendingStore.save(events)
-    try {
-      await this.flush(events)
-      await this.pendingStore.save([])
-      this.health = 'idle'
-      this.syncError = undefined
-    } catch (err) {
-      this.health = 'error'
-      this.syncError = err instanceof Error ? err.message : String(err)
-    }
-  }
-
   private async flush(events: PalimpsestEvent[]): Promise<void> {
     const allCommands: SyncCommand[] = []
     // tempId → nanoid (source id from the event) for later substitution

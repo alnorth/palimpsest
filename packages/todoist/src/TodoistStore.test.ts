@@ -88,33 +88,16 @@ describe('syncState', () => {
     })
   })
 
-  describe('doAppend', () => {
-    it('becomes error when the Todoist write fails', async () => {
-      vi.mocked(api.syncWrite).mockRejectedValue(new Error('403 Forbidden'))
-      const store = makeStore()
-      await store.appendEvents([makeTaskEvent()])
-      expect(store.syncState.health).toBe('error')
-      expect(store.syncState.lastError).toBe('403 Forbidden')
-    })
-
-    it('leaves unsynced events in the pending store when write fails', async () => {
-      vi.mocked(api.syncWrite).mockRejectedValue(new Error('timeout'))
+  describe('appendEvents', () => {
+    it('queues events in the pending store immediately', async () => {
       const store = makeStore()
       await store.appendEvents([makeTaskEvent()])
       expect(store.syncState.unsyncedCount).toBe(1)
     })
-
-    it('clears error and pending store after a successful append', async () => {
-      vi.mocked(api.syncWrite).mockResolvedValue({ sync_status: {}, temp_id_mapping: {} })
-      const store = makeStore()
-      await store.appendEvents([makeTaskEvent()])
-      expect(store.syncState.health).toBe('idle')
-      expect(store.syncState.unsyncedCount).toBe(0)
-    })
   })
 
   describe('pending event retry in doRefresh', () => {
-    it('flushes pending events left by a failed doAppend on next refresh', async () => {
+    it('retries pending events on next refresh after a failed flush', async () => {
       vi.mocked(api.syncWrite)
         .mockRejectedValueOnce(new Error('timeout'))
         .mockResolvedValue({ sync_status: {}, temp_id_mapping: {} })
@@ -122,6 +105,10 @@ describe('syncState', () => {
 
       const store = makeStore()
       await store.appendEvents([makeTaskEvent()])
+      expect(store.syncState.unsyncedCount).toBe(1)
+
+      await store.refresh()
+      expect(store.syncState.health).toBe('error')
       expect(store.syncState.unsyncedCount).toBe(1)
 
       await store.refresh()
