@@ -24,7 +24,7 @@ let store: PalimpsestStore
 if (todoistToken !== undefined) {
   const pendingPath = join(homedir(), '.palimpsest', 'todoist-pending.json')
   mkdirSync(dirname(pendingPath), { recursive: true })
-  store = new TodoistStore(todoistToken, { pendingStore: new FilePendingEventStore(pendingPath) })
+  store = new TodoistStore(todoistToken, { pendingStore: new FilePendingEventStore(pendingPath), configState })
 } else if (apiUrl !== undefined && authToken !== undefined) {
   const pendingPath = join(homedir(), '.palimpsest', 'pending.json')
   store = new ClientPalimpsestStore(
