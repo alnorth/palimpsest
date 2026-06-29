@@ -143,14 +143,14 @@ export function LoadedApp({ store, initialState, onLogout }: Props) {
   } else if (listItems.view === 'task' && activeTask !== undefined) {
     content = <TaskDetail task={activeTask} state={projState} commands={commands} dispatch={dispatch} />
   } else if (listItems.view === 'project') {
-    const projectCommands = [commands['archive-project'], commands['unarchive-project']].filter(c => c !== undefined)
     content = (
       <Stack gap="sm">
-        {projectCommands.length > 0 && (
+        {activeProject !== undefined && (
           <Group gap="xs">
-            {projectCommands.map(c => (
-              <CommandButton key={c.id} command={c} dispatch={dispatch} />
-            ))}
+            <CommandButton
+              command={{ id: activeProject.isArchived ? 'unarchive-project' : 'archive-project', label: activeProject.isArchived ? 'unarchive' : 'archive', group: 'state', key: 'x', action: { type: activeProject.isArchived ? 'unarchive-project' : 'archive-project', projectId: activeProject.id } }}
+              dispatch={dispatch}
+            />
           </Group>
         )}
         <ItemList

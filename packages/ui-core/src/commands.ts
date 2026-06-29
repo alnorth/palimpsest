@@ -199,15 +199,14 @@ export function getCommands(vm: ViewModel): Partial<Record<CommandId, Command>> 
   }
 
   // ── Archive / unarchive project ──────────────────────────────────────────────
-  const archiveTargetProject = view === 'projects' ? selectedProject : view === 'project' ? vm.activeProject : undefined
-  if (archiveTargetProject !== undefined) {
-    if (archiveTargetProject.isArchived) {
+  if (view === 'projects' && selectedProject !== undefined) {
+    if (selectedProject.isArchived) {
       commands['unarchive-project'] = {
         id: 'unarchive-project',
         label: 'unarchive',
         group: 'state',
         key: 'x',
-        action: { type: 'unarchive-project', projectId: archiveTargetProject.id },
+        action: { type: 'unarchive-project', projectId: selectedProject.id },
       }
     } else {
       commands['archive-project'] = {
@@ -215,7 +214,7 @@ export function getCommands(vm: ViewModel): Partial<Record<CommandId, Command>> 
         label: 'archive',
         group: 'state',
         key: 'x',
-        action: { type: 'archive-project', projectId: archiveTargetProject.id },
+        action: { type: 'archive-project', projectId: selectedProject.id },
       }
     }
   }
