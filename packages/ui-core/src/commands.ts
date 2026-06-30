@@ -58,7 +58,7 @@ export function getCommands(vm: ViewModel): Partial<Record<CommandId, Command>> 
   }
 
   // ── Edit project name ────────────────────────────────────────────────────────
-  if (view === 'projects' && !showArchived && selectedProject !== undefined) {
+  if ((view === 'projects' || view === 'processing') && !showArchived && selectedProject !== undefined) {
     commands['edit-project'] = {
       id: 'edit-project',
       label: 'edit',
@@ -199,7 +199,7 @@ export function getCommands(vm: ViewModel): Partial<Record<CommandId, Command>> 
   }
 
   // ── Archive / unarchive project ──────────────────────────────────────────────
-  if (view === 'projects' && selectedProject !== undefined) {
+  if ((view === 'projects' || view === 'processing') && selectedProject !== undefined) {
     if (selectedProject.isArchived) {
       commands['unarchive-project'] = {
         id: 'unarchive-project',

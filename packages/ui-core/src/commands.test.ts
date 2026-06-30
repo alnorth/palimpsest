@@ -197,6 +197,30 @@ describe('commands — projects view', () => {
   })
 })
 
+describe('commands — processing view', () => {
+  // In buildTestState: Task One (no project) is actionable → flat index 0
+  // Alpha project (no next action) → flat index 1
+  it('includes archive-project when a project is selected', () => {
+    const { projState, sphere } = buildTestState()
+    const uiState = makeUIState({
+      currentSphereId: sphere.id,
+      navStack: [{ view: 'processing' as const, selected: 1 }],
+    })
+    const ids = commandIds(projState, uiState)
+    expect(ids).toContain('archive-project')
+  })
+
+  it('includes edit-project when a project is selected', () => {
+    const { projState, sphere } = buildTestState()
+    const uiState = makeUIState({
+      currentSphereId: sphere.id,
+      navStack: [{ view: 'processing' as const, selected: 1 }],
+    })
+    const ids = commandIds(projState, uiState)
+    expect(ids).toContain('edit-project')
+  })
+})
+
 describe('commands — project view', () => {
   it('includes add-task and add-project', () => {
     const { projState, sphere, proj } = buildTestState()
