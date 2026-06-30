@@ -44,7 +44,7 @@ function resolveWaiting(task: Task, state: ProjectionState): ResolvedWaiting | u
 export function getTaskRowMeta(
   task: Task,
   state: ProjectionState,
-  opts?: { showProject?: boolean }
+  opts?: { showProject?: boolean; today?: string }
 ): TaskMetaItem[] {
   const items: TaskMetaItem[] = []
   if (task.description) items.push({ text: '¶' })
@@ -66,7 +66,7 @@ export function getTaskRowMeta(
     if (c !== undefined) items.push({ text: `${CONTEXT_PREFIX}${c.name}` })
   }
   if (task.dueDate !== undefined) {
-    const today = localToday()
+    const today = opts?.today ?? localToday()
     const dueStatus = task.dueDate === today ? 'today' as const : task.dueDate < today ? 'overdue' as const : undefined
     items.push({ text: task.dueDate, ...(dueStatus !== undefined && { dueStatus }) })
   }

@@ -4,9 +4,10 @@ import { ItemList } from './ItemList.js'
 import { Title } from './Title.js'
 import { PickerList, DueDatePicker, ProjectSearch } from './Pickers.js'
 import TextInput from 'ink-text-input'
-import { FilePalimpsestStore, CLEAR, buildStateFromConfig, PALIMPSEST_CONFIG, createEmptyState, isValidExpression, parseDueDate } from 'palimpsest'
+import { FilePalimpsestStore, buildStateFromConfig, PALIMPSEST_CONFIG, createEmptyState } from 'palimpsest'
 import type { PalimpsestStore, ProjectionState } from 'palimpsest'
 import { useAppState, ClientPalimpsestStore, getDueDatePreview, getRecurrencePreview, handleKey, getTaskDetailFields, isMainListItems } from 'palimpsest-ui-core'
+import { handleTaskSubmit, handleEditSubmit, handleEditDescriptionSubmit, handleDueDateSubmit, handleRecurrenceSubmit, handleProjectSubmit, handleEditProjectSubmit } from './submitHandlers.js'
 import { TodoistStore } from 'palimpsest-todoist'
 import { FilePendingEventStore } from './FilePendingEventStore.js'
 import type { View } from 'palimpsest-ui-core'
@@ -111,72 +112,13 @@ function LoadedApp({ initialState }: { initialState: ProjectionState }) {
     handleKey(k, { mode, listItems, commands, searchQuery, dispatch, activate, activateSelected })
   })
 
-  function handleTaskSubmit(title: string) {
-    const trimmed = title.trim()
-    if (trimmed) {
-      const projectId = view === 'project' ? activeProject?.id : undefined
-      dispatch({
-        type: 'create-task',
-        title: trimmed,
-        ...(projectId !== undefined && { projectId }),
-        ...(activeSphere !== undefined && { sphereId: activeSphere.id }),
-      })
-    } else {
-      dispatch({ type: 'exit-mode' })
-    }
-  }
-
-  function handleEditSubmit(title: string) {
-    const trimmed = title.trim()
-    if (trimmed && currentTask !== undefined) {
-      dispatch({ type: 'edit-task', taskId: currentTask.id, title: trimmed })
-    } else {
-      dispatch({ type: 'exit-mode' })
-    }
-  }
-
-  function handleEditDescriptionSubmit(description: string) {
-    if (currentTask !== undefined) {
-      dispatch({ type: 'edit-task-description', taskId: currentTask.id, description: description.trim() })
-    } else {
-      dispatch({ type: 'exit-mode' })
-    }
-  }
-
-  function handleDueDateSubmit(value: string) {
-    const parsed = parseDueDate(value, today)
-    if (parsed !== null && currentTask !== undefined) {
-      dispatch({ type: 'set-task-due-date', taskId: currentTask.id, dueDate: parsed })
-    }
-  }
-
-  function handleRecurrenceSubmit(value: string) {
-    const trimmed = value.trim()
-    if (currentTask === undefined) return
-    if (trimmed === '') {
-      dispatch({ type: 'set-task-due-date-expression', taskId: currentTask.id, dueDateExpression: CLEAR })
-    } else if (isValidExpression(trimmed)) {
-      dispatch({ type: 'set-task-due-date-expression', taskId: currentTask.id, dueDateExpression: trimmed })
-    }
-  }
-
-  function handleProjectSubmit(name: string) {
-    const trimmed = name.trim()
-    if (trimmed && activeSphere !== undefined) {
-      dispatch({ type: 'create-project', name: trimmed, sphereId: activeSphere.id })
-    } else {
-      dispatch({ type: 'exit-mode' })
-    }
-  }
-
-  function handleEditProjectSubmit(name: string) {
-    const trimmed = name.trim()
-    if (trimmed && selectedProject !== undefined) {
-      dispatch({ type: 'edit-project', projectId: selectedProject.id, name: trimmed })
-    } else {
-      dispatch({ type: 'exit-mode' })
-    }
-  }
+  const _taskSubmit = (title: string) => handleTaskSubmit(title, view, activeProject, activeSphere, dispatch)
+  const _editSubmit = (title: string) => handleEditSubmit(title, currentTask, dispatch)
+  const _editDescriptionSubmit = (description: string) => handleEditDescriptionSubmit(description, currentTask, dispatch)
+  const _dueDateSubmit = (value: string) => handleDueDateSubmit(value, today, currentTask, dispatch)
+  const _recurrenceSubmit = (value: string) => handleRecurrenceSubmit(value, currentTask, dispatch)
+  const _projectSubmit = (name: string) => handleProjectSubmit(name, activeSphere, dispatch)
+  const _editProjectSubmit = (name: string) => handleEditProjectSubmit(name, selectedProject, dispatch)
 
   const _d = new Date()
   const today = `${_d.getFullYear()}-${String(_d.getMonth() + 1).padStart(2, '0')}-${String(_d.getDate()).padStart(2, '0')}`
@@ -207,7 +149,7 @@ function LoadedApp({ initialState }: { initialState: ProjectionState }) {
         <Box flexDirection="column">
           <Box>
             <Text>Due date: </Text>
-            <TextInput value={formValue} onChange={v => dispatch({ type: 'update-mode', formValue: v })} onSubmit={handleDueDateSubmit} />
+            <TextInput value={formValue} onChange={v => dispatch({ type: 'update-mode', formValue: v })} onSubmit={_dueDateSubmit} />
           </Box>
           {dueDatePreviewHint}
         </Box>
@@ -321,24 +263,24 @@ function LoadedApp({ initialState }: { initialState: ProjectionState }) {
       ) : (
         <Box>
           <Text>New task: </Text>
-          <TextInput value={formValue} onChange={onChangeFormValue} onSubmit={handleTaskSubmit} />
+          <TextInput value={formValue} onChange={onChangeFormValue} onSubmit={_taskSubmit} />
         </Box>
       )
     ) : mode?.type === 'editing-task' ? (
       <Box>
         <Text>Edit task: </Text>
-        <TextInput value={formValue} onChange={onChangeFormValue} onSubmit={handleEditSubmit} />
+        <TextInput value={formValue} onChange={onChangeFormValue} onSubmit={_editSubmit} />
       </Box>
     ) : mode?.type === 'editing-description' ? (
       <Box>
         <Text>Description: </Text>
-        <TextInput value={formValue} onChange={onChangeFormValue} onSubmit={handleEditDescriptionSubmit} />
+        <TextInput value={formValue} onChange={onChangeFormValue} onSubmit={_editDescriptionSubmit} />
       </Box>
     ) : mode?.type === 'editing-recurrence' ? (
       <Box flexDirection="column">
         <Box>
           <Text>Recurring: </Text>
-          <TextInput value={formValue} onChange={onChangeFormValue} onSubmit={handleRecurrenceSubmit} />
+          <TextInput value={formValue} onChange={onChangeFormValue} onSubmit={_recurrenceSubmit} />
         </Box>
         {recurrencePreviewHint}
       </Box>
@@ -348,13 +290,13 @@ function LoadedApp({ initialState }: { initialState: ProjectionState }) {
       ) : (
         <Box>
           <Text>New project: </Text>
-          <TextInput value={formValue} onChange={onChangeFormValue} onSubmit={handleProjectSubmit} />
+          <TextInput value={formValue} onChange={onChangeFormValue} onSubmit={_projectSubmit} />
         </Box>
       )
     ) : mode?.type === 'editing-project' ? (
       <Box>
         <Text>Edit project: </Text>
-        <TextInput value={formValue} onChange={onChangeFormValue} onSubmit={handleEditProjectSubmit} />
+        <TextInput value={formValue} onChange={onChangeFormValue} onSubmit={_editProjectSubmit} />
       </Box>
     ) : listHint
   }
