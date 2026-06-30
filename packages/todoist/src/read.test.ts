@@ -228,6 +228,25 @@ describe('buildDeltaEvents — projects', () => {
     expect(events.some(e => e.type === 'project.archived' && e.projectId === 'pDel')).toBe(true)
     expect(events.some(e => e.type === 'project.created' && e.projectId === 'pDel')).toBe(false)
   })
+
+  it('emits project.archived when is_archived=true and parent_id=null (Todoist clears parent on archive)', () => {
+    const projects = [...CONTAINERS, makeProject({ id: 'pArch', parent_id: TODOIST_WORK_PROJECT_ID })]
+    const base = makeBase(projects)
+    const events = buildDeltaEvents(base, [
+      makeProject({ id: 'pArch', parent_id: null, is_archived: true }),
+    ], [])
+    expect(events.some(e => e.type === 'project.archived' && e.projectId === 'pArch')).toBe(true)
+    expect(events.some(e => e.type === 'project.created' && e.projectId === 'pArch')).toBe(false)
+  })
+
+  it('emits project.unarchived when is_archived flips false on an existing archived project', () => {
+    const projects = [...CONTAINERS, makeProject({ id: 'pUnarch', parent_id: TODOIST_WORK_PROJECT_ID, is_archived: true })]
+    const base = makeBase(projects)
+    const events = buildDeltaEvents(base, [
+      makeProject({ id: 'pUnarch', parent_id: TODOIST_WORK_PROJECT_ID, is_archived: false }),
+    ], [])
+    expect(events.some(e => e.type === 'project.unarchived' && e.projectId === 'pUnarch')).toBe(true)
+  })
 })
 
 describe('buildDeltaEvents — tasks', () => {
