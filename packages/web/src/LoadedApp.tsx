@@ -41,7 +41,7 @@ function FormModal({ opened, onClose, title, placeholder, preview, value, onChan
           placeholder={placeholder}
           value={value}
           onChange={e => onChange(e.currentTarget.value)}
-          onKeyDown={e => { if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { onSubmit(value); e.preventDefault() } }}
+          onKeyDown={e => { if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { onSubmit(value); e.stopPropagation(); e.preventDefault() } }}
           autoFocus
           size="sm"
           minRows={3}
@@ -53,7 +53,7 @@ function FormModal({ opened, onClose, title, placeholder, preview, value, onChan
           placeholder={placeholder}
           value={value}
           onChange={e => onChange(e.currentTarget.value)}
-          onKeyDown={e => { if (e.key === 'Enter') { onSubmit(value); e.preventDefault() } }}
+          onKeyDown={e => { if (e.key === 'Enter') { onSubmit(value); e.stopPropagation(); e.preventDefault() } }}
           autoFocus
           size="sm"
           styles={{ input: inputStyles }}
