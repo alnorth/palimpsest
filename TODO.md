@@ -15,7 +15,9 @@
 - [x] Update the web app so it can be used on mobile without all the keyboard shortcuts.
 - [x] Pick list screen for choosing work to do, separated by contexts.
 - [x] TodoistStore isn't properly handling read/write operations on recurring tasks.
+- [ ] Fix modal input on auto focus.
 - [ ] Expose the option to archive a project.
+- [ ] Add a "header" row on a single project view so that project-level commands are available.
 - [ ] Add the option to postpone a task.
 - [ ] Agenda view listing tasks for a particular agenda, separated by isWaiting.
 - [ ] Spend some time optimising React rendering and the updates of store state.
@@ -42,3 +44,5 @@
 - [ ] Add a description field for projects.
 - [ ] Add a way of turning tasks into projects.
 - [x] Make URLs in descriptions clickable.
+- [ ] Add multi-select in webapp and CLI.
+- [ ]
