@@ -6,6 +6,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **When tagging a release**, always bump the `version` field in the relevant `package.json` to match the tag before committing.
 
+## Development approach
+
+All development must follow a Test-Driven Development (TDD) approach: write failing tests first, then write the minimum code to make them pass, then refactor. Do not implement new functionality without a corresponding test written beforehand.
+
 ## Git workflow
 
 Commit directly on `main`. Do not create feature branches or pull requests unless explicitly asked.
