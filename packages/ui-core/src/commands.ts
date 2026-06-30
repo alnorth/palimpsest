@@ -58,19 +58,10 @@ export function getCommands(vm: ViewModel): Partial<Record<CommandId, Command>> 
   }
 
   // ── Edit project name ────────────────────────────────────────────────────────
-  if ((view === 'projects' || view === 'processing') && !showArchived && selectedProject !== undefined) {
+  if ((view === 'projects' || view === 'processing' || view === 'project') && !showArchived && selectedProject !== undefined) {
     commands['edit-project'] = {
       id: 'edit-project',
       label: 'edit',
-      group: 'state',
-      key: 'e',
-      action: { type: 'set-mode', mode: { type: 'editing-project', formValue: selectedProject.name } },
-    }
-  }
-  if (view === 'project' && selectedProject !== undefined) {
-    commands['edit-project'] = {
-      id: 'edit-project',
-      label: 'edit project',
       group: 'state',
       key: 'e',
       action: { type: 'set-mode', mode: { type: 'editing-project', formValue: selectedProject.name } },
