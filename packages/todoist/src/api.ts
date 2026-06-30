@@ -35,14 +35,6 @@ export interface SyncProject {
   updated_at: string        // ISO 8601
 }
 
-export interface SyncReadResponse {
-  sync_token: string
-  full_sync: boolean
-  full_sync_date_utc?: string   // present on initial full sync only
-  items: SyncItem[]
-  projects: SyncProject[]
-}
-
 export interface SyncCommand {
   type: string
   uuid: string
@@ -50,10 +42,14 @@ export interface SyncCommand {
   args: Record<string, unknown>
 }
 
-export interface SyncWriteResponse {
-  sync_status: Record<string, 'ok' | { error_code: number; error: string }>
-  temp_id_mapping: Record<string, string>
-  sync_token?: string
+export interface SyncResponse {
+  sync_token: string
+  full_sync: boolean
+  full_sync_date_utc?: string   // present on initial full sync only
+  items: SyncItem[]
+  projects: SyncProject[]
+  sync_status?: Record<string, 'ok' | { error_code: number; error: string }>
+  temp_id_mapping?: Record<string, string>
 }
 
 // ── Request helpers ───────────────────────────────────────────────────────────
@@ -80,16 +76,13 @@ async function post<T>(token: string, body: Record<string, unknown>): Promise<T>
 
 // ── Public API ────────────────────────────────────────────────────────────────
 
-// Fetch a snapshot (syncToken = '*') or an incremental delta (saved token).
-// resource_types omitted from incremental calls returns all changed resource types.
-export function syncRead(token: string, syncToken: string): Promise<SyncReadResponse> {
-  return post<SyncReadResponse>(token, {
-    sync_token: syncToken,
+export function sync(
+  token: string,
+  opts: { syncToken: string; commands: SyncCommand[] },
+): Promise<SyncResponse> {
+  return post<SyncResponse>(token, {
+    sync_token: opts.syncToken,
     resource_types: ['projects', 'items'],
-    commands: [],
+    commands: opts.commands,
   })
-}
-
-export function syncWrite(token: string, commands: SyncCommand[]): Promise<SyncWriteResponse> {
-  return post<SyncWriteResponse>(token, { commands })
 }

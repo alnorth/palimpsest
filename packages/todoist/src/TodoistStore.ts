@@ -1,6 +1,6 @@
 import { PollingStore, project, createEmptyState } from 'palimpsest'
 import type { PalimpsestEvent, ProjectionState, ProjectId, PendingEventStore } from 'palimpsest'
-import { syncRead, syncWrite } from './api.js'
+import { sync } from './api.js'
 import type { SyncCommand } from './api.js'
 import { buildEvents, buildDeltaEvents } from './read.js'
 import { buildCommands } from './write.js'
@@ -25,9 +25,9 @@ export class TodoistStore extends PollingStore {
   override async sync(): Promise<void> {
     const pending = await this.pendingStore.load()
 
+    const allCommands: SyncCommand[] = []
     if (pending.length > 0) {
       const currentState = project(this.baseEvents, this.configState)
-      const allCommands: SyncCommand[] = []
       // nanoid → temp_id so that cross-batch foreign-key references (e.g. task.created
       // pointing at a project created earlier in the same batch) use the temp_id that
       // Todoist resolves within the batch, not the nanoid.
@@ -46,34 +46,30 @@ export class TodoistStore extends PollingStore {
           }
         }
       }
-
-      if (allCommands.length > 0) {
-        try {
-          await syncWrite(this.token, allCommands)
-        } catch (err) {
-          this.health = 'error'
-          this.syncError = err instanceof Error ? err.message : String(err)
-          return
-        }
-      }
-
-      await this.pendingStore.save([])
     }
 
-    let readRes
+    let res
     try {
-      readRes = await syncRead(this.token, this.syncToken)
+      res = await sync(this.token, {
+        syncToken: this.syncToken,
+        commands: allCommands,
+      })
     } catch (err) {
       this.health = 'error'
       this.syncError = err instanceof Error ? err.message : String(err)
       return
     }
-    this.syncToken = readRes.sync_token
-    if (readRes.full_sync) {
-      this.baseEvents = buildEvents(readRes.projects, readRes.items)
+
+    if (pending.length > 0) {
+      await this.pendingStore.save([])
+    }
+
+    this.syncToken = res.sync_token
+    if (res.full_sync) {
+      this.baseEvents = buildEvents(res.projects, res.items)
     } else {
       const currentBase = project(this.baseEvents, this.configState)
-      const newEvents = buildDeltaEvents(currentBase, readRes.projects, readRes.items)
+      const newEvents = buildDeltaEvents(currentBase, res.projects, res.items)
       this.baseEvents.push(...newEvents)
     }
     this.health = 'idle'

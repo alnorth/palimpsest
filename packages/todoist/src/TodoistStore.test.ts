@@ -3,7 +3,7 @@ import { TodoistStore } from './TodoistStore.js'
 import * as api from './api.js'
 import { createEmptyState, buildStateFromConfig } from 'palimpsest'
 import type { PalimpsestEvent, SphereId, TaskId, EventId } from 'palimpsest'
-import type { SyncReadResponse } from './api.js'
+import type { SyncResponse } from './api.js'
 
 vi.mock('./api.js')
 
@@ -11,7 +11,7 @@ const SPHERE_ID = 'sph1' as SphereId
 const initialConfig = [{ id: SPHERE_ID, name: 'Work', agendas: [], contexts: [] }]
 const baseState = { ...createEmptyState(), ...buildStateFromConfig(initialConfig) }
 
-const EMPTY_READ: SyncReadResponse = {
+const EMPTY_SYNC: SyncResponse = {
   sync_token: 'tok1',
   full_sync: false,
   items: [],
@@ -51,15 +51,15 @@ describe('syncState', () => {
 
   describe('doRefresh (via refresh())', () => {
     it('stays idle and clears error after a successful refresh', async () => {
-      vi.mocked(api.syncRead).mockResolvedValue({ ...EMPTY_READ, full_sync: false })
+      vi.mocked(api.sync).mockResolvedValue({ ...EMPTY_SYNC, full_sync: false })
       const store = makeStore()
       await store.refresh()
       expect(store.syncState.health).toBe('idle')
       expect(store.syncState.lastError).toBeUndefined()
     })
 
-    it('becomes error when syncRead throws', async () => {
-      vi.mocked(api.syncRead).mockRejectedValue(new Error('network failure'))
+    it('becomes error when sync throws', async () => {
+      vi.mocked(api.sync).mockRejectedValue(new Error('network failure'))
       const store = makeStore()
       await store.refresh()
       expect(store.syncState.health).toBe('error')
@@ -67,9 +67,9 @@ describe('syncState', () => {
     })
 
     it('clears error after a successful refresh following a failure', async () => {
-      vi.mocked(api.syncRead)
+      vi.mocked(api.sync)
         .mockRejectedValueOnce(new Error('timeout'))
-        .mockResolvedValue({ ...EMPTY_READ, full_sync: false })
+        .mockResolvedValue({ ...EMPTY_SYNC, full_sync: false })
       const store = makeStore()
       await store.refresh()
       expect(store.syncState.health).toBe('error')
@@ -78,8 +78,8 @@ describe('syncState', () => {
       expect(store.syncState.lastError).toBeUndefined()
     })
 
-    it('notifies subscribers even when syncRead throws', async () => {
-      vi.mocked(api.syncRead).mockRejectedValue(new Error('offline'))
+    it('notifies subscribers even when sync throws', async () => {
+      vi.mocked(api.sync).mockRejectedValue(new Error('offline'))
       const store = makeStore()
       const listener = vi.fn()
       store.subscribe(listener)
@@ -106,7 +106,7 @@ describe('syncState', () => {
     })
 
     it('returns base events from Todoist after a full sync', async () => {
-      vi.mocked(api.syncRead).mockResolvedValue({
+      vi.mocked(api.sync).mockResolvedValue({
         sync_token: 'tok2',
         full_sync: true,
         projects: [],
@@ -121,10 +121,9 @@ describe('syncState', () => {
 
   describe('pending event retry in doRefresh', () => {
     it('retries pending events on next refresh after a failed flush', async () => {
-      vi.mocked(api.syncWrite)
+      vi.mocked(api.sync)
         .mockRejectedValueOnce(new Error('timeout'))
-        .mockResolvedValue({ sync_status: {}, temp_id_mapping: {} })
-      vi.mocked(api.syncRead).mockResolvedValue({ ...EMPTY_READ, full_sync: false })
+        .mockResolvedValue({ ...EMPTY_SYNC, full_sync: false })
 
       const store = makeStore()
       await store.appendEvents([makeTaskEvent()])
@@ -137,7 +136,7 @@ describe('syncState', () => {
       await store.refresh()
       expect(store.syncState.health).toBe('idle')
       expect(store.syncState.unsyncedCount).toBe(0)
-      expect(vi.mocked(api.syncWrite)).toHaveBeenCalledTimes(2)
+      expect(vi.mocked(api.sync)).toHaveBeenCalledTimes(2)
     })
   })
 })
