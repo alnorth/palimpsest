@@ -18,7 +18,7 @@ export function TaskRow({ task, isSelected, state, showProject = false }: TaskRo
       isSelected={isSelected}
       color={isSelected ? 'blue' : undefined}
       twoLine={metaItems.length > 0}
-      title={<><Text color="yellow">{task.isNext === true ? '→' : ' '} </Text><Text color="yellow">{task.isStarred === true ? '★ ' : ''}</Text>{task.title}</>}
+      title={<><Text color="yellow">{task.isNext === true ? '→' : ' '} </Text><Text color="yellow">{task.isStarred === true ? '★ ' : ''}</Text><Text {...(isSelected ? { color: 'blue' as const } : {})}>{task.title}</Text></>}
     >
       {metaItems.map((item, j) => (
         <React.Fragment key={j}>

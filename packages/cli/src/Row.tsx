@@ -1,14 +1,9 @@
 import React from 'react'
 import { Box, Text } from 'ink'
 
-interface Props {
-  isSelected: boolean
-  color: 'blue' | 'red' | undefined
-  dimColor?: boolean
-  title: React.ReactNode
-  children?: React.ReactNode
-  twoLine?: boolean
-}
+type Props =
+  | { isSelected: boolean; color: 'blue' | 'red' | undefined; dimColor?: boolean; title: React.ReactNode; children?: React.ReactNode; twoLine?: false }
+  | { isSelected: boolean; color: 'blue' | 'red' | undefined; dimColor?: boolean; title: React.ReactElement; children?: React.ReactNode; twoLine: true }
 
 export function Row({ isSelected, color, dimColor, title, children, twoLine }: Props) {
   if (twoLine === true) {
@@ -16,8 +11,9 @@ export function Row({ isSelected, color, dimColor, title, children, twoLine }: P
       <Box flexDirection="column" marginBottom={1}>
         <Box>
           <Text {...(color !== undefined ? { color } : {})} dimColor={dimColor === true}>
-            {isSelected ? '> ' : '  '}{title}
+            {isSelected ? '> ' : '  '}
           </Text>
+          {title}
         </Box>
         <Box marginLeft={4}>{children}</Box>
       </Box>
