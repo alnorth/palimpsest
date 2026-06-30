@@ -67,6 +67,15 @@ export function getCommands(vm: ViewModel): Partial<Record<CommandId, Command>> 
       action: { type: 'set-mode', mode: { type: 'editing-project', formValue: selectedProject.name } },
     }
   }
+  if (view === 'project' && selectedProject !== undefined) {
+    commands['edit-project'] = {
+      id: 'edit-project',
+      label: 'edit project',
+      group: 'state',
+      key: 'e',
+      action: { type: 'set-mode', mode: { type: 'editing-project', formValue: selectedProject.name } },
+    }
+  }
 
   // ── Complete / uncomplete task ───────────────────────────────────────────────
   if (currentTask !== undefined) {
@@ -199,7 +208,7 @@ export function getCommands(vm: ViewModel): Partial<Record<CommandId, Command>> 
   }
 
   // ── Archive / unarchive project ──────────────────────────────────────────────
-  if ((view === 'projects' || view === 'processing') && selectedProject !== undefined) {
+  if ((view === 'projects' || view === 'processing' || view === 'project') && selectedProject !== undefined) {
     if (selectedProject.isArchived) {
       commands['unarchive-project'] = {
         id: 'unarchive-project',

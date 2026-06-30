@@ -58,6 +58,7 @@ export function flatItems<T>(groups: ListGroup<T>[]): T[] {
 export type ListItem =
   | { kind: 'task'; task: Task }
   | { kind: 'project'; project: Project }
+  | { kind: 'project-header'; project: Project }
 
 export type MainListItems = { view: 'dashboard' | 'tasks' | 'project' | 'projects' | 'processing' | 'waiting' | 'pick-list'; groups: ListGroup<ListItem>[]; items: ListItem[]; emptyMessage: string; selectedItem: ListItem | undefined }
 
@@ -237,7 +238,9 @@ export function deriveViewModel(projState: ProjectionState, uiState: UIState): V
         return { view, groups: [{ title: '', items }], items, emptyMessage: showCompleted ? 'No completed tasks in this sphere.' : 'No open tasks in this sphere.', selectedItem: items[selected] }
       }
       case 'project': {
-        const items = projectTasks.map((t): ListItem => ({ kind: 'task', task: t }))
+        const headerItems: ListItem[] = activeProject !== undefined ? [{ kind: 'project-header', project: activeProject }] : []
+        const taskItems = projectTasks.map((t): ListItem => ({ kind: 'task', task: t }))
+        const items = [...headerItems, ...taskItems]
         return { view, groups: [{ title: '', items }], items, emptyMessage: showCompleted ? 'No completed tasks in this project.' : 'No open tasks in this project.', selectedItem: items[selected] }
       }
       case 'projects': {
@@ -349,7 +352,7 @@ export function deriveViewModel(projState: ProjectionState, uiState: UIState): V
 
   const selectedItem: ListItem | undefined = isMainListItems(listItems) ? listItems.selectedItem : undefined
 
-  const selectedProject: Project | undefined = selectedItem?.kind === 'project' ? selectedItem.project : undefined
+  const selectedProject: Project | undefined = (selectedItem?.kind === 'project' || selectedItem?.kind === 'project-header') ? selectedItem.project : undefined
 
   const currentTask: Task | undefined =
     listItems.view === 'task' ? activeTask

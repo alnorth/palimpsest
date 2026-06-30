@@ -93,7 +93,8 @@ export function useAppState(store: PalimpsestStore, initialState: ProjectionStat
           if (projectId !== undefined) {
             const tasks = listTasks(projState, { projectId, status: 'open' })
             await store.appendEvents(createTask({ title: action.title, projectId }))
-            dispatchUI({ type: 'update-nav', patch: { selected: indexAfterAppend(tasks) } })
+            // +1 because the project-header occupies index 0 in the project view list
+            dispatchUI({ type: 'update-nav', patch: { selected: indexAfterAppend(tasks) + 1 } })
           } else if (sphereId !== undefined) {
             const tasks = listTasks(projState, { sphereId, status: 'open' })
             await store.appendEvents(createTask({ title: action.title, sphereId }))
@@ -330,6 +331,7 @@ export function useAppState(store: PalimpsestStore, initialState: ProjectionStat
       } else if (item?.kind === 'project') {
         dispatch({ type: 'navigate', navState: { view: 'project', selected: 0, activeProjectId: item.project.id, showCompleted: false } })
       }
+      // project-header: already in the project view, no navigation needed
     }
   }, [])
 
