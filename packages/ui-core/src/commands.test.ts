@@ -243,14 +243,44 @@ describe('commands — project view', () => {
     expect(ids).not.toContain('add-task')
   })
 
-  it('includes toggle-next for open tasks', () => {
+  it('includes toggle-next for open tasks (task is at index 1 due to project header)', () => {
+    const { projState, sphere, proj } = buildTestState()
+    const uiState = makeUIState({
+      currentSphereId: sphere.id,
+      navStack: [{ view: 'project' as const, selected: 1, activeProjectId: proj.id, showCompleted: false }],
+    })
+    const ids = commandIds(projState, uiState)
+    expect(ids).toContain('toggle-next')
+  })
+
+  it('includes edit-project when project header is selected', () => {
     const { projState, sphere, proj } = buildTestState()
     const uiState = makeUIState({
       currentSphereId: sphere.id,
       navStack: [{ view: 'project' as const, selected: 0, activeProjectId: proj.id, showCompleted: false }],
     })
     const ids = commandIds(projState, uiState)
-    expect(ids).toContain('toggle-next')
+    expect(ids).toContain('edit-project')
+  })
+
+  it('includes archive-project when project header is selected', () => {
+    const { projState, sphere, proj } = buildTestState()
+    const uiState = makeUIState({
+      currentSphereId: sphere.id,
+      navStack: [{ view: 'project' as const, selected: 0, activeProjectId: proj.id, showCompleted: false }],
+    })
+    const ids = commandIds(projState, uiState)
+    expect(ids).toContain('archive-project')
+  })
+
+  it('does not include edit-project when a task is selected', () => {
+    const { projState, sphere, proj } = buildTestState()
+    const uiState = makeUIState({
+      currentSphereId: sphere.id,
+      navStack: [{ view: 'project' as const, selected: 1, activeProjectId: proj.id, showCompleted: false }],
+    })
+    const ids = commandIds(projState, uiState)
+    expect(ids).not.toContain('edit-project')
   })
 })
 

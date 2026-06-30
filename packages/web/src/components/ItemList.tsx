@@ -5,6 +5,7 @@ import type { ListItem, ListGroup, ProjectStats } from 'palimpsest-ui-core'
 import type { Task, ProjectionState } from 'palimpsest'
 import { TaskRow } from './TaskRow.js'
 import { ProjectRow } from './ProjectRow.js'
+import { ProjectHeaderRow } from './ProjectHeaderRow.js'
 
 interface Props {
   groups: ListGroup<ListItem>[]
@@ -55,6 +56,19 @@ export function ItemList({ groups, selectedItem, state, projectStats, showArchiv
                         {...(onHover !== undefined ? { onHover } : {})}
                         {...(onActivate !== undefined ? { onActivate } : {})}
                         {...(onComplete !== undefined ? { onComplete } : {})}
+                      />
+                    )
+                  } else if (item.kind === 'project-header') {
+                    return (
+                      <ProjectHeaderRow
+                        key={item.project.id}
+                        project={item.project}
+                        flatIndex={flatIndex}
+                        isSelected={item === selectedItem}
+                        isMobile={isMobile}
+                        projectStats={projectStats}
+                        {...(onHover !== undefined ? { onHover } : {})}
+                        {...(onActivate !== undefined ? { onActivate } : {})}
                       />
                     )
                   } else {

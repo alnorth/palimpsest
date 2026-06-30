@@ -108,6 +108,50 @@ describe('deriveViewModel — project view', () => {
     expect(vm.listItems.items.some(i => i.kind === 'task' && i.task.id === task2.id)).toBe(true)
     expect(vm.activeProject?.id).toBe(proj.id)
   })
+
+  it('has a project-header item at index 0', () => {
+    const { projState, sphere, proj } = buildTestState()
+    const uiState = makeUIState({
+      currentSphereId: sphere.id,
+      navStack: [{ view: 'project' as const, selected: 0, activeProjectId: proj.id, showCompleted: false }],
+    })
+    const vm = deriveViewModel(projState, uiState)
+    if (vm.listItems.view !== 'project') throw new Error('expected project view')
+    expect(vm.listItems.items[0]?.kind).toBe('project-header')
+    expect(vm.listItems.items[0]?.kind === 'project-header' && vm.listItems.items[0].project.id).toBe(proj.id)
+  })
+
+  it('has tasks starting at index 1', () => {
+    const { projState, sphere, proj, task2 } = buildTestState()
+    const uiState = makeUIState({
+      currentSphereId: sphere.id,
+      navStack: [{ view: 'project' as const, selected: 1, activeProjectId: proj.id, showCompleted: false }],
+    })
+    const vm = deriveViewModel(projState, uiState)
+    if (vm.listItems.view !== 'project') throw new Error('expected project view')
+    expect(vm.listItems.items[1]?.kind).toBe('task')
+    expect(vm.listItems.items[1]?.kind === 'task' && vm.listItems.items[1].task.id).toBe(task2.id)
+  })
+
+  it('sets selectedProject when project-header is selected', () => {
+    const { projState, sphere, proj } = buildTestState()
+    const uiState = makeUIState({
+      currentSphereId: sphere.id,
+      navStack: [{ view: 'project' as const, selected: 0, activeProjectId: proj.id, showCompleted: false }],
+    })
+    const vm = deriveViewModel(projState, uiState)
+    expect(vm.selectedProject?.id).toBe(proj.id)
+  })
+
+  it('does not set selectedProject when a task is selected', () => {
+    const { projState, sphere, proj } = buildTestState()
+    const uiState = makeUIState({
+      currentSphereId: sphere.id,
+      navStack: [{ view: 'project' as const, selected: 1, activeProjectId: proj.id, showCompleted: false }],
+    })
+    const vm = deriveViewModel(projState, uiState)
+    expect(vm.selectedProject).toBeUndefined()
+  })
 })
 
 describe('deriveViewModel — task view', () => {
