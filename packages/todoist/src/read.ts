@@ -259,30 +259,37 @@ export function buildDeltaEvents(
       continue
     }
     if (EXCLUDED_PROJECT_IDS.has(p.id)) continue
-    const sphereId = resolveSphereId(p, byId)
-    if (sphereId === undefined) continue
     const projectId = p.id as ProjectId
 
+    // Todoist sets parent_id=null when archiving, so sphere resolution fails for archived projects.
+    // Handle archive/unarchive for existing projects before the sphere resolution guard.
     if (current.projects.has(projectId)) {
+      const existing = current.projects.get(projectId)
+      if (p.is_archived && existing?.isArchived !== true) {
+        events.push({ id: newEventId(), type: 'project.archived', projectId, occurredAt: p.updated_at })
+        continue
+      }
+      const sphereId = resolveSphereId(p, byId)
+      if (sphereId === undefined) continue
       events.push({
         id: newEventId(), type: 'project.updated',
         projectId, patch: { name: p.name, sphereId },
         occurredAt: p.updated_at,
       })
-      const existing = current.projects.get(projectId)
-      if (p.is_archived && existing?.isArchived !== true) {
-        events.push({ id: newEventId(), type: 'project.archived', projectId, occurredAt: p.updated_at })
-      } else if (!p.is_archived && existing?.isArchived === true) {
+      if (!p.is_archived && existing?.isArchived === true) {
         events.push({ id: newEventId(), type: 'project.unarchived', projectId, occurredAt: p.updated_at })
       }
-    } else {
-      events.push({
-        id: newEventId(), type: 'project.created',
-        projectId, sphereId, name: p.name, occurredAt: p.created_at,
-      })
-      if (p.is_archived) {
-        events.push({ id: newEventId(), type: 'project.archived', projectId, occurredAt: p.updated_at })
-      }
+      continue
+    }
+
+    const sphereId = resolveSphereId(p, byId)
+    if (sphereId === undefined) continue
+    events.push({
+      id: newEventId(), type: 'project.created',
+      projectId, sphereId, name: p.name, occurredAt: p.created_at,
+    })
+    if (p.is_archived) {
+      events.push({ id: newEventId(), type: 'project.archived', projectId, occurredAt: p.updated_at })
     }
   }
 
