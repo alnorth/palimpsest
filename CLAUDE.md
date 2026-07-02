@@ -129,7 +129,7 @@ src/
     TaskDetail.tsx   — single task view (inline editing of title, due date, recurrence, etc.)
     ProjectList.tsx  — project list view
     CommandBar.tsx   — footer input bar, adapts per mode
-    NavDrawer.tsx    — mobile/sidebar sphere and view navigation
+    NavDrawer.tsx    — mobile/sidebar sphere, view, and per-agenda navigation
     Pickers.tsx      — modal pickers: due date, agenda, context, project
     SyncStatus.tsx   — sync status indicator
   stubs/

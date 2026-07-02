@@ -74,7 +74,7 @@ export function LoadedApp({ store, initialState, onLogout }: Props) {
   const appState = useAppState(store, initialState)
   const {
     view, mode, formValue, activeTask, activeProject, activeAgenda,
-    activeSphere, spheres, projectStats, agendaStats, listItems, currentTask, selectedProject,
+    activeSphere, spheres, agendas, projectStats, agendaStats, listItems, currentTask, selectedProject,
     subtitle, projState, commands, dispatch, canGoBack, showCompleted, showArchived, showProject,
     syncState, searchQuery, activate, selectedItem,
   } = appState
@@ -285,6 +285,8 @@ export function LoadedApp({ store, initialState, onLogout }: Props) {
         spheres={spheres}
         activeSphere={activeSphere}
         currentView={view}
+        agendas={agendas}
+        activeAgendaId={activeAgenda?.id}
         dispatch={dispatch}
         onLogout={onLogout}
       />
