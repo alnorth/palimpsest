@@ -91,8 +91,8 @@ function App() {
 function LoadedApp({ initialState }: { initialState: ProjectionState }) {
   const appState = useAppState(store, initialState)
   const {
-    view, mode, formValue, activeTask, activeProject,
-    activeSphere, projectStats, listItems, currentTask, selectedItem, selectedProject, spheres, subtitle,
+    view, mode, formValue, activeTask, activeProject, activeAgenda,
+    activeSphere, projectStats, agendaStats, listItems, currentTask, selectedItem, selectedProject, spheres, subtitle,
     searchQuery, projState, commands, dispatch, activate, activateSelected, canGoBack, showCompleted, showArchived, showProject,
     syncState,
   } = appState
@@ -112,7 +112,7 @@ function LoadedApp({ initialState }: { initialState: ProjectionState }) {
     handleKey(k, { mode, listItems, commands, searchQuery, dispatch, activate, activateSelected })
   })
 
-  const _taskSubmit = (title: string) => handleTaskSubmit(title, view, activeProject, activeSphere, dispatch)
+  const _taskSubmit = (title: string) => handleTaskSubmit(title, view, activeProject, activeAgenda, activeSphere, dispatch)
   const _editSubmit = (title: string) => handleEditSubmit(title, currentTask, dispatch)
   const _editDescriptionSubmit = (description: string) => handleEditDescriptionSubmit(description, currentTask, dispatch)
   const _dueDateSubmit = (value: string) => handleDueDateSubmit(value, today, currentTask, dispatch)
@@ -251,6 +251,7 @@ function LoadedApp({ initialState }: { initialState: ProjectionState }) {
         selectedItem={selectedItem}
         state={projState}
         projectStats={projectStats}
+        agendaStats={agendaStats}
         showProject={showProject}
         showArchived={showArchived}
         emptyMessage={listItems.emptyMessage}

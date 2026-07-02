@@ -3,16 +3,21 @@ import {
   project, createEmptyState, buildStateFromConfig,
   createProject, createTask,
 } from 'palimpsest'
-import type { SphereId, ContextId } from 'palimpsest'
+import type { SphereId, ContextId, AgendaId } from 'palimpsest'
 import { deriveViewModel } from './viewModel.js'
 import { INITIAL_NAV } from './types.js'
 import { makeUIState } from './testHelpers.js'
 
 const SPHERE_ID = 'sph1' as SphereId
+const AGENDA_ID = 'agenda1' as AgendaId
 
 function buildTestState() {
-  const baseState = { ...createEmptyState(), ...buildStateFromConfig([{ id: SPHERE_ID, name: 'Work', agendas: [], contexts: [] }]) }
+  const baseState = {
+    ...createEmptyState(),
+    ...buildStateFromConfig([{ id: SPHERE_ID, name: 'Work', agendas: [{ id: AGENDA_ID, title: 'Jim' }], contexts: [] }]),
+  }
   const sphere = baseState.spheres.get(SPHERE_ID)!
+  const agenda = baseState.agendas.get(AGENDA_ID)!
 
   const projectEvents = createProject({ name: 'Alpha', sphereId: sphere.id })
   const withProject = project(projectEvents, baseState)
@@ -20,14 +25,16 @@ function buildTestState() {
 
   const task1Events = createTask({ title: 'Task One', sphereId: sphere.id })
   const task2Events = createTask({ title: 'Task Two', projectId: proj.id })
+  const task3Events = createTask({ title: 'Task Three', sphereId: sphere.id, agendaId: agenda.id })
 
-  const allEvents = [...projectEvents, ...task1Events, ...task2Events]
+  const allEvents = [...projectEvents, ...task1Events, ...task2Events, ...task3Events]
   const finalState = project(allEvents, baseState)
 
   const task1 = [...finalState.tasks.values()].find(t => t.title === 'Task One')!
   const task2 = [...finalState.tasks.values()].find(t => t.title === 'Task Two')!
+  const task3 = [...finalState.tasks.values()].find(t => t.title === 'Task Three')!
 
-  return { projState: finalState, sphere, proj, task1, task2 }
+  return { projState: finalState, sphere, proj, agenda, task1, task2, task3 }
 }
 
 
@@ -107,6 +114,53 @@ describe('deriveViewModel — project view', () => {
     if (vm.listItems.view !== 'project') throw new Error('expected project view')
     expect(vm.listItems.items.some(i => i.kind === 'task' && i.task.id === task2.id)).toBe(true)
     expect(vm.activeProject?.id).toBe(proj.id)
+  })
+})
+
+describe('deriveViewModel — agendas view', () => {
+  it('lists agendas for the active sphere', () => {
+    const { projState, sphere, agenda } = buildTestState()
+    const uiState = makeUIState({
+      currentSphereId: sphere.id,
+      navStack: [{ view: 'agendas' as const, selected: 0 }],
+    })
+    const vm = deriveViewModel(projState, uiState)
+    if (vm.listItems.view !== 'agendas') throw new Error('expected agendas view')
+    expect(vm.listItems.items.some(i => i.kind === 'agenda' && i.agenda.id === agenda.id)).toBe(true)
+  })
+})
+
+describe('deriveViewModel — agenda view', () => {
+  it('returns tasks for the active agenda', () => {
+    const { projState, sphere, agenda, task3 } = buildTestState()
+    const uiState = makeUIState({
+      currentSphereId: sphere.id,
+      navStack: [{ view: 'agenda' as const, selected: 0, activeAgendaId: agenda.id, showCompleted: false }],
+    })
+    const vm = deriveViewModel(projState, uiState)
+    if (vm.listItems.view !== 'agenda') throw new Error('expected agenda view')
+    expect(vm.listItems.items.some(i => i.kind === 'task' && i.task.id === task3.id)).toBe(true)
+    expect(vm.activeAgenda?.id).toBe(agenda.id)
+  })
+
+  it('excludes tasks not assigned to the active agenda', () => {
+    const { projState, sphere, agenda, task1 } = buildTestState()
+    const uiState = makeUIState({
+      currentSphereId: sphere.id,
+      navStack: [{ view: 'agenda' as const, selected: 0, activeAgendaId: agenda.id, showCompleted: false }],
+    })
+    const vm = deriveViewModel(projState, uiState)
+    if (vm.listItems.view !== 'agenda') throw new Error('expected agenda view')
+    expect(vm.listItems.items.some(i => i.kind === 'task' && i.task.id === task1.id)).toBe(false)
+  })
+})
+
+describe('deriveViewModel — agendaStats', () => {
+  it('counts open tasks per agenda', () => {
+    const { projState, sphere, agenda } = buildTestState()
+    const uiState = makeUIState({ currentSphereId: sphere.id })
+    const vm = deriveViewModel(projState, uiState)
+    expect(vm.agendaStats.get(agenda.id)).toBe(1)
   })
 })
 

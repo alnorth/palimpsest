@@ -10,8 +10,8 @@ export function getCommands(vm: ViewModel): Partial<Record<CommandId, Command>> 
 
   if (mode !== undefined) return commands
 
-  const isTopLevel = view === 'dashboard' || view === 'tasks' || view === 'projects' || view === 'processing' || view === 'pick-list'
-  const isNormalView = isTopLevel || view === 'project'
+  const isTopLevel = view === 'dashboard' || view === 'tasks' || view === 'projects' || view === 'agendas' || view === 'processing' || view === 'pick-list'
+  const isNormalView = isTopLevel || view === 'project' || view === 'agenda'
 
   // ── Add task ─────────────────────────────────────────────────────────────────
   if (isNormalView && !showCompleted) {
@@ -233,6 +233,20 @@ export function getCommands(vm: ViewModel): Partial<Record<CommandId, Command>> 
     }
   }
 
+  // ── View agenda (from task) ──────────────────────────────────────────────────
+  if (currentTask?.agendaId !== undefined) {
+    commands['view-agenda'] = {
+      id: 'view-agenda',
+      label: 'view agenda',
+      group: 'view',
+      key: 'A',
+      action: {
+        type: 'navigate',
+        navState: { view: 'agenda', selected: 0, activeAgendaId: currentTask.agendaId, showCompleted: false },
+      },
+    }
+  }
+
   // ── Toggle completed ─────────────────────────────────────────────────────────
   if (view === 'tasks') {
     commands['toggle-completed'] = {
@@ -250,6 +264,15 @@ export function getCommands(vm: ViewModel): Partial<Record<CommandId, Command>> 
       group: 'view',
       key: 'C',
       action: { type: 'navigate', navState: { view: 'project', selected: 0, activeProjectId: vm.activeProject.id, showCompleted: !showCompleted } },
+    }
+  }
+  if (view === 'agenda' && vm.activeAgenda !== undefined) {
+    commands['toggle-completed'] = {
+      id: 'toggle-completed',
+      label: showCompleted ? 'show open' : 'show completed',
+      group: 'view',
+      key: 'C',
+      action: { type: 'navigate', navState: { view: 'agenda', selected: 0, activeAgendaId: vm.activeAgenda.id, showCompleted: !showCompleted } },
     }
   }
 

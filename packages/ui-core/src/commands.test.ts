@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { project, createEmptyState, buildStateFromConfig, createProject, createTask } from 'palimpsest'
-import type { SphereId } from 'palimpsest'
+import type { SphereId, AgendaId } from 'palimpsest'
 import { deriveViewModel } from './viewModel.js'
 import { getCommands } from './commands.js'
 import { INITIAL_NAV } from './types.js'
@@ -8,10 +8,15 @@ import type { UIState } from './types.js'
 import { makeUIState } from './testHelpers.js'
 
 const SPHERE_ID = 'sph1' as SphereId
+const AGENDA_ID = 'agenda1' as AgendaId
 
 function buildTestState() {
-  const baseState = { ...createEmptyState(), ...buildStateFromConfig([{ id: SPHERE_ID, name: 'Work', agendas: [], contexts: [] }]) }
+  const baseState = {
+    ...createEmptyState(),
+    ...buildStateFromConfig([{ id: SPHERE_ID, name: 'Work', agendas: [{ id: AGENDA_ID, title: 'Jim' }], contexts: [] }]),
+  }
   const sphere = baseState.spheres.get(SPHERE_ID)!
+  const agenda = baseState.agendas.get(AGENDA_ID)!
 
   const projectEvents = createProject({ name: 'Alpha', sphereId: sphere.id })
   const withProject = project(projectEvents, baseState)
@@ -19,13 +24,15 @@ function buildTestState() {
 
   const task1Events = createTask({ title: 'Task One', sphereId: sphere.id })
   const task2Events = createTask({ title: 'Task Two', projectId: proj.id })
-  const allEvents = [...projectEvents, ...task1Events, ...task2Events]
+  const task3Events = createTask({ title: 'Task Three', sphereId: sphere.id, agendaId: agenda.id })
+  const allEvents = [...projectEvents, ...task1Events, ...task2Events, ...task3Events]
   const finalState = project(allEvents, baseState)
 
   const task1 = [...finalState.tasks.values()].find(t => t.title === 'Task One')!
   const task2 = [...finalState.tasks.values()].find(t => t.title === 'Task Two')!
+  const task3 = [...finalState.tasks.values()].find(t => t.title === 'Task Three')!
 
-  return { projState: finalState, sphere, proj, task1, task2 }
+  return { projState: finalState, sphere, proj, agenda, task1, task2, task3 }
 }
 
 
@@ -254,6 +261,74 @@ describe('commands — project view', () => {
   })
 })
 
+describe('commands — agendas view', () => {
+  it('includes add-task and add-project', () => {
+    const { projState, sphere } = buildTestState()
+    const uiState = makeUIState({
+      currentSphereId: sphere.id,
+      navStack: [{ view: 'agendas' as const, selected: 0 }],
+    })
+    const ids = commandIds(projState, uiState)
+    expect(ids).toContain('add-task')
+    expect(ids).toContain('add-project')
+  })
+})
+
+describe('commands — agenda view', () => {
+  it('includes add-task and add-project', () => {
+    const { projState, sphere, agenda } = buildTestState()
+    const uiState = makeUIState({
+      currentSphereId: sphere.id,
+      navStack: [{ view: 'agenda' as const, selected: 0, activeAgendaId: agenda.id, showCompleted: false }],
+    })
+    const ids = commandIds(projState, uiState)
+    expect(ids).toContain('add-task')
+    expect(ids).toContain('add-project')
+  })
+
+  it('suppresses add-task when showing completed tasks', () => {
+    const { projState, sphere, agenda } = buildTestState()
+    const uiState = makeUIState({
+      currentSphereId: sphere.id,
+      navStack: [{ view: 'agenda' as const, selected: 0, activeAgendaId: agenda.id, showCompleted: true }],
+    })
+    const ids = commandIds(projState, uiState)
+    expect(ids).not.toContain('add-task')
+  })
+})
+
+describe('commands — view-agenda', () => {
+  it('does not include view-agenda when task has no agenda', () => {
+    const { projState, sphere, task1 } = buildTestState()
+    const tasks = [...projState.tasks.values()].filter(t => !t.projectId && t.status === 'open')
+    const idx = tasks.findIndex(t => t.id === task1.id)
+    const uiState = makeUIState({
+      currentSphereId: sphere.id,
+      navStack: [{ view: 'tasks' as const, selected: idx, showCompleted: false }],
+    })
+    const ids = commandIds(projState, uiState)
+    expect(ids).not.toContain('view-agenda')
+  })
+
+  it('includes view-agenda when task has an agenda, keyed A', () => {
+    const { projState, sphere, task3 } = buildTestState()
+    const tasks = [...projState.tasks.values()].filter(t => t.status === 'open')
+    const idx = tasks.findIndex(t => t.id === task3.id)
+    const uiState = makeUIState({
+      currentSphereId: sphere.id,
+      navStack: [{ view: 'tasks' as const, selected: idx, showCompleted: false }],
+    })
+    const vm = deriveViewModel(projState, uiState)
+    const cmd = getCommands(vm)['view-agenda']
+    expect(cmd).toBeDefined()
+    expect(cmd?.key).toBe('A')
+    expect(cmd?.action).toEqual({
+      type: 'navigate',
+      navState: { view: 'agenda', selected: 0, activeAgendaId: task3.agendaId, showCompleted: false },
+    })
+  })
+})
+
 describe('commands — task view', () => {
   it('does not include add-task or add-project', () => {
     const { projState, sphere, task1 } = buildTestState()
@@ -377,6 +452,15 @@ describe('commands — toggle-completed', () => {
       navStack: [{ view: 'project' as const, selected: 0, activeProjectId: proj.id, showCompleted: false }],
     })
     expect(commandIds(projState, projectUiState)).toContain('toggle-completed')
+  })
+
+  it('is available in agenda view', () => {
+    const { projState, sphere, agenda } = buildTestState()
+    const uiState = makeUIState({
+      currentSphereId: sphere.id,
+      navStack: [{ view: 'agenda' as const, selected: 0, activeAgendaId: agenda.id, showCompleted: false }],
+    })
+    expect(commandIds(projState, uiState)).toContain('toggle-completed')
   })
 
   it('is not available in projects view', () => {

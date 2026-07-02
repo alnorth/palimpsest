@@ -1,10 +1,10 @@
 import type { TaskId, ProjectId, SphereId, AgendaId, ContextId, WaitingFor } from 'palimpsest'
 import type { CLEAR } from 'palimpsest'
 
-export type TopLevelView = 'dashboard' | 'tasks' | 'projects' | 'processing' | 'waiting' | 'pick-list'
+export type TopLevelView = 'dashboard' | 'tasks' | 'projects' | 'agendas' | 'processing' | 'waiting' | 'pick-list'
 
 export type View =
-  | 'dashboard' | 'tasks' | 'projects' | 'project' | 'task' | 'processing' | 'waiting' | 'pick-list'
+  | 'dashboard' | 'tasks' | 'projects' | 'project' | 'agendas' | 'agenda' | 'task' | 'processing' | 'waiting' | 'pick-list'
   | 'picking-view'
   | 'picking-agenda-for-task'
   | 'picking-context-for-task'
@@ -33,6 +33,8 @@ export type NavState =
   | { view: 'waiting'; selected: number }
   | { view: 'pick-list'; selected: number }
   | { view: 'project'; selected: number; activeProjectId: ProjectId; showCompleted: boolean }
+  | { view: 'agendas'; selected: number }
+  | { view: 'agenda'; selected: number; activeAgendaId: AgendaId; showCompleted: boolean }
   | { view: 'task'; activeTaskId: TaskId }
   | { view: 'picking-view'; selected: number }
   | { view: 'picking-agenda-for-task'; selected: number; activeTaskId: TaskId }
@@ -73,7 +75,7 @@ export type UIAction =
   | { type: 'move-down' }
 
 export type DataAction =
-  | { type: 'create-task'; title: string; projectId?: ProjectId; sphereId?: SphereId }
+  | { type: 'create-task'; title: string; projectId?: ProjectId; sphereId?: SphereId; agendaId?: AgendaId }
   | { type: 'edit-task'; taskId: TaskId; title: string }
   | { type: 'edit-task-description'; taskId: TaskId; description: string }
   | { type: 'set-task-due-date'; taskId: TaskId; dueDate: string | typeof CLEAR }
@@ -114,6 +116,7 @@ export type CommandId =
   | 'archive-project'
   | 'unarchive-project'
   | 'view-project'
+  | 'view-agenda'
   | 'toggle-completed'
   | 'toggle-archived'
   | 'pick-view'
