@@ -31,6 +31,7 @@ export function AgendaRow({ agenda, flatIndex, isSelected, isMobile, taskCount, 
       <Text size="sm" {...(sel ? { c: 'blue' as const } : {})}>
         <Text span visibleFrom="sm" style={{ display: 'inline-block', width: '2ch' }}>{sel ? '>' : ''}</Text>
         {agenda.title}
+        {agenda.key !== undefined && <Text span size="xs" c="dimmed">  {agenda.key}</Text>}
       </Text>
       <Text size="xs" c="dimmed">{taskCount}</Text>
     </Group>

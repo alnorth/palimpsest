@@ -64,6 +64,14 @@ export function handleKey(key: string, ctx: KeyEventContext): boolean {
     return false
   }
 
+  if (pickerView === 'agendas') {
+    const char = key.length === 1 ? key : ''
+    const shortcutIdx = char === ''
+      ? -1
+      : listItems.items.findIndex(item => item.kind === 'agenda' && item.agenda.key === char)
+    if (shortcutIdx !== -1) { activate(shortcutIdx); return true }
+  }
+
   if (key === 'Enter') { activateSelected(); return true }
 
   const action = resolveKeyAction(key, mode, commands)

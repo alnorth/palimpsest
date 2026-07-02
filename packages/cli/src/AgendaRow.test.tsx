@@ -42,4 +42,14 @@ describe('AgendaRow', () => {
     const output = render(makeAgenda(), { taskCount: 5 })
     expect(lines(output).join('\n')).toContain('5')
   })
+
+  test('shortcut key shown when agenda has one', () => {
+    const output = render(makeAgenda({ title: 'Jim', key: 'x' }))
+    expect(lines(output)[0]).toBe('  Jim  x · 0')
+  })
+
+  test('no shortcut key segment when agenda has none', () => {
+    const output = render(makeAgenda({ title: 'Jim' }))
+    expect(lines(output)[0]).toBe('  Jim · 0')
+  })
 })

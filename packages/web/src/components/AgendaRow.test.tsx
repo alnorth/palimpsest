@@ -42,4 +42,14 @@ describe('AgendaRow', () => {
     fireEvent.click(screen.getByText('Jim'))
     expect(onActivate).toHaveBeenCalledWith(2)
   })
+
+  it('renders the shortcut key hint when the agenda has one', () => {
+    renderRow({ agenda: { ...AGENDA, key: 'j' } })
+    expect(screen.getByText('j')).toBeDefined()
+  })
+
+  it('renders no key hint when the agenda has none', () => {
+    renderRow()
+    expect(screen.queryByText('j')).toBeNull()
+  })
 })

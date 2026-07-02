@@ -3,6 +3,7 @@ import { resolveKeyAction, handleKey } from './keyHandler.js'
 import type { KeyEventContext } from './keyHandler.js'
 import type { Command, CommandId, Action } from './types.js'
 import type { ListItems } from './viewModel.js'
+import type { AgendaId, SphereId } from 'palimpsest'
 
 const MAIN_LIST: ListItems = {
   view: 'dashboard',
@@ -27,6 +28,29 @@ const PROJECT_PICKER: ListItems = {
   groups: [],
   items: [],
   selectedItem: undefined,
+}
+
+const SPHERE_ID = 'sph1' as SphereId
+const AGENDA_ID_1 = 'agenda1' as AgendaId
+const AGENDA_ID_2 = 'agenda2' as AgendaId
+
+const AGENDAS_LIST: ListItems = {
+  view: 'agendas',
+  groups: [],
+  items: [
+    { kind: 'agenda', agenda: { id: AGENDA_ID_1, sphereId: SPHERE_ID, title: 'Jim', key: 'j' } },
+    { kind: 'agenda', agenda: { id: AGENDA_ID_2, sphereId: SPHERE_ID, title: 'Marcia', key: 'm' } },
+  ],
+  emptyMessage: '',
+  selectedItem: undefined,
+}
+
+const ADD_PROJECT_COMMAND: Command = {
+  id: 'add-project' as CommandId,
+  label: 'Add project',
+  group: 'create',
+  key: 'j',
+  action: { type: 'set-mode', mode: { type: 'adding-project', formValue: '' } },
 }
 
 const ADD_COMMAND: Command = {
@@ -181,6 +205,51 @@ describe('handleKey - project search picker', () => {
     expect(result).toBe(false)
     expect(ctx.activateSelected).not.toHaveBeenCalled()
     expect(ctx.dispatch).not.toHaveBeenCalled()
+  })
+})
+
+describe('handleKey - agendas list shortcuts', () => {
+  test('matching agenda key calls activate with item index and returns true', () => {
+    const ctx = makeCtx({ listItems: AGENDAS_LIST })
+    const result = handleKey('j', ctx)
+    expect(ctx.activate).toHaveBeenCalledWith(0)
+    expect(result).toBe(true)
+  })
+
+  test('second agenda key calls activate with correct index', () => {
+    const ctx = makeCtx({ listItems: AGENDAS_LIST })
+    handleKey('m', ctx)
+    expect(ctx.activate).toHaveBeenCalledWith(1)
+  })
+
+  test('agenda shortcut takes priority over a colliding command key', () => {
+    const ctx = makeCtx({ listItems: AGENDAS_LIST, commands: { 'add-project': ADD_PROJECT_COMMAND } })
+    const result = handleKey('j', ctx)
+    expect(ctx.activate).toHaveBeenCalledWith(0)
+    expect(ctx.dispatch).not.toHaveBeenCalled()
+    expect(result).toBe(true)
+  })
+
+  test('non-colliding command key still dispatches normally', () => {
+    const ctx = makeCtx({ listItems: AGENDAS_LIST, commands: { 'add-task': ADD_COMMAND } })
+    const result = handleKey('q', ctx)
+    expect(ctx.dispatch).toHaveBeenCalledWith(ADD_COMMAND.action)
+    expect(ctx.activate).not.toHaveBeenCalled()
+    expect(result).toBe(true)
+  })
+
+  test('Enter calls activateSelected and returns true', () => {
+    const ctx = makeCtx({ listItems: AGENDAS_LIST })
+    const result = handleKey('Enter', ctx)
+    expect(ctx.activateSelected).toHaveBeenCalled()
+    expect(result).toBe(true)
+  })
+
+  test('unrecognised key with no matching command returns false', () => {
+    const ctx = makeCtx({ listItems: AGENDAS_LIST })
+    const result = handleKey('z', ctx)
+    expect(result).toBe(false)
+    expect(ctx.activate).not.toHaveBeenCalled()
   })
 })
 
