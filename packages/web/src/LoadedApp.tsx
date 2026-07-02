@@ -73,15 +73,15 @@ function FormModal({ opened, onClose, title, placeholder, preview, value, onChan
 export function LoadedApp({ store, initialState, onLogout }: Props) {
   const appState = useAppState(store, initialState)
   const {
-    view, mode, formValue, activeTask, activeProject,
-    activeSphere, spheres, projectStats, listItems, currentTask, selectedProject,
+    view, mode, formValue, activeTask, activeProject, activeAgenda,
+    activeSphere, spheres, agendas, projectStats, agendaStats, listItems, currentTask, selectedProject,
     subtitle, projState, commands, dispatch, canGoBack, showCompleted, showArchived, showProject,
     syncState, searchQuery, activate, selectedItem,
   } = appState
 
   const [navDrawerOpen, setNavDrawerOpen] = useState(false)
 
-  useUrlSync({ view, sphereId: activeSphere?.id, activeTaskId: activeTask?.id, activeProjectId: activeProject?.id, dispatch })
+  useUrlSync({ view, sphereId: activeSphere?.id, activeTaskId: activeTask?.id, activeProjectId: activeProject?.id, activeAgendaId: activeAgenda?.id, dispatch })
   useKeyboard(appState)
 
   const today = new Date().toISOString().slice(0, 10)
@@ -142,7 +142,7 @@ export function LoadedApp({ store, initialState, onLogout }: Props) {
     )
   } else if (listItems.view === 'task' && activeTask !== undefined) {
     content = <TaskDetail task={activeTask} state={projState} commands={commands} dispatch={dispatch} />
-  } else if (listItems.view === 'project') {
+  } else if (listItems.view === 'project' || listItems.view === 'agenda') {
     const stateCommands = (Object.values(commands) as Command[]).filter(c => c.group === 'state')
     content = (
       <Stack gap="sm">
@@ -158,6 +158,7 @@ export function LoadedApp({ store, initialState, onLogout }: Props) {
           selectedItem={selectedItem}
           state={projState}
           projectStats={projectStats}
+          agendaStats={agendaStats}
           showArchived={showArchived}
           emptyMessage={listItems.emptyMessage}
           onHover={handleHover}
@@ -173,6 +174,7 @@ export function LoadedApp({ store, initialState, onLogout }: Props) {
         selectedItem={selectedItem}
         state={projState}
         projectStats={projectStats}
+        agendaStats={agendaStats}
         showArchived={showArchived}
         emptyMessage={listItems.emptyMessage}
         onHover={handleHover}
@@ -201,7 +203,8 @@ export function LoadedApp({ store, initialState, onLogout }: Props) {
             const trimmed = v.trim()
             if (!trimmed) { exit(); return }
             const projectId = view === 'project' ? activeProject?.id : undefined
-            dispatch({ type: 'create-task', title: trimmed, ...(projectId !== undefined && { projectId }), ...(activeSphere !== undefined && { sphereId: activeSphere.id }) })
+            const agendaId = view === 'agenda' ? activeAgenda?.id : undefined
+            dispatch({ type: 'create-task', title: trimmed, ...(projectId !== undefined && { projectId }), ...(agendaId !== undefined && { agendaId }), ...(activeSphere !== undefined && { sphereId: activeSphere.id }) })
           },
         }
       case 'editing-task':
@@ -282,6 +285,8 @@ export function LoadedApp({ store, initialState, onLogout }: Props) {
         spheres={spheres}
         activeSphere={activeSphere}
         currentView={view}
+        agendas={agendas}
+        activeAgendaId={activeAgenda?.id}
         dispatch={dispatch}
         onLogout={onLogout}
       />

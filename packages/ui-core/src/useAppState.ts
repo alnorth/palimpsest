@@ -90,13 +90,14 @@ export function useAppState(store: PalimpsestStore, initialState: ProjectionStat
         case 'create-task': {
           const sphereId = action.sphereId ?? vm.activeSphere?.id
           const projectId = action.projectId
+          const agendaId = action.agendaId
           if (projectId !== undefined) {
             const tasks = listTasks(projState, { projectId, status: 'open' })
-            await store.appendEvents(createTask({ title: action.title, projectId }))
+            await store.appendEvents(createTask({ title: action.title, projectId, ...(agendaId !== undefined && { agendaId }) }))
             dispatchUI({ type: 'update-nav', patch: { selected: indexAfterAppend(tasks) } })
           } else if (sphereId !== undefined) {
             const tasks = listTasks(projState, { sphereId, status: 'open' })
-            await store.appendEvents(createTask({ title: action.title, sphereId }))
+            await store.appendEvents(createTask({ title: action.title, sphereId, ...(agendaId !== undefined && { agendaId }) }))
             dispatchUI({ type: 'update-nav', patch: { selected: indexAfterAppend(tasks) } })
           }
           dispatchUI({ type: 'exit-mode' })
@@ -329,6 +330,8 @@ export function useAppState(store: PalimpsestStore, initialState: ProjectionStat
         dispatch({ type: 'navigate', navState: { view: 'task', activeTaskId: item.task.id } })
       } else if (item?.kind === 'project') {
         dispatch({ type: 'navigate', navState: { view: 'project', selected: 0, activeProjectId: item.project.id, showCompleted: false } })
+      } else if (item?.kind === 'agenda') {
+        dispatch({ type: 'navigate', navState: { view: 'agenda', selected: 0, activeAgendaId: item.agenda.id, showCompleted: false } })
       }
     }
   }, [])

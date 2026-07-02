@@ -129,7 +129,7 @@ src/
     TaskDetail.tsx   — single task view (inline editing of title, due date, recurrence, etc.)
     ProjectList.tsx  — project list view
     CommandBar.tsx   — footer input bar, adapts per mode
-    NavDrawer.tsx    — mobile/sidebar sphere and view navigation
+    NavDrawer.tsx    — mobile/sidebar sphere, view, and per-agenda navigation
     Pickers.tsx      — modal pickers: due date, agenda, context, project
     SyncStatus.tsx   — sync status indicator
   stubs/
@@ -138,7 +138,7 @@ src/
 
 Auth token is stored in `localStorage` under `palimpsest_auth_token`. The API URL comes from `config.json` (injected by CDK at deploy time) or from the setup screen. All sync calls send `Authorization: Bearer <token>`.
 
-Views: `dashboard` (starred + due today), `tasks` (all/completed per sphere), `projects`, `project` (tasks in one project), `processing` (inbox tasks + projects without a next action). Modes: `list`, `adding`, `editing-task`, `editing-description`, `editing-due-date`, `editing-recurrence`, `adding-project`, `editing-project`. Modal pickers overlay any view.
+Views: `dashboard` (starred + due today), `tasks` (all/completed per sphere), `projects`, `project` (tasks in one project), `agendas` (all agendas in the sphere, with task counts), `agenda` (tasks assigned to one agenda), `processing` (inbox tasks + projects without a next action). Modes: `list`, `adding`, `editing-task`, `editing-description`, `editing-due-date`, `editing-recurrence`, `adding-project`, `editing-project`. Modal pickers overlay any view.
 
 ### packages/backend
 

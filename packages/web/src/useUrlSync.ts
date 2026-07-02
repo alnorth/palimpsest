@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import type { SphereId, TaskId, ProjectId } from 'palimpsest'
+import type { SphereId, TaskId, ProjectId, AgendaId } from 'palimpsest'
 import type { View, TopLevelView, NavState, Action } from 'palimpsest-ui-core'
 import { VIEW_CONFIG, navStateForTopLevelView } from 'palimpsest-ui-core'
 
@@ -7,10 +7,12 @@ import { VIEW_CONFIG, navStateForTopLevelView } from 'palimpsest-ui-core'
 //   /:sphereId/dashboard
 //   /:sphereId/tasks
 //   /:sphereId/projects
+//   /:sphereId/agendas
 //   /:sphereId/processing
 //   /:sphereId/waiting
 //   /:sphereId/pick-list
 //   /:sphereId/projects/:projectId
+//   /:sphereId/agendas/:agendaId
 //   /:sphereId/tasks/:taskId
 //
 // Picker overlays and transient mode state are not reflected in the URL.
@@ -20,6 +22,7 @@ interface Params {
   sphereId: SphereId | undefined
   activeTaskId: TaskId | undefined
   activeProjectId: ProjectId | undefined
+  activeAgendaId: AgendaId | undefined
   dispatch: (action: Action) => void
 }
 
@@ -29,6 +32,7 @@ function topLevelViewToPath(view: TopLevelView, sphereId: SphereId): string {
     case 'dashboard':   return `/${sphereId}/dashboard`
     case 'tasks':       return `/${sphereId}/tasks`
     case 'projects':    return `/${sphereId}/projects`
+    case 'agendas':     return `/${sphereId}/agendas`
     case 'processing':  return `/${sphereId}/processing`
     case 'waiting':     return `/${sphereId}/waiting`
     case 'pick-list':   return `/${sphereId}/pick-list`
@@ -44,9 +48,11 @@ function toPath(
   sphereId: SphereId | undefined,
   activeTaskId: TaskId | undefined,
   activeProjectId: ProjectId | undefined,
+  activeAgendaId: AgendaId | undefined,
 ): string | null {
   if (sphereId === undefined) return null
   if (view === 'project') return activeProjectId !== undefined ? `/${sphereId}/projects/${activeProjectId}` : null
+  if (view === 'agenda') return activeAgendaId !== undefined ? `/${sphereId}/agendas/${activeAgendaId}` : null
   if (view === 'task') return activeTaskId !== undefined ? `/${sphereId}/tasks/${activeTaskId}` : null
   if (isPickingView(view)) return null
   return topLevelViewToPath(view, sphereId)
@@ -64,6 +70,8 @@ function applyPath(pathname: string, dispatch: (action: Action) => void): void {
     navState = navStateForTopLevelView(topLevelView.value)
   } else if (section === 'projects' && id !== undefined) {
     navState = { view: 'project', selected: 0, activeProjectId: id as ProjectId, showCompleted: false }
+  } else if (section === 'agendas' && id !== undefined) {
+    navState = { view: 'agenda', selected: 0, activeAgendaId: id as AgendaId, showCompleted: false }
   } else if (section === 'tasks' && id !== undefined) {
     navState = { view: 'task', activeTaskId: id as TaskId }
   }
@@ -73,7 +81,7 @@ function applyPath(pathname: string, dispatch: (action: Action) => void): void {
   dispatch({ type: 'set-nav', navState })
 }
 
-export function useUrlSync({ view, sphereId, activeTaskId, activeProjectId, dispatch }: Params): void {
+export function useUrlSync({ view, sphereId, activeTaskId, activeProjectId, activeAgendaId, dispatch }: Params): void {
   // Apply URL on mount so that a bookmarked/pasted URL sets the initial nav state.
   useEffect(() => {
     applyPath(window.location.pathname, dispatch)
@@ -93,8 +101,8 @@ export function useUrlSync({ view, sphereId, activeTaskId, activeProjectId, disp
   // Reflect in-app navigation into the URL. Skips picker views (toPath returns
   // null) and skips when the path is already current (avoids duplicate entries).
   useEffect(() => {
-    const path = toPath(view, sphereId, activeTaskId, activeProjectId)
+    const path = toPath(view, sphereId, activeTaskId, activeProjectId, activeAgendaId)
     if (path === null || path === window.location.pathname) return
     window.history.pushState(null, '', path)
-  }, [view, sphereId, activeTaskId, activeProjectId])
+  }, [view, sphereId, activeTaskId, activeProjectId, activeAgendaId])
 }

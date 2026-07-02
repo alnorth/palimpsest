@@ -1,6 +1,6 @@
 import { describe, test, expect, vi } from 'vitest'
 import { CLEAR } from 'palimpsest'
-import type { Task, Project, Sphere, TaskId, ProjectId, SphereId } from 'palimpsest'
+import type { Task, Project, Sphere, Agenda, TaskId, ProjectId, SphereId, AgendaId } from 'palimpsest'
 import type { Action } from 'palimpsest-ui-core'
 import {
   handleTaskSubmit,
@@ -25,6 +25,12 @@ const PROJECT: Project = {
   updatedAt: '2026-01-01T00:00:00.000Z',
 }
 
+const AGENDA: Agenda = {
+  id: 'agenda1' as AgendaId,
+  sphereId: 'sph1' as SphereId,
+  title: 'Jim',
+}
+
 const TASK: Task = {
   id: 'task1' as TaskId,
   title: 'Old title',
@@ -42,25 +48,25 @@ function makeDispatch() {
 describe('handleTaskSubmit', () => {
   test('non-blank title dispatches create-task with title and sphereId', () => {
     const dispatch = makeDispatch()
-    handleTaskSubmit('Buy milk', 'tasks', undefined, SPHERE, dispatch)
+    handleTaskSubmit('Buy milk', 'tasks', undefined, undefined, SPHERE, dispatch)
     expect(dispatch).toHaveBeenCalledWith({ type: 'create-task', title: 'Buy milk', sphereId: SPHERE.id })
   })
 
   test('whitespace-only title dispatches exit-mode', () => {
     const dispatch = makeDispatch()
-    handleTaskSubmit('   ', 'tasks', undefined, SPHERE, dispatch)
+    handleTaskSubmit('   ', 'tasks', undefined, undefined, SPHERE, dispatch)
     expect(dispatch).toHaveBeenCalledWith({ type: 'exit-mode' })
   })
 
   test('title is trimmed before dispatch', () => {
     const dispatch = makeDispatch()
-    handleTaskSubmit('  Buy milk  ', 'tasks', undefined, SPHERE, dispatch)
+    handleTaskSubmit('  Buy milk  ', 'tasks', undefined, undefined, SPHERE, dispatch)
     expect(dispatch).toHaveBeenCalledWith({ type: 'create-task', title: 'Buy milk', sphereId: SPHERE.id })
   })
 
   test('view=project includes projectId from activeProject', () => {
     const dispatch = makeDispatch()
-    handleTaskSubmit('Buy milk', 'project', PROJECT, SPHERE, dispatch)
+    handleTaskSubmit('Buy milk', 'project', PROJECT, undefined, SPHERE, dispatch)
     expect(dispatch).toHaveBeenCalledWith({
       type: 'create-task',
       title: 'Buy milk',
@@ -71,7 +77,24 @@ describe('handleTaskSubmit', () => {
 
   test('non-project view does not include projectId even if activeProject set', () => {
     const dispatch = makeDispatch()
-    handleTaskSubmit('Buy milk', 'tasks', PROJECT, SPHERE, dispatch)
+    handleTaskSubmit('Buy milk', 'tasks', PROJECT, undefined, SPHERE, dispatch)
+    expect(dispatch).toHaveBeenCalledWith({ type: 'create-task', title: 'Buy milk', sphereId: SPHERE.id })
+  })
+
+  test('view=agenda includes agendaId from activeAgenda', () => {
+    const dispatch = makeDispatch()
+    handleTaskSubmit('Buy milk', 'agenda', undefined, AGENDA, SPHERE, dispatch)
+    expect(dispatch).toHaveBeenCalledWith({
+      type: 'create-task',
+      title: 'Buy milk',
+      agendaId: AGENDA.id,
+      sphereId: SPHERE.id,
+    })
+  })
+
+  test('non-agenda view does not include agendaId even if activeAgenda set', () => {
+    const dispatch = makeDispatch()
+    handleTaskSubmit('Buy milk', 'tasks', undefined, AGENDA, SPHERE, dispatch)
     expect(dispatch).toHaveBeenCalledWith({ type: 'create-task', title: 'Buy milk', sphereId: SPHERE.id })
   })
 })

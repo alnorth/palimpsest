@@ -1,6 +1,6 @@
 import React from 'react'
-import { Drawer, Stack, Text, Menu, Button, Divider } from '@mantine/core'
-import type { Sphere } from 'palimpsest'
+import { Drawer, Stack, Text, Group, Menu, Button, Divider } from '@mantine/core'
+import type { Sphere, Agenda, AgendaId } from 'palimpsest'
 import type { Action, TopLevelView, View } from 'palimpsest-ui-core'
 import { VIEW_CONFIG, navStateForTopLevelView } from 'palimpsest-ui-core'
 
@@ -10,11 +10,13 @@ interface Props {
   spheres: Sphere[]
   activeSphere: Sphere | undefined
   currentView: View
+  agendas: Agenda[]
+  activeAgendaId: AgendaId | undefined
   dispatch: (action: Action) => void
   onLogout: () => void
 }
 
-export function NavDrawer({ opened, onClose, spheres, activeSphere, currentView, dispatch, onLogout }: Props) {
+export function NavDrawer({ opened, onClose, spheres, activeSphere, currentView, agendas, activeAgendaId, dispatch, onLogout }: Props) {
   function handleSphere(sphereId: Sphere['id']) {
     dispatch({ type: 'set-sphere', sphereId })
     onClose()
@@ -22,6 +24,11 @@ export function NavDrawer({ opened, onClose, spheres, activeSphere, currentView,
 
   function handleView(view: TopLevelView) {
     dispatch({ type: 'set-nav', navState: navStateForTopLevelView(view) })
+    onClose()
+  }
+
+  function handleAgenda(agendaId: AgendaId) {
+    dispatch({ type: 'navigate', navState: { view: 'agenda', selected: 0, activeAgendaId: agendaId, showCompleted: false } })
     onClose()
   }
 
@@ -95,6 +102,37 @@ export function NavDrawer({ opened, onClose, spheres, activeSphere, currentView,
             })}
           </Stack>
         </div>
+        {agendas.length > 0 && (
+          <div>
+            <Text size="xs" c="dimmed" mb="xs" style={{ textTransform: 'uppercase', fontWeight: 600, letterSpacing: '0.05em' }}>
+              Agendas
+            </Text>
+            <Stack gap={2}>
+              {agendas.map(agenda => {
+                const isActive = currentView === 'agenda' && activeAgendaId === agenda.id
+                return (
+                  <Group
+                    key={agenda.id}
+                    justify="space-between"
+                    px="xs"
+                    py={4}
+                    onClick={() => handleAgenda(agenda.id)}
+                    style={{
+                      background: isActive ? 'var(--mantine-color-blue-light)' : undefined,
+                      borderRadius: 4,
+                      cursor: 'pointer',
+                      fontFamily: 'monospace',
+                      userSelect: 'none',
+                    }}
+                  >
+                    <Text size="sm" {...(isActive ? { c: 'blue' } : {})}>{agenda.title}</Text>
+                    {agenda.key !== undefined && <Text size="xs" c="dimmed">{agenda.key}</Text>}
+                  </Group>
+                )
+              })}
+            </Stack>
+          </div>
+        )}
         <Divider />
         <Button variant="subtle" color="red" size="sm" onClick={onLogout} style={{ fontFamily: 'monospace' }}>
           Log out

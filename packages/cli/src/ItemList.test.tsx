@@ -2,7 +2,7 @@ import React from 'react'
 import { describe, test, expect } from 'vitest'
 import { renderToString } from 'ink'
 import { createEmptyState } from 'palimpsest'
-import type { Task, Project, TaskId, ProjectId, SphereId } from 'palimpsest'
+import type { Task, Project, Agenda, TaskId, ProjectId, SphereId, AgendaId } from 'palimpsest'
 import type { ListGroup, ListItem, ProjectStats } from 'palimpsest-ui-core'
 import { ItemList } from './ItemList.js'
 import { stripAnsi, lines } from './testUtils.js'
@@ -37,6 +37,14 @@ function taskGroup(title: string, ...tasks: Task[]): ListGroup<ListItem> {
 
 function projectGroup(title: string, ...projects: Project[]): ListGroup<ListItem> {
   return { title, items: projects.map(project => ({ kind: 'project' as const, project })) }
+}
+
+function makeAgenda(id: string, title: string): Agenda {
+  return { id: id as AgendaId, sphereId: 'sph1' as SphereId, title }
+}
+
+function agendaGroup(title: string, ...agendas: Agenda[]): ListGroup<ListItem> {
+  return { title, items: agendas.map(agenda => ({ kind: 'agenda' as const, agenda })) }
 }
 
 function render(groups: ListGroup<ListItem>[], emptyMessage?: string) {
@@ -82,6 +90,11 @@ describe('ItemList', () => {
   test('project item renders project name', () => {
     const output = render([projectGroup('', makeProject('p1', 'Website'))])
     expect(stripAnsi(output)).toContain('Website')
+  })
+
+  test('agenda item renders agenda title', () => {
+    const output = render([agendaGroup('', makeAgenda('a1', 'Jim'))])
+    expect(stripAnsi(output)).toContain('Jim')
   })
 
   test('empty group inside non-empty multi-group renders — placeholder', () => {

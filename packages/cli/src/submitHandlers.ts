@@ -1,17 +1,19 @@
 import { parseDueDate, isValidExpression, CLEAR } from 'palimpsest'
-import type { Task, Project, Sphere } from 'palimpsest'
+import type { Task, Project, Sphere, Agenda } from 'palimpsest'
 import type { Action, View } from 'palimpsest-ui-core'
 
 type Dispatch = (action: Action) => void
 
-export function handleTaskSubmit(title: string, view: View, activeProject: Project | undefined, activeSphere: Sphere | undefined, dispatch: Dispatch): void {
+export function handleTaskSubmit(title: string, view: View, activeProject: Project | undefined, activeAgenda: Agenda | undefined, activeSphere: Sphere | undefined, dispatch: Dispatch): void {
   const trimmed = title.trim()
   if (trimmed) {
     const projectId = view === 'project' ? activeProject?.id : undefined
+    const agendaId = view === 'agenda' ? activeAgenda?.id : undefined
     dispatch({
       type: 'create-task',
       title: trimmed,
       ...(projectId !== undefined && { projectId }),
+      ...(agendaId !== undefined && { agendaId }),
       ...(activeSphere !== undefined && { sphereId: activeSphere.id }),
     })
   } else {

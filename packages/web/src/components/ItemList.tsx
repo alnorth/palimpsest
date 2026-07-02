@@ -2,15 +2,17 @@ import React from 'react'
 import { Stack, Text } from '@mantine/core'
 import { useMediaQuery } from '@mantine/hooks'
 import type { ListItem, ListGroup, ProjectStats } from 'palimpsest-ui-core'
-import type { Task, ProjectionState } from 'palimpsest'
+import type { AgendaId, Task, ProjectionState } from 'palimpsest'
 import { TaskRow } from './TaskRow.js'
 import { ProjectRow } from './ProjectRow.js'
+import { AgendaRow } from './AgendaRow.js'
 
 interface Props {
   groups: ListGroup<ListItem>[]
   selectedItem: ListItem | undefined
   state: ProjectionState
   projectStats: ProjectStats
+  agendaStats?: Map<AgendaId, number>
   showArchived: boolean
   showProject?: boolean
   emptyMessage?: string
@@ -19,7 +21,7 @@ interface Props {
   onComplete?: (task: Task) => void
 }
 
-export function ItemList({ groups, selectedItem, state, projectStats, showArchived, showProject, emptyMessage, onHover, onActivate, onComplete }: Props) {
+export function ItemList({ groups, selectedItem, state, projectStats, agendaStats, showArchived, showProject, emptyMessage, onHover, onActivate, onComplete }: Props) {
   const isMobile = useMediaQuery('(max-width: 768px)') ?? false
   const totalItems = groups.reduce((sum, g) => sum + g.items.length, 0)
   if (totalItems === 0) {
@@ -57,7 +59,7 @@ export function ItemList({ groups, selectedItem, state, projectStats, showArchiv
                         {...(onComplete !== undefined ? { onComplete } : {})}
                       />
                     )
-                  } else {
+                  } else if (item.kind === 'project') {
                     return (
                       <ProjectRow
                         key={item.project.id}
@@ -67,6 +69,19 @@ export function ItemList({ groups, selectedItem, state, projectStats, showArchiv
                         isMobile={isMobile}
                         projectStats={projectStats}
                         showArchived={showArchived}
+                        {...(onHover !== undefined ? { onHover } : {})}
+                        {...(onActivate !== undefined ? { onActivate } : {})}
+                      />
+                    )
+                  } else {
+                    return (
+                      <AgendaRow
+                        key={item.agenda.id}
+                        agenda={item.agenda}
+                        flatIndex={flatIndex}
+                        isSelected={item === selectedItem}
+                        isMobile={isMobile}
+                        taskCount={agendaStats?.get(item.agenda.id) ?? 0}
                         {...(onHover !== undefined ? { onHover } : {})}
                         {...(onActivate !== undefined ? { onActivate } : {})}
                       />

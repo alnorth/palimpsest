@@ -1,5 +1,5 @@
 import {
-  listTasks, listProjects, listSpheres, listAgendas, listContexts, getProject,
+  listTasks, listProjects, listSpheres, listAgendas, listContexts, getProject, getAgenda,
   addDays, nextWeekday,
 } from 'palimpsest'
 import type { Task, Project, Sphere, Agenda, Context, ProjectionState, ProjectId, AgendaId, ContextId, WaitingFor } from 'palimpsest'
@@ -41,6 +41,7 @@ export const VIEW_CONFIG: ViewPickerItem[] = [
   { value: 'dashboard',  label: 'Dashboard',  key: 'd' },
   { value: 'tasks',      label: 'Tasks',      key: 't' },
   { value: 'projects',   label: 'Projects',   key: 'p' },
+  { value: 'agendas',    label: 'Agendas',    key: 'a' },
   { value: 'processing', label: 'Processing', key: 'r' },
   { value: 'waiting',    label: 'Waiting',    key: 'w' },
   { value: 'pick-list',  label: 'Pick list',  key: 'l' },
@@ -58,8 +59,9 @@ export function flatItems<T>(groups: ListGroup<T>[]): T[] {
 export type ListItem =
   | { kind: 'task'; task: Task }
   | { kind: 'project'; project: Project }
+  | { kind: 'agenda'; agenda: Agenda }
 
-export type MainListItems = { view: 'dashboard' | 'tasks' | 'project' | 'projects' | 'processing' | 'waiting' | 'pick-list'; groups: ListGroup<ListItem>[]; items: ListItem[]; emptyMessage: string; selectedItem: ListItem | undefined }
+export type MainListItems = { view: 'dashboard' | 'tasks' | 'project' | 'projects' | 'agenda' | 'agendas' | 'processing' | 'waiting' | 'pick-list'; groups: ListGroup<ListItem>[]; items: ListItem[]; emptyMessage: string; selectedItem: ListItem | undefined }
 
 export function isMainListItems(items: ListItems): items is MainListItems {
   return 'emptyMessage' in items
@@ -90,7 +92,9 @@ export interface ViewModel {
   agendas: Agenda[]
   contexts: Context[]
   projectStats: ProjectStats
+  agendaStats: Map<AgendaId, number>
   activeProject: Project | undefined
+  activeAgenda: Agenda | undefined
   activeTask: Task | undefined
   selectedItem: ListItem | undefined
   selectedProject: Project | undefined
@@ -118,6 +122,7 @@ export function deriveViewModel(projState: ProjectionState, uiState: UIState): V
   const { view } = currentNav
   const selected = 'selected' in currentNav ? currentNav.selected : 0
   const activeProjectId = currentNav.view === 'project' ? currentNav.activeProjectId : undefined
+  const activeAgendaId = currentNav.view === 'agenda' ? currentNav.activeAgendaId : undefined
   const activeTaskId = 'activeTaskId' in currentNav ? currentNav.activeTaskId : undefined
   const showCompleted = 'showCompleted' in currentNav ? currentNav.showCompleted : false
   const showArchived = 'showArchived' in currentNav ? currentNav.showArchived : false
@@ -166,6 +171,16 @@ export function deriveViewModel(projState: ProjectionState, uiState: UIState): V
     return { hasNext, taskCount }
   })()
 
+  const agendaStats: Map<AgendaId, number> = (() => {
+    const taskCount = new Map<AgendaId, number>()
+    for (const task of projState.tasks.values()) {
+      if (task.agendaId !== undefined && task.status === 'open') {
+        taskCount.set(task.agendaId, (taskCount.get(task.agendaId) ?? 0) + 1)
+      }
+    }
+    return taskCount
+  })()
+
   const today = (() => {
     const d = new Date()
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
@@ -193,9 +208,21 @@ export function deriveViewModel(projState: ProjectionState, uiState: UIState): V
     ? getProject(projState, activeProjectId)
     : undefined
 
+  const activeAgenda = activeAgendaId !== undefined
+    ? getAgenda(projState, activeAgendaId)
+    : undefined
+
   const projectTasks: Task[] = activeProjectId !== undefined
     ? (() => {
         const result = listTasks(projState, { projectId: activeProjectId, status: showCompleted ? 'completed' : 'open', showArchivedProjects: true })
+        if (showCompleted) result.sort((a, b) => (b.completedAt ?? '').localeCompare(a.completedAt ?? ''))
+        return result
+      })()
+    : []
+
+  const agendaTasks: Task[] = activeAgendaId !== undefined
+    ? (() => {
+        const result = listTasks(projState, { agendaId: activeAgendaId, status: showCompleted ? 'completed' : 'open' })
         if (showCompleted) result.sort((a, b) => (b.completedAt ?? '').localeCompare(a.completedAt ?? ''))
         return result
       })()
@@ -243,6 +270,14 @@ export function deriveViewModel(projState: ProjectionState, uiState: UIState): V
       case 'projects': {
         const items = projects.map((p): ListItem => ({ kind: 'project', project: p }))
         return { view, groups: [{ title: '', items }], items, emptyMessage: showArchived ? 'No archived projects.' : 'No projects.', selectedItem: items[selected] }
+      }
+      case 'agenda': {
+        const items = agendaTasks.map((t): ListItem => ({ kind: 'task', task: t }))
+        return { view, groups: [{ title: '', items }], items, emptyMessage: showCompleted ? 'No completed tasks for this agenda.' : 'No open tasks for this agenda.', selectedItem: items[selected] }
+      }
+      case 'agendas': {
+        const items = agendas.map((a): ListItem => ({ kind: 'agenda', agenda: a }))
+        return { view, groups: [{ title: '', items }], items, emptyMessage: 'No agendas.', selectedItem: items[selected] }
       }
       case 'processing': {
         const groups: ListGroup<ListItem>[] = [
@@ -361,6 +396,8 @@ export function deriveViewModel(projState: ProjectionState, uiState: UIState): V
   const subtitle =
     view === 'task' ? `Task: ${activeTask?.title ?? ''}`
     : view === 'project' ? `Project: ${activeProject?.name ?? ''}`
+    : view === 'agenda' ? `Agenda: ${activeAgenda?.title ?? ''}`
+    : view === 'agendas' ? 'Agendas'
     : view === 'dashboard' ? 'Dashboard'
     : view === 'tasks' ? 'Tasks'
     : view === 'projects' ? 'Projects'
@@ -377,7 +414,7 @@ export function deriveViewModel(projState: ProjectionState, uiState: UIState): V
     : view === 'picking-waiting-project' ? `Waiting for project${taskSuffix}`
     : ''
 
-  const showProject = view === 'dashboard' || view === 'tasks' || view === 'waiting' || view === 'pick-list' || view === 'processing'
+  const showProject = view === 'dashboard' || view === 'tasks' || view === 'waiting' || view === 'pick-list' || view === 'processing' || view === 'agenda'
 
   return {
     spheres,
@@ -385,7 +422,9 @@ export function deriveViewModel(projState: ProjectionState, uiState: UIState): V
     agendas,
     contexts,
     projectStats,
+    agendaStats,
     activeProject,
+    activeAgenda,
     activeTask,
     selectedItem,
     selectedProject,
