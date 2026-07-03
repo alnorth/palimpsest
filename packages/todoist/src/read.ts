@@ -112,7 +112,7 @@ function buildPalimpsestTask(t: SyncItem, byId: Map<string, SyncProject>): Task 
       }
     } else if (agendaId !== undefined && !t.labels.includes('nonagenda')) {
       waitingFor = { kind: 'agenda', agendaId }
-    } else {
+    } else if (t.labels.includes('nonagenda')) {
       waitingFor = { kind: 'review' }
     }
   }
