@@ -177,6 +177,24 @@ describe('buildEvents — tasks', () => {
     expect(events.some(e => 'taskId' in e && e.taskId === 't1')).toBe(false)
   })
 
+  it('does not set waitingFor for a task with only the waiting label', () => {
+    const events = buildEvents(CONTAINERS, [makeItem({ id: 't1', labels: ['waiting'] })])
+    const created = events.find(e => e.type === 'task.created' && e.taskId === 't1')
+    expect(created).not.toHaveProperty('waitingFor')
+  })
+
+  it('sets waitingFor review only when waiting is paired with nonagenda', () => {
+    const events = buildEvents(CONTAINERS, [makeItem({ id: 't1', labels: ['waiting', 'nonagenda'] })])
+    const created = events.find(e => e.type === 'task.created' && e.taskId === 't1')
+    expect(created).toMatchObject({ waitingFor: { kind: 'review' } })
+  })
+
+  it('sets waitingFor agenda when waiting is paired with an agenda label', () => {
+    const events = buildEvents(CONTAINERS, [makeItem({ id: 't1', labels: ['waiting', 'jim'] })])
+    const created = events.find(e => e.type === 'task.created' && e.taskId === 't1')
+    expect(created).toMatchObject({ waitingFor: { kind: 'agenda', agendaId: 'agenda-jim' } })
+  })
+
   it('projects the correct state for tasks with various fields', () => {
     const projects = [
       ...CONTAINERS,
