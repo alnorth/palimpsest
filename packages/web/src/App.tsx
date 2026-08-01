@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useMemo } from 'react'
 import { Center, Text, Button, Stack } from '@mantine/core'
-import { ClientPalimpsestStore, LocalStoragePendingEventStore } from 'palimpsest-ui-core'
+import { ClientPalimpsestStore, LocalStoragePendingEventStore, LocalStorageJsonStore } from 'palimpsest-ui-core'
 import { buildStateFromConfig, createEmptyState, PALIMPSEST_CONFIG } from 'palimpsest'
 import type { PalimpsestStore, ProjectionState } from 'palimpsest'
 import { TodoistStore } from 'palimpsest-todoist'
+import type { TodoistCache } from 'palimpsest-todoist'
 import { SetupScreen } from './SetupScreen.js'
 import { LoadedApp } from './LoadedApp.js'
 
@@ -30,6 +31,7 @@ function makeBackendStore(apiUrl: string, authToken: string): PalimpsestStore {
 function makeTodoistStore(todoistToken: string): PalimpsestStore {
   return new TodoistStore(todoistToken, {
     pendingStore: new LocalStoragePendingEventStore('palimpsest_todoist_pending'),
+    cacheStore: new LocalStorageJsonStore<TodoistCache>('palimpsest_todoist_cache'),
     initialState: configState,
   })
 }

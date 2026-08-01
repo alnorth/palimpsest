@@ -9,7 +9,9 @@ import type { PalimpsestStore, ProjectionState } from 'palimpsest'
 import { useAppState, ClientPalimpsestStore, getDueDatePreview, getRecurrencePreview, handleKey, getTaskDetailFields, isMainListItems } from 'palimpsest-ui-core'
 import { handleTaskSubmit, handleEditSubmit, handleEditDescriptionSubmit, handleDueDateSubmit, handleRecurrenceSubmit, handleProjectSubmit, handleEditProjectSubmit } from './submitHandlers.js'
 import { TodoistStore } from 'palimpsest-todoist'
+import type { TodoistCache } from 'palimpsest-todoist'
 import { FilePendingEventStore } from './FilePendingEventStore.js'
+import { FileJsonStore } from './FileJsonStore.js'
 import type { View } from 'palimpsest-ui-core'
 import { homedir } from 'node:os'
 import { join, dirname } from 'node:path'
@@ -24,8 +26,13 @@ const configState = { ...createEmptyState(), ...buildStateFromConfig(PALIMPSEST_
 let store: PalimpsestStore
 if (todoistToken !== undefined) {
   const pendingPath = join(homedir(), '.palimpsest', 'todoist-pending.json')
+  const cachePath = join(homedir(), '.palimpsest', 'todoist-cache.json')
   mkdirSync(dirname(pendingPath), { recursive: true })
-  store = new TodoistStore(todoistToken, { pendingStore: new FilePendingEventStore(pendingPath), initialState: configState })
+  store = new TodoistStore(todoistToken, {
+    pendingStore: new FilePendingEventStore(pendingPath),
+    cacheStore: new FileJsonStore<TodoistCache>(cachePath),
+    initialState: configState,
+  })
 } else if (apiUrl !== undefined && authToken !== undefined) {
   const pendingPath = join(homedir(), '.palimpsest', 'pending.json')
   store = new ClientPalimpsestStore(

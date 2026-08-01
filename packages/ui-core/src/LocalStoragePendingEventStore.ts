@@ -1,27 +1,24 @@
 import type { PalimpsestEvent } from 'palimpsest'
 import type { PendingEventStore } from 'palimpsest'
+import { LocalStorageJsonStore } from './LocalStorageJsonStore.js'
 
 export class LocalStoragePendingEventStore implements PendingEventStore {
+  private readonly json: LocalStorageJsonStore<PalimpsestEvent[]>
   private cache: PalimpsestEvent[] | undefined
 
-  constructor(private readonly key = 'palimpsest_pending') {}
+  constructor(key = 'palimpsest_pending') {
+    this.json = new LocalStorageJsonStore(key)
+  }
 
   get size(): number { return this.cache?.length ?? 0 }
 
   async load(): Promise<PalimpsestEvent[]> {
-    const raw = localStorage.getItem(this.key)
-    if (raw === null) { this.cache = []; return [] }
-    try {
-      this.cache = JSON.parse(raw) as PalimpsestEvent[]
-      return this.cache
-    } catch {
-      this.cache = []
-      return []
-    }
+    this.cache = (await this.json.load()) ?? []
+    return this.cache
   }
 
   async save(events: PalimpsestEvent[]): Promise<void> {
-    localStorage.setItem(this.key, JSON.stringify(events))
+    await this.json.save(events)
     this.cache = events
   }
 }
