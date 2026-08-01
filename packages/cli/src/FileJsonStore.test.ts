@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { FileJsonStore } from './FileJsonStore.js'
-import { mkdtempSync, rmSync } from 'node:fs'
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 
@@ -32,5 +32,12 @@ describe('FileJsonStore', () => {
     await store.save([1, 2, 3])
     await store.save([4])
     expect(await store.load()).toEqual([4])
+  }))
+
+  it('returns undefined when file contains corrupt JSON', withTempDir(async dir => {
+    const path = join(dir, 'cache.json')
+    writeFileSync(path, 'not valid json{', 'utf-8')
+    const store = new FileJsonStore<{ a: number }>(path)
+    expect(await store.load()).toBeUndefined()
   }))
 })

@@ -35,7 +35,18 @@ export class TodoistStore extends PollingStore {
       this.syncToken = cached.syncToken
       this.baseEvents = cached.events
     }
-    await super.init()
+    await this.sync()
+    if (this.health === 'error' && cached !== undefined) {
+      // The cached syncToken may be stale or rejected by the API — fall back
+      // to a fresh full sync rather than getting permanently stuck retrying
+      // the same bad cursor on every future launch.
+      this.syncToken = '*'
+      this.baseEvents = []
+      await this.sync()
+    }
+    if (this.health === 'error') {
+      throw new Error(this.syncError ?? 'Connection failed')
+    }
   }
 
   override async readAllEvents(): Promise<PalimpsestEvent[]> {
@@ -93,7 +104,15 @@ export class TodoistStore extends PollingStore {
       const newEvents = buildDeltaEvents(currentBase, res.projects, res.items)
       this.baseEvents.push(...newEvents)
     }
-    await this.cacheStore.save({ syncToken: this.syncToken, events: this.baseEvents })
+
+    try {
+      await this.cacheStore.save({ syncToken: this.syncToken, events: this.baseEvents })
+    } catch (err) {
+      this.health = 'error'
+      this.syncError = err instanceof Error ? err.message : String(err)
+      return
+    }
+
     this.health = 'idle'
     this.syncError = undefined
   }
