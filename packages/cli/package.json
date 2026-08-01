@@ -12,6 +12,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "commander": "^14.0.0",
     "ink": "^7.1.0",
     "ink-text-input": "^6.0.0",
     "palimpsest": "*",
