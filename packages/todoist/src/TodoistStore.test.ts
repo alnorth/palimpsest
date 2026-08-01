@@ -1,9 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { TodoistStore } from './TodoistStore.js'
 import * as api from './api.js'
-import { createEmptyState, buildStateFromConfig } from 'palimpsest'
-import type { PalimpsestEvent, SphereId, TaskId, EventId } from 'palimpsest'
+import { createEmptyState, buildStateFromConfig, MemoryJsonStore } from 'palimpsest'
+import type { PalimpsestEvent, SphereId, TaskId, EventId, JsonStore } from 'palimpsest'
 import type { SyncResponse } from './api.js'
+import type { TodoistCache } from './TodoistStore.js'
 
 vi.mock('./api.js')
 
@@ -138,5 +139,107 @@ describe('syncState', () => {
       expect(store.syncState.unsyncedCount).toBe(0)
       expect(vi.mocked(api.sync)).toHaveBeenCalledTimes(2)
     })
+  })
+})
+
+describe('cache persistence', () => {
+  function makeCacheStore(cache?: TodoistCache): JsonStore<TodoistCache> {
+    const store = new MemoryJsonStore<TodoistCache>()
+    if (cache !== undefined) void store.save(cache)
+    return store
+  }
+
+  it('seeds syncToken from a persisted cache on init', async () => {
+    vi.mocked(api.sync).mockResolvedValue({ ...EMPTY_SYNC, full_sync: false })
+    const cacheStore = makeCacheStore({ syncToken: 'saved-token', events: [] })
+    const store = new TodoistStore('fake-token', { initialState: baseState, cacheStore })
+
+    await store.init()
+
+    expect(vi.mocked(api.sync)).toHaveBeenCalledWith('fake-token', expect.objectContaining({ syncToken: 'saved-token' }))
+  })
+
+  it('seeds baseEvents from a persisted cache on init', async () => {
+    vi.mocked(api.sync).mockResolvedValue({ ...EMPTY_SYNC, full_sync: false })
+    const cachedEvent = makeTaskEvent()
+    const cacheStore = makeCacheStore({ syncToken: 'saved-token', events: [cachedEvent] })
+    const store = new TodoistStore('fake-token', { initialState: baseState, cacheStore })
+
+    await store.init()
+    const events = await store.readAllEvents()
+
+    expect(events.some(e => e.id === cachedEvent.id)).toBe(true)
+  })
+
+  it('defaults to a full sync (syncToken "*") when no cache is persisted', async () => {
+    vi.mocked(api.sync).mockResolvedValue({ ...EMPTY_SYNC, full_sync: false })
+    const cacheStore = makeCacheStore()
+    const store = new TodoistStore('fake-token', { initialState: baseState, cacheStore })
+
+    await store.init()
+
+    expect(vi.mocked(api.sync)).toHaveBeenCalledWith('fake-token', expect.objectContaining({ syncToken: '*' }))
+  })
+
+  it('saves the updated cache after a successful sync', async () => {
+    vi.mocked(api.sync).mockResolvedValue({
+      sync_token: 'new-token',
+      full_sync: true,
+      projects: [],
+      items: [],
+    })
+    const cacheStore = makeCacheStore()
+    const saveSpy = vi.spyOn(cacheStore, 'save')
+    const store = new TodoistStore('fake-token', { initialState: baseState, cacheStore })
+
+    await store.init()
+
+    expect(saveSpy).toHaveBeenCalledWith({ syncToken: 'new-token', events: [] })
+  })
+
+  it('behaves as before when no cacheStore is provided', async () => {
+    vi.mocked(api.sync).mockResolvedValue({ ...EMPTY_SYNC, full_sync: false })
+    const store = new TodoistStore('fake-token', { initialState: baseState })
+
+    await store.init()
+
+    expect(vi.mocked(api.sync)).toHaveBeenCalledWith('fake-token', expect.objectContaining({ syncToken: '*' }))
+  })
+
+  it('falls back to a full sync when the cached syncToken causes sync to fail', async () => {
+    vi.mocked(api.sync)
+      .mockRejectedValueOnce(new Error('invalid sync token'))
+      .mockResolvedValueOnce({ ...EMPTY_SYNC, full_sync: false })
+    const cacheStore = makeCacheStore({ syncToken: 'stale-token', events: [] })
+    const store = new TodoistStore('fake-token', { initialState: baseState, cacheStore })
+
+    await store.init()
+
+    expect(store.syncState.health).toBe('idle')
+    expect(vi.mocked(api.sync)).toHaveBeenNthCalledWith(1, 'fake-token', expect.objectContaining({ syncToken: 'stale-token' }))
+    expect(vi.mocked(api.sync)).toHaveBeenNthCalledWith(2, 'fake-token', expect.objectContaining({ syncToken: '*' }))
+  })
+
+  it('throws if both the cached-token sync and the full-sync fallback fail', async () => {
+    vi.mocked(api.sync).mockRejectedValue(new Error('offline'))
+    const cacheStore = makeCacheStore({ syncToken: 'stale-token', events: [] })
+    const store = new TodoistStore('fake-token', { initialState: baseState, cacheStore })
+
+    await expect(store.init()).rejects.toThrow('offline')
+    expect(vi.mocked(api.sync)).toHaveBeenCalledTimes(2)
+  })
+
+  it('surfaces an error via syncState when persisting the cache fails', async () => {
+    vi.mocked(api.sync).mockResolvedValue({ ...EMPTY_SYNC, full_sync: false })
+    const cacheStore: JsonStore<TodoistCache> = {
+      load: vi.fn().mockResolvedValue(undefined),
+      save: vi.fn().mockRejectedValue(new Error('quota exceeded')),
+    }
+    const store = new TodoistStore('fake-token', { initialState: baseState, cacheStore })
+
+    await store.refresh()
+
+    expect(store.syncState.health).toBe('error')
+    expect(store.syncState.lastError).toBe('quota exceeded')
   })
 })

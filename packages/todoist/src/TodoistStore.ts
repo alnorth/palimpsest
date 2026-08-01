@@ -1,20 +1,52 @@
-import { PollingStore, project, createEmptyState } from 'palimpsest'
-import type { PalimpsestEvent, ProjectionState, ProjectId, PendingEventStore } from 'palimpsest'
+import { PollingStore, project, createEmptyState, MemoryJsonStore } from 'palimpsest'
+import type { PalimpsestEvent, ProjectionState, ProjectId, PendingEventStore, JsonStore } from 'palimpsest'
 import { sync } from './api.js'
 import type { SyncCommand } from './api.js'
 import { buildEvents, buildDeltaEvents } from './read.js'
 import { buildCommands } from './write.js'
 
+export interface TodoistCache {
+  syncToken: string
+  events: PalimpsestEvent[]
+}
+
 export class TodoistStore extends PollingStore {
   private baseEvents: PalimpsestEvent[] = []
   private readonly configState: ProjectionState
+  private readonly cacheStore: JsonStore<TodoistCache>
 
   constructor(
     private readonly token: string,
-    opts: { syncIntervalMs?: number; pendingStore?: PendingEventStore; initialState?: ProjectionState } = {},
+    opts: {
+      syncIntervalMs?: number
+      pendingStore?: PendingEventStore
+      initialState?: ProjectionState
+      cacheStore?: JsonStore<TodoistCache>
+    } = {},
   ) {
     super(opts)
     this.configState = opts.initialState ?? createEmptyState()
+    this.cacheStore = opts.cacheStore ?? new MemoryJsonStore()
+  }
+
+  override async init(): Promise<void> {
+    const cached = await this.cacheStore.load()
+    if (cached !== undefined) {
+      this.syncToken = cached.syncToken
+      this.baseEvents = cached.events
+    }
+    await this.sync()
+    if (this.health === 'error' && cached !== undefined) {
+      // The cached syncToken may be stale or rejected by the API — fall back
+      // to a fresh full sync rather than getting permanently stuck retrying
+      // the same bad cursor on every future launch.
+      this.syncToken = '*'
+      this.baseEvents = []
+      await this.sync()
+    }
+    if (this.health === 'error') {
+      throw new Error(this.syncError ?? 'Connection failed')
+    }
   }
 
   override async readAllEvents(): Promise<PalimpsestEvent[]> {
@@ -72,6 +104,15 @@ export class TodoistStore extends PollingStore {
       const newEvents = buildDeltaEvents(currentBase, res.projects, res.items)
       this.baseEvents.push(...newEvents)
     }
+
+    try {
+      await this.cacheStore.save({ syncToken: this.syncToken, events: this.baseEvents })
+    } catch (err) {
+      this.health = 'error'
+      this.syncError = err instanceof Error ? err.message : String(err)
+      return
+    }
+
     this.health = 'idle'
     this.syncError = undefined
   }
