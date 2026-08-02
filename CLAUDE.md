@@ -120,6 +120,8 @@ All IDs are branded strings (`TaskId`, `ProjectId`, `SphereId`, `EventId`) gener
 
 `palimpsest` with no arguments launches the interactive TUI (`src/tui.tsx`, ink + react). With a subcommand, it instead runs a one-shot, non-interactive query and exits — this is the surface an LLM agent (or any script) should use to read the task list, working against whichever store the human already has configured (`PALIMPSEST_TODOIST_TOKEN` / `PALIMPSEST_API_URL`+`PALIMPSEST_AUTH_TOKEN` / local JSONL file — see `src/store.ts`). Read-only for now; no create/update/delete.
 
+`createStore()` resolves these env vars against `process.env` merged over `~/.palimpsest/.env` (loaded via `node:util`'s `parseEnv`, real env vars win) — this lets a globally-linked `palimpsest` binary pick up tokens without needing them exported in a shell profile.
+
 ```
 palimpsest                                   # launches the TUI
 palimpsest tasks    [filters]                # --sphere/--project/--agenda/--context <name>, --status open|completed|deleted|any,

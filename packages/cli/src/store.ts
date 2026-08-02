@@ -1,13 +1,25 @@
 import { homedir } from 'node:os'
 import { join, dirname } from 'node:path'
-import { mkdirSync } from 'node:fs'
+import { mkdirSync, readFileSync } from 'node:fs'
+import { parseEnv } from 'node:util'
 import { FilePalimpsestStore, buildStateFromConfig, PALIMPSEST_CONFIG, createEmptyState } from 'palimpsest'
 import type { PalimpsestStore } from 'palimpsest'
 import { ClientPalimpsestStore } from 'palimpsest-ui-core'
 import { TodoistStore } from 'palimpsest-todoist'
 import { FilePendingEventStore } from './FilePendingEventStore.js'
 
-export function createStore(env: NodeJS.ProcessEnv = process.env): PalimpsestStore {
+// A real, explicitly-set env var always wins over the file — the file only fills gaps.
+function readDotfileEnv(): NodeJS.Dict<string> {
+  try {
+    return parseEnv(readFileSync(join(homedir(), '.palimpsest', '.env'), 'utf8'))
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return {}
+    throw error
+  }
+}
+
+export function createStore(processEnv: NodeJS.ProcessEnv = process.env): PalimpsestStore {
+  const env = { ...readDotfileEnv(), ...processEnv }
   const todoistToken = env['PALIMPSEST_TODOIST_TOKEN']
   const apiUrl = env['PALIMPSEST_API_URL']
   const authToken = env['PALIMPSEST_AUTH_TOKEN']

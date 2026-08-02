@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { mkdtempSync, rmSync } from 'node:fs'
+import { mkdtempSync, rmSync, mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { FilePalimpsestStore } from 'palimpsest'
@@ -53,5 +53,22 @@ describe('createStore', () => {
     const filePath = join(dir, 'events.jsonl')
     const store = createStore({ PALIMPSEST_API_URL: 'https://example.test', PALIMPSEST_FILE: filePath })
     expect(store).toBeInstanceOf(FilePalimpsestStore)
+  }))
+
+  it('reads PALIMPSEST_TODOIST_TOKEN from ~/.palimpsest/.env when not set in the passed-in env', withTempHome(async dir => {
+    mkdirSync(join(dir, '.palimpsest'), { recursive: true })
+    writeFileSync(join(dir, '.palimpsest', '.env'), 'PALIMPSEST_TODOIST_TOKEN=from-file\n')
+
+    const store = createStore({})
+    expect(store).toBeInstanceOf(TodoistStore)
+  }))
+
+  it('an explicitly-set env var takes precedence over the same key in ~/.palimpsest/.env', withTempHome(async dir => {
+    mkdirSync(join(dir, '.palimpsest'), { recursive: true })
+    writeFileSync(join(dir, '.palimpsest', '.env'), `PALIMPSEST_FILE=${join(dir, 'from-file.jsonl')}\n`)
+
+    const explicitPath = join(dir, 'from-explicit.jsonl')
+    const store = createStore({ PALIMPSEST_FILE: explicitPath })
+    expect((store as FilePalimpsestStore).filePath).toBe(explicitPath)
   }))
 })
