@@ -21,7 +21,9 @@ This is an npm workspaces monorepo:
 ```
 packages/core/     — the palimpsest library (published to npm / GitHub)
 packages/ui-core/  — shared app logic: state machine, view models, commands hook (React, no Ink)
-packages/cli/      — the palimpsest TUI (ink + react, depends on core and ui-core via workspace)
+packages/cli/      — the palimpsest TUI (ink + react, depends on core and ui-core via workspace);
+                     also exposes non-interactive `palimpsest tasks|task|projects|spheres|agendas|contexts`
+                     subcommands (JSON on stdout) for scripts/agents — see packages/cli section below
 packages/web/      — the palimpsest web app (React + Mantine, Vite, depends on core and ui-core)
 packages/backend/  — AWS Lambda sync API (DynamoDB event store, conflict resolution)
 packages/cdk/      — AWS CDK infrastructure (Lambda, API Gateway, S3, CloudFront, DynamoDB)
@@ -113,6 +115,29 @@ commands.ts  →  events.ts  →  projection.ts  →  query.ts
 ### ID types
 
 All IDs are branded strings (`TaskId`, `ProjectId`, `SphereId`, `EventId`) generated with nanoid. The brands are compile-time only — at runtime they are plain strings.
+
+### packages/cli
+
+`palimpsest` with no arguments launches the interactive TUI (`src/tui.tsx`, ink + react). With a subcommand, it instead runs a one-shot, non-interactive query and exits — this is the surface an LLM agent (or any script) should use to read the task list, working against whichever store the human already has configured (`PALIMPSEST_TODOIST_TOKEN` / `PALIMPSEST_API_URL`+`PALIMPSEST_AUTH_TOKEN` / local JSONL file — see `src/store.ts`). Read-only for now; no create/update/delete.
+
+`createStore()` resolves these env vars against `process.env` merged over `~/.palimpsest/.env` (loaded via `node:util`'s `parseEnv`, real env vars win) — this lets a globally-linked `palimpsest` binary pick up tokens without needing them exported in a shell profile.
+
+```
+palimpsest                                   # launches the TUI
+palimpsest tasks    [filters]                # --sphere/--project/--agenda/--context <name>, --status open|completed|deleted|any,
+                                              #   --starred, --actionable, --waiting/--not-waiting, --inbox, --due-on/--due-before <date|today>,
+                                              #   --include-archived, --limit <n>
+palimpsest task     <id>
+palimpsest projects [--sphere <name>] [--archived] [--all]
+palimpsest spheres
+palimpsest agendas  [--sphere <name>]
+palimpsest contexts [--sphere <name>]
+palimpsest --help
+```
+
+Success prints a JSON envelope to stdout and exits `0`. Any failure (bad flags, store connection failure, an unresolved `--sphere`/`--project`/`--agenda`/`--context` name, an unknown task id) prints a single human-readable line to stderr and exits `1` — no structured error format, stdout stays empty. Sphere/project/agenda/context filters are matched by name (exact id → case-insensitive exact name → case-insensitive substring; zero or multiple matches is an error listing the candidates, scoped to `--sphere` first when given) since `core/query.ts` itself stays ID-based.
+
+`src/cli/` holds the query engine: `program.ts` (commander definition), `runQuery.ts` (pure filter/sort/paginate logic over `ProjectionState`), `resolve.ts` (name→id resolution), `serialize.ts` (JSON shapes, denormalizing sphere/project/agenda/context onto each task), `run.ts` (wires store init + `runQuery` + exit codes). Note that initializing a `TodoistStore` runs a full sync, which can flush previously-queued local writes from `~/.palimpsest/todoist-pending.json` — a "read-only" command can still push queued mutations made via the TUI.
 
 ### packages/web
 

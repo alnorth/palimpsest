@@ -4,6 +4,7 @@ export default defineConfig({
   entry: ['src/index.tsx'],
   format: ['esm'],
   conditions: ['source'],
+  noExternal: [/^palimpsest/],
   target: 'node24',
   clean: true,
   banner: {
