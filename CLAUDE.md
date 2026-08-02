@@ -139,6 +139,8 @@ Success prints a JSON envelope to stdout and exits `0`. Any failure (bad flags, 
 
 `src/cli/` holds the query engine: `program.ts` (commander definition), `runQuery.ts` (pure filter/sort/paginate logic over `ProjectionState`), `resolve.ts` (name→id resolution), `serialize.ts` (JSON shapes, denormalizing sphere/project/agenda/context onto each task), `run.ts` (wires store init + `runQuery` + exit codes). Note that initializing a `TodoistStore` runs a full sync, which can flush previously-queued local writes from `~/.palimpsest/todoist-pending.json` — a "read-only" command can still push queued mutations made via the TUI.
 
+This surface is documented for agent consumption as a skill at `.claude/skills/palimpsest-cli/` (Claude Code reads it natively). A Hermes Agent picks up the same skill by adding this repo's `.claude/skills` path to `external_dirs` under the `skills:` section of `~/.hermes/config.yaml` — Hermes' skill format is agentskills.io-compatible, same as Claude Code's. The exact directory nesting Hermes expects under an `external_dirs` entry (flat `skill-name/SKILL.md` vs. an extra `category/` level) hasn't been verified against a live install; confirm with `hermes chat --toolsets skills -q "test query"` once wired up.
+
 ### packages/web
 
 React web app built with Vite and Mantine. It is a thin rendering layer over `ui-core`, mirroring the CLI's role.
