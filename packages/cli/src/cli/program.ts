@@ -21,6 +21,12 @@ interface TasksOpts {
   inbox?: boolean
   dueOn?: string
   dueBefore?: string
+  hasDueDate?: boolean
+  withoutDueDate?: boolean
+  hasAgenda?: boolean
+  withoutAgenda?: boolean
+  hasContext?: boolean
+  withoutContext?: boolean
   includeArchived?: boolean
   limit?: number
 }
@@ -79,6 +85,12 @@ export function buildProgram(writers: ProgramWriters): Program {
     .option('--inbox', 'only tasks with no project')
     .option('--due-on <date>', 'due on this date (YYYY-MM-DD or "today")')
     .option('--due-before <date>', 'due before this date (YYYY-MM-DD or "today")')
+    .option('--has-due-date', 'only tasks with a due date')
+    .option('--without-due-date', 'only tasks with no due date')
+    .option('--has-agenda', 'only tasks linked to an agenda')
+    .option('--without-agenda', 'only tasks not linked to an agenda')
+    .option('--has-context', 'only tasks with a context')
+    .option('--without-context', 'only tasks with no context')
     .option('--include-archived', 'include tasks whose project is archived')
     .option('--limit <n>', 'limit number of results', parseLimit)
     .action((opts: TasksOpts) => {
@@ -96,6 +108,12 @@ export function buildProgram(writers: ProgramWriters): Program {
         ...(opts.inbox === true && { noProject: true }),
         ...(opts.dueOn !== undefined && { dueOn: opts.dueOn }),
         ...(opts.dueBefore !== undefined && { dueBefore: opts.dueBefore }),
+        ...(opts.hasDueDate === true && { hasDueDate: true }),
+        ...(opts.withoutDueDate === true && { withoutDueDate: true }),
+        ...(opts.hasAgenda === true && { hasAgenda: true }),
+        ...(opts.withoutAgenda === true && { withoutAgenda: true }),
+        ...(opts.hasContext === true && { hasContext: true }),
+        ...(opts.withoutContext === true && { withoutContext: true }),
         ...(opts.includeArchived === true && { includeArchived: true }),
         ...(opts.limit !== undefined && { limit: opts.limit }),
       }

@@ -21,9 +21,12 @@ This is an npm workspaces monorepo:
 ```
 packages/core/     — the palimpsest library (published to npm / GitHub)
 packages/ui-core/  — shared app logic: state machine, view models, commands hook (React, no Ink)
+packages/todoist/  — PalimpsestStore backed by the Todoist Sync API (read + write mapping)
 packages/cli/      — the palimpsest TUI (ink + react, depends on core and ui-core via workspace);
                      also exposes non-interactive `palimpsest tasks|task|projects|spheres|agendas|contexts`
                      subcommands (JSON on stdout) for scripts/agents — see packages/cli section below
+packages/mcp/      — local, read-only MCP server exposing the same query surface as the CLI's
+                     subcommands, over stdio, against a Todoist-backed store — see packages/mcp section below
 packages/web/      — the palimpsest web app (React + Mantine, Vite, depends on core and ui-core)
 packages/backend/  — AWS Lambda sync API (DynamoDB event store, conflict resolution)
 packages/cdk/      — AWS CDK infrastructure (Lambda, API Gateway, S3, CloudFront, DynamoDB)
@@ -42,6 +45,9 @@ npm run test:watch --workspace=packages/core          # core tests in watch mode
 npm run test --workspace=packages/ui-core             # ui-core tests
 npm run dev --workspace=packages/cli                  # run CLI dev server (tsx)
 npm run build --workspace=packages/cli                # build CLI
+npm run test --workspace=packages/mcp                 # MCP server tests
+npm run dev --workspace=packages/mcp                  # run MCP server dev (tsx, stdio transport)
+npm run build --workspace=packages/mcp                # build MCP server
 npm run dev --workspace=packages/web                  # web app dev server (http://localhost:5173)
 npm run build --workspace=packages/web                # production web bundle (dist/)
 npm run test --workspace=packages/web                 # web tests
@@ -126,6 +132,7 @@ All IDs are branded strings (`TaskId`, `ProjectId`, `SphereId`, `EventId`) gener
 palimpsest                                   # launches the TUI
 palimpsest tasks    [filters]                # --sphere/--project/--agenda/--context <name>, --status open|completed|deleted|any,
                                               #   --starred, --actionable, --waiting/--not-waiting, --inbox, --due-on/--due-before <date|today>,
+                                              #   --has-due-date/--without-due-date, --has-agenda/--without-agenda, --has-context/--without-context,
                                               #   --include-archived, --limit <n>
 palimpsest task     <id>
 palimpsest projects [--sphere <name>] [--archived] [--all]
@@ -138,6 +145,26 @@ palimpsest --help
 Success prints a JSON envelope to stdout and exits `0`. Any failure (bad flags, store connection failure, an unresolved `--sphere`/`--project`/`--agenda`/`--context` name, an unknown task id) prints a single human-readable line to stderr and exits `1` — no structured error format, stdout stays empty. Sphere/project/agenda/context filters are matched by name (exact id → case-insensitive exact name → case-insensitive substring; zero or multiple matches is an error listing the candidates, scoped to `--sphere` first when given) since `core/query.ts` itself stays ID-based.
 
 `src/cli/` holds the query engine: `program.ts` (commander definition), `runQuery.ts` (pure filter/sort/paginate logic over `ProjectionState`), `resolve.ts` (name→id resolution), `serialize.ts` (JSON shapes, denormalizing sphere/project/agenda/context onto each task), `run.ts` (wires store init + `runQuery` + exit codes). Note that initializing a `TodoistStore` runs a full sync, which can flush previously-queued local writes from `~/.palimpsest/todoist-pending.json` — a "read-only" command can still push queued mutations made via the TUI.
+
+`runQuery` and its `ParsedCommand` types are re-exported at the subpath `palimpsest-cli/query` (backed by `src/cli/index.ts`) so other packages can reuse the same filter/sort/resolution logic without depending on the ink/commander parts of the CLI — `packages/mcp` is the first consumer.
+
+### packages/mcp
+
+A local MCP server exposing the same six read-only operations as the CLI's non-interactive subcommands (`tasks`, `task`, `projects`, `spheres`, `agendas`, `contexts`), over the stdio transport, for use by MCP clients (e.g. Claude Desktop, Claude Code). Read-only — no create/update/delete tools.
+
+```
+src/
+  index.ts        — entry point: builds the store, connects McpServer over StdioServerTransport
+  server.ts       — createMcpServer(store): registers the 6 tools with zod input schemas
+  tools.ts        — pure per-tool handlers: map tool args → ParsedCommand, call runQuery, wrap as CallToolResult
+  store.ts        — createStore(env): builds a TodoistStore from PALIMPSEST_TODOIST_TOKEN
+```
+
+Only supports the Todoist store for now, so the only credential needed is the Todoist API token, read from the `PALIMPSEST_TODOIST_TOKEN` environment variable at startup (set it in the MCP client's server config, e.g. `{ "command": "palimpsest-mcp", "env": { "PALIMPSEST_TODOIST_TOKEN": "..." } }`). `createStore` throws a readable error (caught in `index.ts`, printed to stderr, exit `1`) if the token is missing.
+
+The store is built once at startup; each tool call runs `store.sync()` (an incremental Todoist sync) before `store.getState()`, so results stay fresh without re-authenticating per call. Each handler in `tools.ts` maps its zod-validated input onto a `ParsedCommand` from `palimpsest-cli/query` and calls the shared `runQuery` — the same filter/sort/pagination/name-resolution logic the CLI uses. Success returns `{ content: [{ type: 'text', text: JSON.stringify({ ok: true, ...data }) }] }`; a thrown domain error (unresolved name, unknown task id) or a failed sync is caught and returned as `{ content: [...], isError: true }` with the error message as the text — never a thrown protocol error — mirroring the CLI's stdout/stderr JSON-envelope-vs-message contract.
+
+`tools.ts`'s `TaskStore` interface (`{ sync(): Promise<void>; getState(): Promise<ProjectionState> }`) is a minimal structural type, not tied to any concrete store class — this keeps the handlers unit-testable against a fake without needing a real `TodoistStore`/`PollingStore`.
 
 ### packages/web
 

@@ -118,6 +118,66 @@ describe('tasks: filters', () => {
     const result = runQuery(state, { kind: 'tasks', limit: 5 }) as { total: number; truncated: boolean }
     expect(result).toMatchObject({ total: 1, truncated: false })
   })
+
+  test('hasDueDate / withoutDueDate', () => {
+    const sphere = makeSphere()
+    const dated = makeTask({ sphereId: sphere.id, title: 'Dated', dueDate: '2026-08-10' })
+    const undated = makeTask({ sphereId: sphere.id, title: 'Undated' })
+    const state = buildState({ spheres: [sphere], tasks: [dated, undated] })
+
+    const withDate = runQuery(state, { kind: 'tasks', hasDueDate: true }) as { tasks: { title: string }[] }
+    expect(withDate.tasks.map(t => t.title)).toEqual(['Dated'])
+
+    const withoutDate = runQuery(state, { kind: 'tasks', withoutDueDate: true }) as { tasks: { title: string }[] }
+    expect(withoutDate.tasks.map(t => t.title)).toEqual(['Undated'])
+  })
+
+  test('hasAgenda / withoutAgenda', () => {
+    const sphere = makeSphere()
+    const agenda = makeAgenda(sphere, { title: 'Standup' })
+    const linked = makeTask({ sphereId: sphere.id, agendaId: agenda.id, title: 'Linked' })
+    const unlinked = makeTask({ sphereId: sphere.id, title: 'Unlinked' })
+    const state = buildState({ spheres: [sphere], agendas: [agenda], tasks: [linked, unlinked] })
+
+    const withAgenda = runQuery(state, { kind: 'tasks', hasAgenda: true }) as { tasks: { title: string }[] }
+    expect(withAgenda.tasks.map(t => t.title)).toEqual(['Linked'])
+
+    const withoutAgenda = runQuery(state, { kind: 'tasks', withoutAgenda: true }) as { tasks: { title: string }[] }
+    expect(withoutAgenda.tasks.map(t => t.title)).toEqual(['Unlinked'])
+  })
+
+  test('hasContext / withoutContext', () => {
+    const sphere = makeSphere()
+    const context = makeContext(sphere, { name: 'Email' })
+    const linked = makeTask({ sphereId: sphere.id, contextId: context.id, title: 'Linked' })
+    const unlinked = makeTask({ sphereId: sphere.id, title: 'Unlinked' })
+    const state = buildState({ spheres: [sphere], contexts: [context], tasks: [linked, unlinked] })
+
+    const withContext = runQuery(state, { kind: 'tasks', hasContext: true }) as { tasks: { title: string }[] }
+    expect(withContext.tasks.map(t => t.title)).toEqual(['Linked'])
+
+    const withoutContext = runQuery(state, { kind: 'tasks', withoutContext: true }) as { tasks: { title: string }[] }
+    expect(withoutContext.tasks.map(t => t.title)).toEqual(['Unlinked'])
+  })
+
+  test('actionable + withoutDueDate + withoutAgenda + withoutContext composes (the "processing" inbox query)', () => {
+    const sphere = makeSphere()
+    const agenda = makeAgenda(sphere)
+    const context = makeContext(sphere)
+    const bareActionable = makeTask({ sphereId: sphere.id, title: 'Bare', isNext: true })
+    const datedActionable = makeTask({ sphereId: sphere.id, title: 'Dated', isNext: true, dueDate: '2026-08-10' })
+    const withAgendaActionable = makeTask({ sphereId: sphere.id, title: 'HasAgenda', isNext: true, agendaId: agenda.id })
+    const withContextActionable = makeTask({ sphereId: sphere.id, title: 'HasContext', isNext: true, contextId: context.id })
+    const state = buildState({
+      spheres: [sphere], agendas: [agenda], contexts: [context],
+      tasks: [bareActionable, datedActionable, withAgendaActionable, withContextActionable],
+    })
+
+    const result = runQuery(state, {
+      kind: 'tasks', actionable: true, withoutDueDate: true, withoutAgenda: true, withoutContext: true,
+    }) as { tasks: { title: string }[] }
+    expect(result.tasks.map(t => t.title)).toEqual(['Bare'])
+  })
 })
 
 describe('tasks: errors', () => {
