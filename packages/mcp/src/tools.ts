@@ -21,6 +21,12 @@ export interface TasksToolInput {
   inbox?: boolean | undefined
   dueOn?: string | undefined
   dueBefore?: string | undefined
+  hasDueDate?: boolean | undefined
+  withoutDueDate?: boolean | undefined
+  hasAgenda?: boolean | undefined
+  withoutAgenda?: boolean | undefined
+  hasContext?: boolean | undefined
+  withoutContext?: boolean | undefined
   includeArchived?: boolean | undefined
   limit?: number | undefined
 }
@@ -66,6 +72,12 @@ export function handleTasks(store: TaskStore, input: TasksToolInput): Promise<Ca
     ...(input.inbox === true && { noProject: true }),
     ...(input.dueOn !== undefined && { dueOn: input.dueOn }),
     ...(input.dueBefore !== undefined && { dueBefore: input.dueBefore }),
+    ...(input.hasDueDate === true && { hasDueDate: true }),
+    ...(input.withoutDueDate === true && { withoutDueDate: true }),
+    ...(input.hasAgenda === true && { hasAgenda: true }),
+    ...(input.withoutAgenda === true && { withoutAgenda: true }),
+    ...(input.hasContext === true && { hasContext: true }),
+    ...(input.withoutContext === true && { withoutContext: true }),
     ...(input.includeArchived === true && { includeArchived: true }),
     ...(input.limit !== undefined && { limit: input.limit }),
   })

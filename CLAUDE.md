@@ -132,6 +132,7 @@ All IDs are branded strings (`TaskId`, `ProjectId`, `SphereId`, `EventId`) gener
 palimpsest                                   # launches the TUI
 palimpsest tasks    [filters]                # --sphere/--project/--agenda/--context <name>, --status open|completed|deleted|any,
                                               #   --starred, --actionable, --waiting/--not-waiting, --inbox, --due-on/--due-before <date|today>,
+                                              #   --has-due-date/--without-due-date, --has-agenda/--without-agenda, --has-context/--without-context,
                                               #   --include-archived, --limit <n>
 palimpsest task     <id>
 palimpsest projects [--sphere <name>] [--archived] [--all]

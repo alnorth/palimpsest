@@ -2,7 +2,7 @@ import { describe, test, expect, beforeEach } from 'vitest'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js'
 import type { ProjectionState } from 'palimpsest'
-import { makeSphere, makeTask, buildState } from './testFixtures.js'
+import { makeSphere, makeContext, makeTask, buildState } from './testFixtures.js'
 import type { TaskStore } from './tools.js'
 import { createMcpServer } from './server.js'
 
@@ -72,5 +72,20 @@ describe('createMcpServer', () => {
     const result = await client.callTool({ name: 'tasks', arguments: { limit: -1 } })
     expect(result.isError).toBe(true)
     expect(firstText(result)).toMatch(/Invalid arguments/)
+  })
+
+  test('tasks tool accepts hasContext to reconstruct a pick-list-style query', async () => {
+    const sphere = makeSphere({ name: 'Errands' })
+    const context = makeContext(sphere, { name: '@errand' })
+    const withContext = makeTask({ sphereId: sphere.id, contextId: context.id, title: 'HasContext' })
+    const withoutContext = makeTask({ sphereId: sphere.id, title: 'NoContext' })
+    const scopedClient = await connectedClient(fakeStore(buildState({
+      spheres: [sphere], contexts: [context], tasks: [withContext, withoutContext],
+    })))
+
+    const result = await scopedClient.callTool({ name: 'tasks', arguments: { hasContext: true } })
+
+    const parsed = JSON.parse(firstText(result)) as { tasks: { title: string }[] }
+    expect(parsed.tasks.map(t => t.title)).toEqual(['HasContext'])
   })
 })

@@ -59,6 +59,21 @@ describe('tasks command flags', () => {
     expect(result.command).toEqual({ kind: 'tasks', dueOn: 'today', dueBefore: '2026-08-10' })
   })
 
+  test('--has-due-date / --without-due-date map to hasDueDate / withoutDueDate', async () => {
+    const result = await parse(['tasks', '--has-due-date', '--without-due-date'])
+    expect(result.command).toEqual({ kind: 'tasks', hasDueDate: true, withoutDueDate: true })
+  })
+
+  test('--has-agenda / --without-agenda map to hasAgenda / withoutAgenda', async () => {
+    const result = await parse(['tasks', '--has-agenda', '--without-agenda'])
+    expect(result.command).toEqual({ kind: 'tasks', hasAgenda: true, withoutAgenda: true })
+  })
+
+  test('--has-context / --without-context map to hasContext / withoutContext', async () => {
+    const result = await parse(['tasks', '--has-context', '--without-context'])
+    expect(result.command).toEqual({ kind: 'tasks', hasContext: true, withoutContext: true })
+  })
+
   test('--limit parses to a number', async () => {
     const result = await parse(['tasks', '--limit', '5'])
     expect(result.command).toEqual({ kind: 'tasks', limit: 5 })

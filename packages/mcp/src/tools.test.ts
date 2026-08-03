@@ -76,6 +76,35 @@ describe('handleTasks', () => {
     const parsed = parseOk<{ tasks: { title: string }[] }>(text)
     expect(parsed.tasks.map(t => t.title)).toEqual(['Actionable one'])
   })
+
+  test('the processing-style inbox query: actionable + withoutDueDate + withoutAgenda + withoutContext', async () => {
+    const sphere = makeSphere()
+    const bare = makeTask({ sphereId: sphere.id, title: 'Bare', isNext: true })
+    const dated = makeTask({ sphereId: sphere.id, title: 'Dated', isNext: true, dueDate: '2026-08-10' })
+    const store = fakeStore(buildState({ spheres: [sphere], tasks: [bare, dated] }))
+
+    const result = await handleTasks(store, {
+      actionable: true, withoutDueDate: true, withoutAgenda: true, withoutContext: true,
+    })
+
+    const text = (result.content[0] as { type: 'text'; text: string }).text
+    const parsed = parseOk<{ tasks: { title: string }[] }>(text)
+    expect(parsed.tasks.map(t => t.title)).toEqual(['Bare'])
+  })
+
+  test('hasContext for the pick-list-style query', async () => {
+    const sphere = makeSphere()
+    const context = makeContext(sphere)
+    const withContext = makeTask({ sphereId: sphere.id, title: 'HasContext', contextId: context.id })
+    const withoutContext = makeTask({ sphereId: sphere.id, title: 'NoContext' })
+    const store = fakeStore(buildState({ spheres: [sphere], contexts: [context], tasks: [withContext, withoutContext] }))
+
+    const result = await handleTasks(store, { hasContext: true })
+
+    const text = (result.content[0] as { type: 'text'; text: string }).text
+    const parsed = parseOk<{ tasks: { title: string }[] }>(text)
+    expect(parsed.tasks.map(t => t.title)).toEqual(['HasContext'])
+  })
 })
 
 describe('handleTask', () => {

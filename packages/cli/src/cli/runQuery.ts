@@ -21,6 +21,12 @@ export interface TasksCommand {
   noProject?: boolean
   dueOn?: string
   dueBefore?: string
+  hasDueDate?: boolean
+  withoutDueDate?: boolean
+  hasAgenda?: boolean
+  withoutAgenda?: boolean
+  hasContext?: boolean
+  withoutContext?: boolean
   includeArchived?: boolean
   limit?: number
 }
@@ -110,6 +116,12 @@ function runTasksQuery(state: ProjectionState, command: TasksCommand, today: str
     ...(command.waiting === true && { isWaiting: true }),
     ...(command.notWaiting === true && { isWaiting: false }),
     ...(command.noProject === true && { hasProject: false }),
+    ...(command.hasDueDate === true && { hasDueDate: true }),
+    ...(command.withoutDueDate === true && { hasDueDate: false }),
+    ...(command.hasAgenda === true && { hasAgenda: true }),
+    ...(command.withoutAgenda === true && { hasAgenda: false }),
+    ...(command.hasContext === true && { hasContext: true }),
+    ...(command.withoutContext === true && { hasContext: false }),
     ...(command.includeArchived === true && { showArchivedProjects: true }),
   }
 
