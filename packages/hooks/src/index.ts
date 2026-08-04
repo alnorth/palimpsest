@@ -1,4 +1,4 @@
-export type { QueryResult, ListResult, SphereScopedFilter } from './types'
+export type { QueryResult, ListResult, SphereScopedFilter, MutationResult } from './types'
 
 export type { PalimpsestContextValue, PalimpsestProviderProps } from './PalimpsestProvider'
 export { PalimpsestProvider, usePalimpsestContext } from './PalimpsestProvider'
@@ -18,6 +18,7 @@ export { useProjects } from './useProjects'
 export type { TasksFilter } from './useTasks'
 export { useTasks } from './useTasks'
 export { useTask } from './useTask'
+export { useCompleteTask } from './useCompleteTask'
 export { useDashboard } from './useDashboard'
 export type { ProcessingResult } from './useProcessing'
 export { useProcessing } from './useProcessing'

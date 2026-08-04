@@ -1,4 +1,5 @@
-import type { ProjectionState } from '@alnorth/palimpsest'
+import type { PalimpsestEvent, ProjectionState, TaskId } from '@alnorth/palimpsest'
+import { completeTask, getTask } from '@alnorth/palimpsest'
 import { runQuery } from '@alnorth/palimpsest-query'
 import type { ParsedCommand, StatusArg } from '@alnorth/palimpsest-query'
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js'
@@ -6,6 +7,7 @@ import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js'
 export interface TaskStore {
   sync(): Promise<void>
   getState(): Promise<ProjectionState>
+  appendEvents(events: PalimpsestEvent[]): Promise<void>
 }
 
 export interface TasksToolInput {
@@ -54,6 +56,10 @@ export type ProcessingToolInput = Record<string, never>
 
 export interface PickListToolInput {
   sphere: string
+}
+
+export interface CompleteTaskToolInput {
+  id: string
 }
 
 async function runToolQuery(store: TaskStore, command: ParsedCommand): Promise<CallToolResult> {
@@ -146,4 +152,24 @@ export function handleWaiting(store: TaskStore, input: SphereScopedToolInput): P
 
 export function handlePickList(store: TaskStore, input: PickListToolInput): Promise<CallToolResult> {
   return runToolQuery(store, { kind: 'pick_list', sphere: input.sphere })
+}
+
+export async function handleCompleteTask(store: TaskStore, input: CompleteTaskToolInput): Promise<CallToolResult> {
+  try {
+    await store.sync()
+    const state = await store.getState()
+    const task = getTask(state, input.id as TaskId)
+    if (task === undefined) throw new Error(`Task not found: ${input.id}`)
+    await store.appendEvents(completeTask(task))
+    // Flush the just-appended event through immediately rather than leaving it for the
+    // pending-queue's debounced sync, so the response reflects what the remote store actually
+    // confirmed (e.g. a recurring task's server-normalized next due date).
+    await store.sync()
+    const finalState = await store.getState()
+    const data = runQuery(finalState, { kind: 'task', id: input.id })
+    return { content: [{ type: 'text', text: JSON.stringify({ ok: true, ...data }, null, 2) }] }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    return { content: [{ type: 'text', text: message }], isError: true }
+  }
 }

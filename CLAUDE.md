@@ -26,11 +26,13 @@ packages/query/    — shared read query engine (filter/sort/paginate/resolve/se
                      — see packages/query section below
 packages/todoist/  — PalimpsestStore backed by the Todoist Sync API (read + write mapping),
                      published as @alnorth/palimpsest-todoist
-packages/mcp/      — local, read-only MCP server exposing the query engine's operations over
-                     stdio, against a Todoist-backed store — see packages/mcp section below
-packages/hooks/    — React hooks + Context library for reading palimpsest data from third-party
-                     apps (web, React Native, etc.), read-only for now, published as
-                     @alnorth/palimpsest-hooks — see packages/hooks section below
+packages/mcp/      — local MCP server exposing the query engine's read operations plus a small
+                     but growing set of write tools over stdio, against a Todoist-backed store —
+                     see packages/mcp section below
+packages/hooks/    — React hooks + Context library for reading, and (starting with task
+                     completion) writing, palimpsest data from third-party apps (web, React
+                     Native, etc.), published as @alnorth/palimpsest-hooks — see packages/hooks
+                     section below
 packages/backend/  — AWS Lambda sync API (DynamoDB event store, conflict resolution)
 packages/cdk/      — AWS CDK infrastructure (Lambda, API Gateway, DynamoDB)
 ```
@@ -143,25 +145,28 @@ Sphere/project/agenda/context filters are matched by name via `resolve.ts` (exac
 
 ### packages/mcp
 
-A local, read-only MCP server over the stdio transport, for use by MCP clients (e.g. Claude Desktop, Claude Code). No create/update/delete tools. Exposes ten tools mirroring `@alnorth/palimpsest-query`'s `ParsedCommand` kinds one-for-one: `tasks`, `task`, `projects`, `spheres`, `agendas`, `contexts`, `dashboard`, `processing`, `waiting`, `pick_list`.
+A local MCP server over the stdio transport, for use by MCP clients (e.g. Claude Desktop, Claude Code). Exposes ten read-only tools mirroring `@alnorth/palimpsest-query`'s `ParsedCommand` kinds one-for-one (`tasks`, `task`, `projects`, `spheres`, `agendas`, `contexts`, `dashboard`, `processing`, `waiting`, `pick_list`) plus one write tool, `complete_task` — the first of what's expected to grow into a small set of write tools alongside the read ones.
 
 ```
 src/
   index.ts        — entry point: builds the store, connects McpServer over StdioServerTransport
-  server.ts       — createMcpServer(store): registers the 10 tools with zod input schemas
-  tools.ts        — pure per-tool handlers: map tool args → ParsedCommand, call runQuery, wrap as CallToolResult
+  server.ts       — createMcpServer(store): registers the 11 tools with zod input schemas
+  tools.ts        — pure per-tool handlers: read handlers map args → ParsedCommand and call runQuery;
+                    the write handler (handleCompleteTask) maps args → a core command → store.appendEvents
   store.ts        — createStore(env): builds a TodoistStore from PALIMPSEST_TODOIST_TOKEN
 ```
 
 Only supports the Todoist store for now, so the only credential needed is the Todoist API token, read from the `PALIMPSEST_TODOIST_TOKEN` environment variable at startup (set it in the MCP client's server config, e.g. `{ "command": "palimpsest-mcp", "env": { "PALIMPSEST_TODOIST_TOKEN": "..." } }`). `createStore` throws a readable error (caught in `index.ts`, printed to stderr, exit `1`) if the token is missing.
 
-The store is built once at startup; each tool call runs `store.sync()` (an incremental Todoist sync) before `store.getState()`, so results stay fresh without re-authenticating per call. Each handler in `tools.ts` maps its zod-validated input onto a `ParsedCommand` from `@alnorth/palimpsest-query` and calls the shared `runQuery`. Success returns `{ content: [{ type: 'text', text: JSON.stringify({ ok: true, ...data }) }] }`; a thrown domain error (unresolved name, unknown task id) or a failed sync is caught and returned as `{ content: [...], isError: true }` with the error message as the text — never a thrown protocol error. `dashboard` and `pick_list` require `sphere` in their input schema (no `.optional()`); `processing` takes an empty schema.
+The store is built once at startup; each read tool call runs `store.sync()` (an incremental Todoist sync) before `store.getState()`, so results stay fresh without re-authenticating per call. Each read handler in `tools.ts` maps its zod-validated input onto a `ParsedCommand` from `@alnorth/palimpsest-query` and calls the shared `runQuery`. Success returns `{ content: [{ type: 'text', text: JSON.stringify({ ok: true, ...data }) }] }`; a thrown domain error (unresolved name, unknown task id) or a failed sync is caught and returned as `{ content: [...], isError: true }` with the error message as the text — never a thrown protocol error. `dashboard` and `pick_list` require `sphere` in their input schema (no `.optional()`); `processing` takes an empty schema.
 
-`tools.ts`'s `TaskStore` interface (`{ sync(): Promise<void>; getState(): Promise<ProjectionState> }`) is a minimal structural type, not tied to any concrete store class — this keeps the handlers unit-testable against a fake without needing a real `TodoistStore`/`PollingStore`.
+`handleCompleteTask` (the `complete_task` tool) takes a plain task `id` — no name resolution, unlike the collection filters, since a wrong fuzzy match on a *write* is a much worse failure mode than on a read. It looks the task up via core's `getTask`, calls `completeTask(task)` to get the event(s) (`task.completed`, or `task.recurred` if the task carries a `dueDateExpression`), appends them, then — unlike the read path — calls `store.sync()` a second time before re-reading state, to flush the pending event through immediately rather than leaving it for `PollingStore`'s debounced sync; the response then reflects what the store actually confirmed, not just local pending state.
+
+`tools.ts`'s `TaskStore` interface (`{ sync(): Promise<void>; getState(): Promise<ProjectionState>; appendEvents(events: PalimpsestEvent[]): Promise<void> }`) is a minimal structural type, not tied to any concrete store class — this keeps the handlers unit-testable against a fake without needing a real `TodoistStore`/`PollingStore`. `TodoistStore` already implements `appendEvents` (inherited from `PollingStore`/`PalimpsestStore`), so no store-layer changes were needed to add the write tool.
 
 ### packages/hooks
 
-React hooks + a Context for reading palimpsest data from arbitrary third-party React apps (web, React Native, etc.) — read-only for now; write support (`useCompleteTask()`, `useCreateTask()`, etc.) is a planned later phase. Built on `@alnorth/palimpsest-query` (same filter vocabulary and denormalized JSON shapes as `packages/mcp`, so the two remaining UI surfaces stay aligned). `PalimpsestProvider`'s `todoistToken` prop is a convenience that builds a `@alnorth/palimpsest-todoist` `TodoistStore` (zero Node dependencies, `fetch`-based, safe in any bundler); its `store` prop accepts any `PalimpsestStore`, including this package's own `ClientPalimpsestStore` (synced against `packages/backend`'s custom `/sync` API — the same backend `packages/cdk` deploys — for projects that want their own infrastructure instead of relying on Todoist) paired with `LocalStoragePendingEventStore` for the browser-local pending-write buffer.
+React hooks + a Context for reading — and, starting with task completion, writing — palimpsest data from arbitrary third-party React apps (web, React Native, etc.). Built on `@alnorth/palimpsest-query` (same filter vocabulary and denormalized JSON shapes as `packages/mcp`, so the two remaining UI surfaces stay aligned). `PalimpsestProvider`'s `todoistToken` prop is a convenience that builds a `@alnorth/palimpsest-todoist` `TodoistStore` (zero Node dependencies, `fetch`-based, safe in any bundler); its `store` prop accepts any `PalimpsestStore`, including this package's own `ClientPalimpsestStore` (synced against `packages/backend`'s custom `/sync` API — the same backend `packages/cdk` deploys — for projects that want their own infrastructure instead of relying on Todoist) paired with `LocalStoragePendingEventStore` for the browser-local pending-write buffer.
 
 ```
 src/
@@ -173,18 +178,22 @@ src/
   ClientPalimpsestStore.ts       — PalimpsestStore synced against a custom backend's POST /sync endpoint
                                   (SyncFn injected by the caller); alternative to @alnorth/palimpsest-todoist's TodoistStore
   LocalStoragePendingEventStore.ts — PendingEventStore backed by browser localStorage, pairs with the above
-  internal/useRunQuery.ts       — shared memoized runQuery(projState, command) wrapper every data hook uses
-  use*.ts                       — one hook per read capability (see below)
+  internal/useRunQuery.ts       — shared memoized runQuery(projState, command) wrapper every read hook uses
+  internal/useMutation.ts       — shared store.appendEvents(...) wrapper every write hook uses, exposing
+                                  { mutate, isPending, error }; the write-side sibling of useRunQuery
+  use*.ts                       — one hook per read/write capability (see below)
   presentation/                 — opt-in display/formatting helpers operating on TaskJson (not ProjectionState)
 ```
 
-Hooks: `useSpheres`, `useAgendas`, `useContexts`, `useProjects`, `useTasks`, `useTask`, `useDashboard`, `useProcessing`, `useWaiting`, `usePickList`, `useSyncStatus`, `useCurrentSphere`. Every data hook returns a consistent envelope — `QueryResult<T>` (`{ data, isLoading, error }`) for single-value/aggregate results, `ListResult<T>` (adds `total`/`truncated`) for paginated lists — and returns plain denormalized `TaskJson`/`ProjectJson`/etc., never pre-formatted strings.
+Read hooks: `useSpheres`, `useAgendas`, `useContexts`, `useProjects`, `useTasks`, `useTask`, `useDashboard`, `useProcessing`, `useWaiting`, `usePickList`, `useSyncStatus`, `useCurrentSphere`. Every read hook returns a consistent envelope — `QueryResult<T>` (`{ data, isLoading, error }`) for single-value/aggregate results, `ListResult<T>` (adds `total`/`truncated`) for paginated lists — and returns plain denormalized `TaskJson`/`ProjectJson`/etc., never pre-formatted strings.
+
+Write hooks: `useCompleteTask()` (more — `useCreateTask()`, etc. — are a planned later phase). Every write hook returns `MutationResult<TArgs, TResult>` (`{ mutate, isPending, error }`) from the shared `internal/useMutation.ts` primitive. `useCompleteTask()` takes no arguments and returns `{ mutate: (taskId: string) => Promise<void>, isPending, error }` — the id varies per call rather than per hook instance, so one hook instance can complete whichever row was just clicked in a list. `mutate` looks the task up fresh from the *current* `projState` (not a value captured at render time) via core's `getTask`, then calls `completeTask(task)` and `store.appendEvents(...)`. No hand-rolled optimistic local state is needed: `PollingStore`-based stores already fold pending (unsynced) events into every `getState()` projection, so the Provider's existing `subscribe`→`getState()`→re-render loop reflects the write as soon as `appendEvents` resolves, well before the debounced network sync completes.
 
 Filter param shapes mirror `@alnorth/palimpsest-query`'s `ParsedCommand` fields exactly (same sphere/project/agenda/context/status/etc. vocabulary as the MCP tools), with one exception: **sphere-scoping for the four aggregate hooks is split by hook family**. `useTasks`/`useProjects`/`useAgendas`/`useContexts` stay fully parameterized — an omitted `sphere` never falls back to context state. `useWaiting` mirrors its MCP tool (`sphere` optional, unscoped when omitted). `useDashboard`/`usePickList` mirror their MCP tools' required-`sphere` constraint, but satisfy it at the hook layer by falling back to the Context's `currentSphereId` when their own argument is omitted — if neither resolves, they return an empty-but-valid result (`{ data: [], isLoading: false, error: undefined, ... }`), never an error. `useProcessing` takes no sphere argument at all, matching its MCP tool's always-global scope.
 
 `presentation/taskDisplay.ts` (`getDueStatus`, `hasDescription`, `getTaskBadges`, `getTaskDetailFields`) operates on `TaskJson` rather than raw `Task`+`ProjectionState`, and badges carry a `kind` discriminant (`'description'|'waiting'|'project'|'agenda'|'context'|'dueDate'|'recurrence'|'completedAt'`) rather than a pre-rendered prefix glyph, so different renderers (web, React Native) can style each kind however they like. A dangling `waitingFor` reference (the waited-on agenda or project has been deleted/archived) denormalizes to `name: null` in `@alnorth/palimpsest-query`'s `WaitingForJson` rather than throwing or silently showing a blank name; `taskDisplay.ts` renders this as a `?` placeholder (`w/ ?` badge, `?` detail-field value) so it's visibly distinct from a resolved name. `presentation/previews.ts` carries `getDueDatePreview`/`getRecurrencePreview` (due-date/recurrence input preview helpers, unused today but salvaged for the future write-support phase) alongside `formatDateWithDay`.
 
-The Context exposes `store: PalimpsestStore` directly (not hidden) so that future write hooks can call `store.appendEvents(commands.completeTask(...))` and rely on the same `subscribe`→`getState` refresh loop already wired into the Provider, without needing a breaking Context-shape change later.
+The Context exposes `store: PalimpsestStore` directly (not hidden), which is what lets `internal/useMutation.ts` call `store.appendEvents(...)` and rely on the same `subscribe`→`getState` refresh loop already wired into the Provider, without needing a breaking Context-shape change for write support.
 
 ### packages/backend
 
