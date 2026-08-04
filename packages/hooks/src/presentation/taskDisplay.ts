@@ -45,7 +45,7 @@ export interface TaskDetailField {
 function waitingBadgeText(waitingFor: NonNullable<TaskJson['waitingFor']>): string {
   if (waitingFor.kind === 'review') return 'w/ review'
   if (waitingFor.kind === 'trello') return 'w/ Trello'
-  return `w/ ${waitingFor.name}`
+  return `w/ ${waitingFor.name ?? '?'}`
 }
 
 export function getTaskBadges(task: TaskJson, opts?: { showProject?: boolean; today?: string }): TaskBadge[] {
@@ -79,7 +79,7 @@ export function getTaskDetailFields(task: TaskJson): TaskDetailField[] {
   if (task.isStarred) fields.push({ label: 'starred', value: '' })
   if (task.waitingFor !== null) {
     const wf = task.waitingFor
-    const value = wf.kind === 'review' ? 'for review' : wf.kind === 'trello' ? wf.cardUrl : wf.name
+    const value = wf.kind === 'review' ? 'for review' : wf.kind === 'trello' ? wf.cardUrl : wf.name ?? '?'
     const href = wf.kind === 'trello' ? wf.cardUrl : undefined
     fields.push({ label: 'waiting', value, ...(href !== undefined && { href }) })
   }

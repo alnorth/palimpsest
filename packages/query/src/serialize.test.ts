@@ -92,6 +92,18 @@ describe('toTaskJson', () => {
     expect(toTaskJson(state, task).waitingFor).toEqual({ kind: 'trello', cardUrl: 'https://trello.example/c/1' })
   })
 
+  test('waitingFor: dangling agendaId resolves to name: null rather than an empty string', () => {
+    const task = makeTask({ sphereId: makeSphere().id, waitingFor: { kind: 'agenda', agendaId: 'missing' as AgendaId } })
+    const state = buildState({ tasks: [task] })
+    expect(toTaskJson(state, task).waitingFor).toEqual({ kind: 'agenda', id: 'missing', name: null })
+  })
+
+  test('waitingFor: dangling projectId resolves to name: null rather than an empty string', () => {
+    const task = makeTask({ sphereId: makeSphere().id, waitingFor: { kind: 'project', projectId: 'missing' as ProjectId } })
+    const state = buildState({ tasks: [task] })
+    expect(toTaskJson(state, task).waitingFor).toEqual({ kind: 'project', id: 'missing', name: null })
+  })
+
   test('completed task exposes completedAt', () => {
     const task = makeTask({ sphereId: makeSphere().id, status: 'completed', completedAt: '2026-07-01T00:00:00.000Z' })
     const state = buildState({ tasks: [task] })

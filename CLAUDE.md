@@ -149,25 +149,28 @@ The store is built once at startup; each tool call runs `store.sync()` (an incre
 
 ### packages/hooks
 
-React hooks + a Context for reading palimpsest data from arbitrary third-party React apps (web, React Native, etc.) — read-only for now; write support (`useCompleteTask()`, `useCreateTask()`, etc.) is a planned later phase. Built on `palimpsest-query` (same filter vocabulary and denormalized JSON shapes as `packages/mcp`, so the two remaining UI surfaces stay aligned) and `palimpsest-todoist`'s `TodoistStore` (zero Node dependencies, `fetch`-based, safe in any bundler).
+React hooks + a Context for reading palimpsest data from arbitrary third-party React apps (web, React Native, etc.) — read-only for now; write support (`useCompleteTask()`, `useCreateTask()`, etc.) is a planned later phase. Built on `palimpsest-query` (same filter vocabulary and denormalized JSON shapes as `packages/mcp`, so the two remaining UI surfaces stay aligned). `PalimpsestProvider`'s `todoistToken` prop is a convenience that builds a `palimpsest-todoist` `TodoistStore` (zero Node dependencies, `fetch`-based, safe in any bundler); its `store` prop accepts any `PalimpsestStore`, including this package's own `ClientPalimpsestStore` (synced against `packages/backend`'s custom `/sync` API — the same backend `packages/cdk` deploys — for projects that want their own infrastructure instead of relying on Todoist) paired with `LocalStoragePendingEventStore` for the browser-local pending-write buffer.
 
 ```
 src/
-  PalimpsestProvider.tsx — Context + Provider: fuses the connect phase (store.init() → getState())
-                           with the live-update phase (store.subscribe()/start()/stop()); exposes
-                           store, projState, isLoading, connectionError, syncState, refresh,
-                           currentSphereId/setCurrentSphere, today
-  useStore.ts             — lower-level subscribe/poll hook over an already-known ProjectionState
-  internal/useRunQuery.ts — shared memoized runQuery(projState, command) wrapper every data hook uses
-  use*.ts                 — one hook per read capability (see below)
-  presentation/           — opt-in display/formatting helpers operating on TaskJson (not ProjectionState)
+  PalimpsestProvider.tsx        — Context + Provider: fuses the connect phase (store.init() → getState())
+                                  with the live-update phase (store.subscribe()/start()/stop()); exposes
+                                  store, projState, isLoading, connectionError, syncState, refresh,
+                                  currentSphereId/setCurrentSphere, today
+  useStore.ts                   — lower-level subscribe/poll hook over an already-known ProjectionState
+  ClientPalimpsestStore.ts       — PalimpsestStore synced against a custom backend's POST /sync endpoint
+                                  (SyncFn injected by the caller); alternative to palimpsest-todoist's TodoistStore
+  LocalStoragePendingEventStore.ts — PendingEventStore backed by browser localStorage, pairs with the above
+  internal/useRunQuery.ts       — shared memoized runQuery(projState, command) wrapper every data hook uses
+  use*.ts                       — one hook per read capability (see below)
+  presentation/                 — opt-in display/formatting helpers operating on TaskJson (not ProjectionState)
 ```
 
 Hooks: `useSpheres`, `useAgendas`, `useContexts`, `useProjects`, `useTasks`, `useTask`, `useDashboard`, `useProcessing`, `useWaiting`, `usePickList`, `useSyncStatus`, `useCurrentSphere`. Every data hook returns a consistent envelope — `QueryResult<T>` (`{ data, isLoading, error }`) for single-value/aggregate results, `ListResult<T>` (adds `total`/`truncated`) for paginated lists — and returns plain denormalized `TaskJson`/`ProjectJson`/etc., never pre-formatted strings.
 
 Filter param shapes mirror `palimpsest-query`'s `ParsedCommand` fields exactly (same sphere/project/agenda/context/status/etc. vocabulary as the MCP tools), with one exception: **sphere-scoping for the four aggregate hooks is split by hook family**. `useTasks`/`useProjects`/`useAgendas`/`useContexts` stay fully parameterized — an omitted `sphere` never falls back to context state. `useWaiting` mirrors its MCP tool (`sphere` optional, unscoped when omitted). `useDashboard`/`usePickList` mirror their MCP tools' required-`sphere` constraint, but satisfy it at the hook layer by falling back to the Context's `currentSphereId` when their own argument is omitted — if neither resolves, they return an empty-but-valid result (`{ data: [], isLoading: false, error: undefined, ... }`), never an error. `useProcessing` takes no sphere argument at all, matching its MCP tool's always-global scope.
 
-`presentation/taskDisplay.ts` (`getDueStatus`, `hasDescription`, `getTaskBadges`, `getTaskDetailFields`) operates on `TaskJson` rather than raw `Task`+`ProjectionState`, and badges carry a `kind` discriminant (`'description'|'waiting'|'project'|'agenda'|'context'|'dueDate'|'recurrence'|'completedAt'`) rather than a pre-rendered prefix glyph, so different renderers (web, React Native) can style each kind however they like. `presentation/previews.ts` carries `getDueDatePreview`/`getRecurrencePreview` (due-date/recurrence input preview helpers, unused today but salvaged for the future write-support phase) alongside `formatDateWithDay`.
+`presentation/taskDisplay.ts` (`getDueStatus`, `hasDescription`, `getTaskBadges`, `getTaskDetailFields`) operates on `TaskJson` rather than raw `Task`+`ProjectionState`, and badges carry a `kind` discriminant (`'description'|'waiting'|'project'|'agenda'|'context'|'dueDate'|'recurrence'|'completedAt'`) rather than a pre-rendered prefix glyph, so different renderers (web, React Native) can style each kind however they like. A dangling `waitingFor` reference (the waited-on agenda or project has been deleted/archived) denormalizes to `name: null` in `palimpsest-query`'s `WaitingForJson` rather than throwing or silently showing a blank name; `taskDisplay.ts` renders this as a `?` placeholder (`w/ ?` badge, `?` detail-field value) so it's visibly distinct from a resolved name. `presentation/previews.ts` carries `getDueDatePreview`/`getRecurrencePreview` (due-date/recurrence input preview helpers, unused today but salvaged for the future write-support phase) alongside `formatDateWithDay`.
 
 The Context exposes `store: PalimpsestStore` directly (not hidden) so that future write hooks can call `store.appendEvents(commands.completeTask(...))` and rely on the same `subscribe`→`getState` refresh loop already wired into the Provider, without needing a breaking Context-shape change later.
 

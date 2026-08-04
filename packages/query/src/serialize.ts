@@ -8,8 +8,8 @@ export interface EntityRef {
 
 export type WaitingForJson =
   | { kind: 'review' }
-  | { kind: 'agenda'; id: string; name: string }
-  | { kind: 'project'; id: string; name: string }
+  | { kind: 'agenda'; id: string; name: string | null }
+  | { kind: 'project'; id: string; name: string | null }
   | { kind: 'trello'; cardUrl: string }
   | null
 
@@ -95,11 +95,11 @@ function toWaitingForJson(state: ProjectionState, task: Task): WaitingForJson {
       return { kind: 'review' }
     case 'agenda': {
       const agenda = state.agendas.get(waitingFor.agendaId)
-      return { kind: 'agenda', id: waitingFor.agendaId, name: agenda?.title ?? '' }
+      return { kind: 'agenda', id: waitingFor.agendaId, name: agenda?.title ?? null }
     }
     case 'project': {
       const project = state.projects.get(waitingFor.projectId)
-      return { kind: 'project', id: waitingFor.projectId, name: project?.name ?? '' }
+      return { kind: 'project', id: waitingFor.projectId, name: project?.name ?? null }
     }
     case 'trello':
       return { kind: 'trello', cardUrl: waitingFor.cardUrl }

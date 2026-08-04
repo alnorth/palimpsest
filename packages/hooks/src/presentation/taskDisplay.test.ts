@@ -90,6 +90,16 @@ describe('getTaskBadges', () => {
     expect(badges).toContainEqual({ kind: 'waiting', text: 'w/ Boss' })
   })
 
+  test('waitingFor agenda badge falls back to a "?" placeholder when the agenda is dangling', () => {
+    const badges = getTaskBadges(makeTask({ waitingFor: { kind: 'agenda', id: 'a1', name: null } }), { today: TODAY })
+    expect(badges).toContainEqual({ kind: 'waiting', text: 'w/ ?' })
+  })
+
+  test('waitingFor project badge falls back to a "?" placeholder when the project is dangling', () => {
+    const badges = getTaskBadges(makeTask({ waitingFor: { kind: 'project', id: 'p1', name: null } }), { today: TODAY })
+    expect(badges).toContainEqual({ kind: 'waiting', text: 'w/ ?' })
+  })
+
   test('project badge only shown when showProject is true', () => {
     const task = makeTask({ project: { id: 'p1', name: 'Work' } })
     expect(getTaskBadges(task, { today: TODAY })).not.toContainEqual(expect.objectContaining({ kind: 'project' }))
@@ -166,6 +176,19 @@ describe('getTaskDetailFields', () => {
     const field = fields.find(f => f.label === 'waiting')
     expect(field?.value).toBe('for review')
     expect(field?.href).toBeUndefined()
+  })
+
+  test('agenda waitingFor with a dangling reference shows a "?" placeholder', () => {
+    const fields = getTaskDetailFields(makeTask({ waitingFor: { kind: 'agenda', id: 'a1', name: null } }))
+    const field = fields.find(f => f.label === 'waiting')
+    expect(field?.value).toBe('?')
+    expect(field?.href).toBeUndefined()
+  })
+
+  test('project waitingFor with a dangling reference shows a "?" placeholder', () => {
+    const fields = getTaskDetailFields(makeTask({ waitingFor: { kind: 'project', id: 'p1', name: null } }))
+    const field = fields.find(f => f.label === 'waiting')
+    expect(field?.value).toBe('?')
   })
 
   test('dueDate adds a due field', () => {

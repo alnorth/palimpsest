@@ -6,6 +6,10 @@ export { PalimpsestProvider, usePalimpsestContext } from './PalimpsestProvider.j
 export type { StoreState } from './useStore.js'
 export { useStore } from './useStore.js'
 
+export type { SyncResponse, SyncFn, SyncStatus as ClientSyncStatus } from './ClientPalimpsestStore.js'
+export { ClientPalimpsestStore } from './ClientPalimpsestStore.js'
+export { LocalStoragePendingEventStore } from './LocalStoragePendingEventStore.js'
+
 export { useSpheres } from './useSpheres.js'
 export { useAgendas } from './useAgendas.js'
 export { useContexts } from './useContexts.js'
