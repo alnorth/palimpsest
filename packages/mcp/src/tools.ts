@@ -1,6 +1,6 @@
 import type { ProjectionState } from 'palimpsest'
-import { runQuery } from 'palimpsest-cli/query'
-import type { ParsedCommand, StatusArg } from 'palimpsest-cli/query'
+import { runQuery } from 'palimpsest-query'
+import type { ParsedCommand, StatusArg } from 'palimpsest-query'
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js'
 
 export interface TaskStore {
@@ -43,6 +43,17 @@ export interface ProjectsToolInput {
 
 export interface SphereScopedToolInput {
   sphere?: string | undefined
+}
+
+export interface DashboardToolInput {
+  sphere: string
+  limit?: number | undefined
+}
+
+export type ProcessingToolInput = Record<string, never>
+
+export interface PickListToolInput {
+  sphere: string
 }
 
 async function runToolQuery(store: TaskStore, command: ParsedCommand): Promise<CallToolResult> {
@@ -112,4 +123,27 @@ export function handleContexts(store: TaskStore, input: SphereScopedToolInput): 
     kind: 'contexts',
     ...(input.sphere !== undefined && { sphere: input.sphere }),
   })
+}
+
+export function handleDashboard(store: TaskStore, input: DashboardToolInput): Promise<CallToolResult> {
+  return runToolQuery(store, {
+    kind: 'dashboard',
+    sphere: input.sphere,
+    ...(input.limit !== undefined && { limit: input.limit }),
+  })
+}
+
+export function handleProcessing(store: TaskStore, _input: ProcessingToolInput): Promise<CallToolResult> {
+  return runToolQuery(store, { kind: 'processing' })
+}
+
+export function handleWaiting(store: TaskStore, input: SphereScopedToolInput): Promise<CallToolResult> {
+  return runToolQuery(store, {
+    kind: 'waiting',
+    ...(input.sphere !== undefined && { sphere: input.sphere }),
+  })
+}
+
+export function handlePickList(store: TaskStore, input: PickListToolInput): Promise<CallToolResult> {
+  return runToolQuery(store, { kind: 'pick_list', sphere: input.sphere })
 }

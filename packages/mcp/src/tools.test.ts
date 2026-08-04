@@ -4,6 +4,7 @@ import { makeSphere, makeProject, makeAgenda, makeContext, makeTask, buildState 
 import type { TaskStore } from './tools.js'
 import {
   handleTasks, handleTask, handleProjects, handleSpheres, handleAgendas, handleContexts,
+  handleDashboard, handleProcessing, handleWaiting, handlePickList,
 } from './tools.js'
 
 function fakeStore(state: ProjectionState): TaskStore & { calls: string[] } {
@@ -188,5 +189,79 @@ describe('handleContexts', () => {
     const text = (result.content[0] as { type: 'text'; text: string }).text
     const parsed = parseOk<{ contexts: { name: string }[] }>(text)
     expect(parsed.contexts.map(c => c.name)).toEqual(['@errand'])
+  })
+})
+
+describe('handleDashboard', () => {
+  test('returns due-today/overdue/starred tasks for the given sphere', async () => {
+    const sphere = makeSphere({ name: 'Work' })
+    const overdue = makeTask({ sphereId: sphere.id, title: 'Overdue', dueDate: '2020-01-01' })
+    const notDue = makeTask({ sphereId: sphere.id, title: 'NotDue', dueDate: '2099-01-01' })
+    const store = fakeStore(buildState({ spheres: [sphere], tasks: [overdue, notDue] }))
+
+    const result = await handleDashboard(store, { sphere: 'Work' })
+
+    const text = (result.content[0] as { type: 'text'; text: string }).text
+    const parsed = parseOk<{ tasks: { title: string }[] }>(text)
+    expect(parsed.tasks.map(t => t.title)).toEqual(['Overdue'])
+  })
+
+  test('surfaces an unresolved sphere name as isError', async () => {
+    const store = fakeStore(buildState({}))
+    const result = await handleDashboard(store, { sphere: 'Nope' })
+    expect(result.isError).toBe(true)
+    const text = (result.content[0] as { type: 'text'; text: string }).text
+    expect(text).toMatch(/No sphere matching "Nope"/)
+  })
+})
+
+describe('handleProcessing', () => {
+  test('aggregates across all spheres with no sphere argument', async () => {
+    const sphereA = makeSphere()
+    const sphereB = makeSphere()
+    const a = makeTask({ sphereId: sphereA.id, title: 'A', isNext: true })
+    const b = makeTask({ sphereId: sphereB.id, title: 'B', isNext: true })
+    const store = fakeStore(buildState({ spheres: [sphereA, sphereB], tasks: [a, b] }))
+
+    const result = await handleProcessing(store, {})
+
+    const text = (result.content[0] as { type: 'text'; text: string }).text
+    const parsed = parseOk<{ actionableTasks: { title: string }[] }>(text)
+    expect(parsed.actionableTasks.map(t => t.title).sort()).toEqual(['A', 'B'])
+  })
+})
+
+describe('handleWaiting', () => {
+  test('groups waiting tasks by kind', async () => {
+    const sphere = makeSphere({ name: 'Work' })
+    const reviewTask = makeTask({ sphereId: sphere.id, title: 'Review', waitingFor: { kind: 'review' } })
+    const store = fakeStore(buildState({ spheres: [sphere], tasks: [reviewTask] }))
+
+    const result = await handleWaiting(store, { sphere: 'Work' })
+
+    const text = (result.content[0] as { type: 'text'; text: string }).text
+    const parsed = parseOk<{ groups: { kind: string; tasks: { title: string }[] }[] }>(text)
+    expect(parsed.groups).toEqual([{ kind: 'review', tasks: [expect.objectContaining({ title: 'Review' })] }])
+  })
+})
+
+describe('handlePickList', () => {
+  test('groups actionable, context-having tasks by context', async () => {
+    const sphere = makeSphere({ name: 'Work' })
+    const context = makeContext(sphere, { name: '@errand' })
+    const task = makeTask({ sphereId: sphere.id, title: 'DoTheThing', isNext: true, contextId: context.id })
+    const store = fakeStore(buildState({ spheres: [sphere], contexts: [context], tasks: [task] }))
+
+    const result = await handlePickList(store, { sphere: 'Work' })
+
+    const text = (result.content[0] as { type: 'text'; text: string }).text
+    const parsed = parseOk<{ groups: { context: { name: string }; tasks: { title: string }[] }[] }>(text)
+    expect(parsed.groups).toEqual([{ context: { id: context.id, name: '@errand' }, tasks: [expect.objectContaining({ title: 'DoTheThing' })] }])
+  })
+
+  test('surfaces an unresolved sphere name as isError', async () => {
+    const store = fakeStore(buildState({}))
+    const result = await handlePickList(store, { sphere: 'Nope' })
+    expect(result.isError).toBe(true)
   })
 })

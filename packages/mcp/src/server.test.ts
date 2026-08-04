@@ -41,10 +41,13 @@ describe('createMcpServer', () => {
     client = await connectedClient(fakeStore(buildState({ spheres: [sphere], tasks: [task] })))
   })
 
-  test('registers all six read-only tools', async () => {
+  test('registers all ten read-only tools', async () => {
     const { tools } = await client.listTools()
     expect(tools.map(t => t.name).sort()).toEqual(
-      ['agendas', 'contexts', 'projects', 'spheres', 'task', 'tasks'].sort(),
+      [
+        'agendas', 'contexts', 'projects', 'spheres', 'task', 'tasks',
+        'dashboard', 'processing', 'waiting', 'pick_list',
+      ].sort(),
     )
   })
 
@@ -87,5 +90,35 @@ describe('createMcpServer', () => {
 
     const parsed = JSON.parse(firstText(result)) as { tasks: { title: string }[] }
     expect(parsed.tasks.map(t => t.title)).toEqual(['HasContext'])
+  })
+
+  test('dashboard tool requires a sphere argument', async () => {
+    const result = await client.callTool({ name: 'dashboard', arguments: {} })
+    expect(result.isError).toBe(true)
+    expect(firstText(result)).toMatch(/Invalid arguments/)
+  })
+
+  test('dashboard tool returns starred/due tasks for the given sphere', async () => {
+    const result = await client.callTool({ name: 'dashboard', arguments: { sphere: 'Work' } })
+    const parsed = JSON.parse(firstText(result)) as { tasks: { title: string }[] }
+    expect(parsed.tasks.map(t => t.title)).toEqual(['Ship it'])
+  })
+
+  test('processing tool takes no arguments', async () => {
+    const result = await client.callTool({ name: 'processing', arguments: {} })
+    const parsed = JSON.parse(firstText(result)) as { actionableTasks: unknown[] }
+    expect(Array.isArray(parsed.actionableTasks)).toBe(true)
+  })
+
+  test('waiting tool groups by kind and does not require a sphere', async () => {
+    const result = await client.callTool({ name: 'waiting', arguments: {} })
+    const parsed = JSON.parse(firstText(result)) as { groups: unknown[] }
+    expect(Array.isArray(parsed.groups)).toBe(true)
+  })
+
+  test('pick_list tool requires a sphere argument', async () => {
+    const result = await client.callTool({ name: 'pick_list', arguments: {} })
+    expect(result.isError).toBe(true)
+    expect(firstText(result)).toMatch(/Invalid arguments/)
   })
 })
