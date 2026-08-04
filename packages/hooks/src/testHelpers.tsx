@@ -27,6 +27,12 @@ export class FakeStore extends PalimpsestStore {
     this.state = state
     this.notify()
   }
+
+  /** Updates the underlying state without notifying subscribers — for isolating refresh()'s
+   *  getState()-refetch fallback from the subscribe/notify live-update path. */
+  setStateQuietly(state: ProjectionState): void {
+    this.state = state
+  }
 }
 
 export function makeWrapper(store: PalimpsestStore, opts?: { initialSphere?: string }) {

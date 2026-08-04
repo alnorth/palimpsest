@@ -63,4 +63,23 @@ describe('PalimpsestProvider', () => {
   test('throws when used outside a PalimpsestProvider', () => {
     expect(() => renderHook(() => usePalimpsestContext())).toThrow(/must be used within/)
   })
+
+  test('refresh() falls back to store.getState() for stores without a refresh() method', async () => {
+    const sphere = makeSphere({ name: 'Work' })
+    const store = new FakeStore(buildState({ spheres: [sphere] }))
+    const { result } = renderHook(() => usePalimpsestContext(), { wrapper: makeWrapper(store) })
+    await waitFor(() => expect(result.current.isLoading).toBe(false))
+
+    // Mutate the store's state WITHOUT notifying subscribers, so the only way projState can pick
+    // it up is via refresh() explicitly re-fetching — isolating that fallback from the
+    // subscribe/notify live-update path already covered by the 'updates projState when the store
+    // notifies' test above.
+    const other = makeSphere({ name: 'Personal' })
+    store.setStateQuietly(buildState({ spheres: [sphere, other] }))
+    expect(result.current.projState?.spheres.size).toBe(1)
+
+    await act(async () => { await result.current.refresh() })
+
+    expect(result.current.projState?.spheres.size).toBe(2)
+  })
 })

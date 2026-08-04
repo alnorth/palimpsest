@@ -49,6 +49,39 @@ describe('useTasks', () => {
     expect(result.current.total).toBe(3)
     expect(result.current.truncated).toBe(true)
   })
+
+  test('memoizes by filter content, not object identity: a fresh-but-equivalent inline filter on re-render does not recompute', async () => {
+    const sphere = makeSphere({ name: 'Work' })
+    const task = makeTask({ sphereId: sphere.id, title: 'Ship it' })
+    const store = new FakeStore(buildState({ spheres: [sphere], tasks: [task] }))
+
+    // The callback below constructs a brand-new `{ sphere: 'Work' }` object literal on every
+    // invocation (including on rerender()), so this exercises the exact "new identity, same
+    // value" case useRunQuery's JSON.stringify(command) keying is meant to absorb.
+    const { result, rerender } = renderHook(() => useTasks({ sphere: 'Work' }), { wrapper: makeWrapper(store) })
+    await waitFor(() => expect(result.current.isLoading).toBe(false))
+    const firstData = result.current.data
+
+    rerender()
+
+    expect(result.current.data).toBe(firstData)
+  })
+
+  test('does recompute when the filter value actually changes across renders', async () => {
+    const sphere = makeSphere({ name: 'Work' })
+    const task = makeTask({ sphereId: sphere.id, title: 'Ship it' })
+    const store = new FakeStore(buildState({ spheres: [sphere], tasks: [task] }))
+
+    let starredOnly = false
+    const { result, rerender } = renderHook(() => useTasks({ starred: starredOnly }), { wrapper: makeWrapper(store) })
+    await waitFor(() => expect(result.current.isLoading).toBe(false))
+    expect(result.current.data?.map(t => t.title)).toEqual(['Ship it'])
+
+    starredOnly = true
+    rerender()
+
+    expect(result.current.data).toEqual([])
+  })
 })
 
 describe('useTask', () => {

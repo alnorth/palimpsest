@@ -1,9 +1,10 @@
 // @vitest-environment jsdom
 import { describe, test, expect } from 'vitest'
-import { renderHook, waitFor } from '@testing-library/react'
+import { renderHook, waitFor, act } from '@testing-library/react'
 import { makeSphere, makeContext, makeTask, buildState } from './testFixtures.js'
 import { FakeStore, makeWrapper } from './testHelpers.js'
 import { usePickList } from './usePickList.js'
+import { usePalimpsestContext } from './PalimpsestProvider.js'
 
 describe('usePickList', () => {
   test('groups actionable, context-bearing tasks by context for an explicit sphere', async () => {
@@ -23,5 +24,28 @@ describe('usePickList', () => {
     const store = new FakeStore(buildState({}))
     const { result } = renderHook(() => usePickList(), { wrapper: makeWrapper(store) })
     expect(result.current).toEqual({ data: [], isLoading: false, error: undefined })
+  })
+
+  test('an explicit sphere argument overrides the context current sphere, not just fills in for it', async () => {
+    const work = makeSphere({ name: 'Work' })
+    const personal = makeSphere({ name: 'Personal' })
+    const workContext = makeContext(work, { name: '@work-errand' })
+    const personalContext = makeContext(personal, { name: '@personal-errand' })
+    const workTask = makeTask({ sphereId: work.id, title: 'WorkTask', isNext: true, contextId: workContext.id })
+    const personalTask = makeTask({ sphereId: personal.id, title: 'PersonalTask', isNext: true, contextId: personalContext.id })
+    const store = new FakeStore(buildState({
+      spheres: [work, personal], contexts: [workContext, personalContext], tasks: [workTask, personalTask],
+    }))
+
+    const { result } = renderHook(() => ({
+      ctx: usePalimpsestContext(),
+      pickList: usePickList('Personal'),
+    }), { wrapper: makeWrapper(store) })
+
+    await waitFor(() => expect(result.current.ctx.isLoading).toBe(false))
+    act(() => { result.current.ctx.setCurrentSphere(work.id) })
+
+    await waitFor(() => expect(result.current.ctx.currentSphereId).toBe(work.id))
+    expect(result.current.pickList.data?.map(g => g.context.name)).toEqual(['@personal-errand'])
   })
 })

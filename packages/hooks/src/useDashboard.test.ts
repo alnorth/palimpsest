@@ -40,4 +40,23 @@ describe('useDashboard', () => {
     const { result } = renderHook(() => useDashboard(), { wrapper: makeWrapper(store) })
     expect(result.current).toEqual({ data: [], isLoading: false, error: undefined, total: 0, truncated: false })
   })
+
+  test('an explicit sphere argument overrides the context current sphere, not just fills in for it', async () => {
+    const work = makeSphere({ name: 'Work' })
+    const personal = makeSphere({ name: 'Personal' })
+    const workStarred = makeTask({ sphereId: work.id, title: 'WorkStarred', isStarred: true })
+    const personalStarred = makeTask({ sphereId: personal.id, title: 'PersonalStarred', isStarred: true })
+    const store = new FakeStore(buildState({ spheres: [work, personal], tasks: [workStarred, personalStarred] }))
+
+    const { result } = renderHook(() => ({
+      ctx: usePalimpsestContext(),
+      dashboard: useDashboard('Personal'),
+    }), { wrapper: makeWrapper(store) })
+
+    await waitFor(() => expect(result.current.ctx.isLoading).toBe(false))
+    act(() => { result.current.ctx.setCurrentSphere(work.id) })
+
+    await waitFor(() => expect(result.current.ctx.currentSphereId).toBe(work.id))
+    expect(result.current.dashboard.data?.map(t => t.title)).toEqual(['PersonalStarred'])
+  })
 })
