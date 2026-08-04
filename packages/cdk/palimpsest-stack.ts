@@ -4,10 +4,6 @@ import * as lambda from 'aws-cdk-lib/aws-lambda'
 import * as apigatewayv2 from 'aws-cdk-lib/aws-apigatewayv2'
 import * as integrations from 'aws-cdk-lib/aws-apigatewayv2-integrations'
 import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager'
-import * as s3 from 'aws-cdk-lib/aws-s3'
-import * as cloudfront from 'aws-cdk-lib/aws-cloudfront'
-import * as origins from 'aws-cdk-lib/aws-cloudfront-origins'
-import * as s3deploy from 'aws-cdk-lib/aws-s3-deployment'
 import { Duration } from 'aws-cdk-lib'
 import type { Construct } from 'constructs'
 import * as path from 'node:path'
@@ -65,38 +61,6 @@ export class PalimpsestStack extends cdk.Stack {
     })
     new cdk.CfnOutput(this, 'TableName', {
       value: table.tableName,
-    })
-
-    // Web app hosting
-    const bucket = new s3.Bucket(this, 'WebBucket', {
-      removalPolicy: cdk.RemovalPolicy.DESTROY,
-      autoDeleteObjects: true,
-    })
-
-    const distribution = new cloudfront.Distribution(this, 'WebDistribution', {
-      defaultBehavior: {
-        origin: origins.S3BucketOrigin.withOriginAccessControl(bucket),
-      },
-      defaultRootObject: 'index.html',
-      errorResponses: [
-        { httpStatus: 404, responseHttpStatus: 200, responsePagePath: '/index.html' },
-        { httpStatus: 403, responseHttpStatus: 200, responsePagePath: '/index.html' },
-      ],
-    })
-
-    new s3deploy.BucketDeployment(this, 'WebDeploy', {
-      sources: [
-        s3deploy.Source.asset(path.join(__dirname, '../web/dist')),
-        s3deploy.Source.jsonData('config.json', { apiUrl: api.apiEndpoint }),
-      ],
-      destinationBucket: bucket,
-      distribution,
-      distributionPaths: ['/*'],
-    })
-
-    new cdk.CfnOutput(this, 'WebUrl', {
-      value: `https://${distribution.distributionDomainName}`,
-      description: 'Palimpsest web app URL',
     })
   }
 }

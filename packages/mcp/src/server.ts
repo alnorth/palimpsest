@@ -2,6 +2,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { z } from 'zod'
 import {
   handleTasks, handleTask, handleProjects, handleSpheres, handleAgendas, handleContexts,
+  handleDashboard, handleProcessing, handleWaiting, handlePickList,
 } from './tools.js'
 import type { TaskStore } from './tools.js'
 
@@ -72,6 +73,33 @@ export function createMcpServer(store: TaskStore): McpServer {
       sphere: z.string().optional().describe('Filter by sphere name'),
     },
   }, args => handleContexts(store, args))
+
+  server.registerTool('dashboard', {
+    description: 'Open tasks in a sphere that are due today, overdue, or starred. Always scoped to a single sphere.',
+    inputSchema: {
+      sphere: z.string().describe('Sphere name (required)'),
+      limit: z.number().int().positive().optional().describe('Limit the number of results'),
+    },
+  }, args => handleDashboard(store, args))
+
+  server.registerTool('processing', {
+    description: 'Actionable tasks lacking a due date/agenda/context, active projects without a next action, and tasks waiting on an archived or missing project. Always aggregates across every sphere.',
+    inputSchema: {},
+  }, args => handleProcessing(store, args))
+
+  server.registerTool('waiting', {
+    description: 'Open tasks that are waiting on someone/something, grouped by waiting-for kind (review, agenda, project, trello).',
+    inputSchema: {
+      sphere: z.string().optional().describe('Filter by sphere name'),
+    },
+  }, args => handleWaiting(store, args))
+
+  server.registerTool('pick_list', {
+    description: 'Actionable tasks that have a context, grouped by context. Always scoped to a single sphere.',
+    inputSchema: {
+      sphere: z.string().describe('Sphere name (required)'),
+    },
+  }, args => handlePickList(store, args))
 
   return server
 }

@@ -16,20 +16,20 @@ Commit directly on `main`. Do not create feature branches or pull requests unles
 
 ## Monorepo structure
 
-This is an npm workspaces monorepo:
+This is an npm workspaces monorepo. The only UI surfaces are a local MCP server and a React hooks
+library — there is no CLI or web app.
 
 ```
 packages/core/     — the palimpsest library (published to npm / GitHub)
-packages/ui-core/  — shared app logic: state machine, view models, commands hook (React, no Ink)
+packages/query/    — shared read query engine (filter/sort/paginate/resolve/serialize) used by
+                     both packages/mcp and packages/hooks — see packages/query section below
 packages/todoist/  — PalimpsestStore backed by the Todoist Sync API (read + write mapping)
-packages/cli/      — the palimpsest TUI (ink + react, depends on core and ui-core via workspace);
-                     also exposes non-interactive `palimpsest tasks|task|projects|spheres|agendas|contexts`
-                     subcommands (JSON on stdout) for scripts/agents — see packages/cli section below
-packages/mcp/      — local, read-only MCP server exposing the same query surface as the CLI's
-                     subcommands, over stdio, against a Todoist-backed store — see packages/mcp section below
-packages/web/      — the palimpsest web app (React + Mantine, Vite, depends on core and ui-core)
+packages/mcp/      — local, read-only MCP server exposing the query engine's operations over
+                     stdio, against a Todoist-backed store — see packages/mcp section below
+packages/hooks/    — React hooks + Context library for reading palimpsest data from third-party
+                     apps (web, React Native, etc.), read-only for now — see packages/hooks section below
 packages/backend/  — AWS Lambda sync API (DynamoDB event store, conflict resolution)
-packages/cdk/      — AWS CDK infrastructure (Lambda, API Gateway, S3, CloudFront, DynamoDB)
+packages/cdk/      — AWS CDK infrastructure (Lambda, API Gateway, DynamoDB)
 ```
 
 Run `npm install` from the repo root before running typechecks or tests in a fresh environment — missing `node_modules` will cause spurious errors.
@@ -42,15 +42,12 @@ npm run build --workspaces                            # build all packages
 npm run typecheck --workspaces                        # typecheck all packages
 npm run test --workspace=packages/core                # core tests only
 npm run test:watch --workspace=packages/core          # core tests in watch mode
-npm run test --workspace=packages/ui-core             # ui-core tests
-npm run dev --workspace=packages/cli                  # run CLI dev server (tsx)
-npm run build --workspace=packages/cli                # build CLI
+npm run test --workspace=packages/query               # query engine tests
 npm run test --workspace=packages/mcp                 # MCP server tests
 npm run dev --workspace=packages/mcp                  # run MCP server dev (tsx, stdio transport)
 npm run build --workspace=packages/mcp                # build MCP server
-npm run dev --workspace=packages/web                  # web app dev server (http://localhost:5173)
-npm run build --workspace=packages/web                # production web bundle (dist/)
-npm run test --workspace=packages/web                 # web tests
+npm run test --workspace=packages/hooks               # hooks library tests
+npm run build --workspace=packages/hooks              # build hooks library
 npm run test --workspace=packages/backend             # backend tests
 npm run build --workspace=packages/backend            # build Lambda bundle (dist/)
 npm run deploy --workspace=packages/cdk               # deploy to AWS (profile: dashboard)
@@ -68,20 +65,6 @@ npx vitest run -t "weekly"
 ```
 
 ## Architecture
-
-### packages/ui-core
-
-Framework-agnostic app logic shared across TUI, web, and phone (all React surfaces).
-
-```
-types.ts      — View, Mode, NavState, UIState, Action, Command
-reducer.ts    — uiReducer(UIState, UIAction) → UIState  (pure, no I/O)
-viewModel.ts  — deriveViewModel(ProjectionState, UIState) → ViewModel
-commands.ts   — getCommands(ViewModel) → Command[]  (context-sensitive)
-useAppState.ts — React hook: owns PalimpsestStore, wires everything, exposes dispatch(Action)
-```
-
-`dispatch` accepts both `UIAction` (handled by reducer) and `DataAction` (calls core commands, appends to store, refreshes projection state). The CLI imports `useAppState` and is a thin rendering-and-keyboard layer.
 
 ### packages/core
 
@@ -122,75 +105,74 @@ commands.ts  →  events.ts  →  projection.ts  →  query.ts
 
 All IDs are branded strings (`TaskId`, `ProjectId`, `SphereId`, `EventId`) generated with nanoid. The brands are compile-time only — at runtime they are plain strings.
 
-### packages/cli
+### packages/query
 
-`palimpsest` with no arguments launches the interactive TUI (`src/tui.tsx`, ink + react). With a subcommand, it instead runs a one-shot, non-interactive query and exits — this is the surface an LLM agent (or any script) should use to read the task list, working against whichever store the human already has configured (`PALIMPSEST_TODOIST_TOKEN` / `PALIMPSEST_API_URL`+`PALIMPSEST_AUTH_TOKEN` / local JSONL file — see `src/store.ts`). Read-only for now; no create/update/delete.
-
-`createStore()` resolves these env vars against `process.env` merged over `~/.palimpsest/.env` (loaded via `node:util`'s `parseEnv`, real env vars win) — this lets a globally-linked `palimpsest` binary pick up tokens without needing them exported in a shell profile.
+Shared, environment-agnostic read query engine sitting on top of `packages/core`'s `query.ts` primitives. It is the single source of truth for filtering/sorting/pagination/name-resolution/JSON-shaping consumed by both `packages/mcp` (which serializes its output to text) and `packages/hooks` (which returns it straight to React) — no query or aggregation logic is duplicated between the two UI surfaces.
 
 ```
-palimpsest                                   # launches the TUI
-palimpsest tasks    [filters]                # --sphere/--project/--agenda/--context <name>, --status open|completed|deleted|any,
-                                              #   --starred, --actionable, --waiting/--not-waiting, --inbox, --due-on/--due-before <date|today>,
-                                              #   --has-due-date/--without-due-date, --has-agenda/--without-agenda, --has-context/--without-context,
-                                              #   --include-archived, --limit <n>
-palimpsest task     <id>
-palimpsest projects [--sphere <name>] [--archived] [--all]
-palimpsest spheres
-palimpsest agendas  [--sphere <name>]
-palimpsest contexts [--sphere <name>]
-palimpsest --help
+src/
+  runQuery.ts   — ParsedCommand (discriminated union) + runQuery(state, command, opts?) → plain object
+  resolve.ts    — name→id resolution: exact id → case-insensitive exact name → case-insensitive substring
+  serialize.ts  — TaskJson/ProjectJson/SphereJson/AgendaJson/ContextJson: denormalizes sphere/project/
+                  agenda/context onto each entity as {id,name} EntityRefs
+  views.ts      — pure ProjectionState-only aggregate view functions backing the dashboard/processing/
+                  waiting/pick_list command kinds (see below)
+  fixtures.ts   — test-only entity builders (makeSphere/makeProject/makeTask/etc., buildState)
 ```
 
-Success prints a JSON envelope to stdout and exits `0`. Any failure (bad flags, store connection failure, an unresolved `--sphere`/`--project`/`--agenda`/`--context` name, an unknown task id) prints a single human-readable line to stderr and exits `1` — no structured error format, stdout stays empty. Sphere/project/agenda/context filters are matched by name (exact id → case-insensitive exact name → case-insensitive substring; zero or multiple matches is an error listing the candidates, scoped to `--sphere` first when given) since `core/query.ts` itself stays ID-based.
+`ParsedCommand` kinds: `tasks`, `task`, `projects`, `spheres`, `agendas`, `contexts` (the original CLI-era surface, filters matching `core/query.ts`'s `TaskFilter` field-for-field, plus `dueOn`/`dueBefore`/`limit`), and four aggregate views ported from the old interactive TUI's view model, with no equivalent anywhere else in the codebase:
 
-`src/cli/` holds the query engine: `program.ts` (commander definition), `runQuery.ts` (pure filter/sort/paginate logic over `ProjectionState`), `resolve.ts` (name→id resolution), `serialize.ts` (JSON shapes, denormalizing sphere/project/agenda/context onto each task), `run.ts` (wires store init + `runQuery` + exit codes). Note that initializing a `TodoistStore` runs a full sync, which can flush previously-queued local writes from `~/.palimpsest/todoist-pending.json` — a "read-only" command can still push queued mutations made via the TUI.
+- **`dashboard`** — `{ kind: 'dashboard', sphere: string, limit?: number }`. **`sphere` is required** — there is no "across all spheres" mode. Open tasks in that sphere where `dueDate <= today OR isStarred`, overdue/due-today sorted ascending before non-date-qualifying starred tasks.
+- **`processing`** — `{ kind: 'processing' }`. **Takes no sphere at all** — always aggregates across every sphere. Returns three buckets: `actionableTasks` (actionable, not waiting, no due date/agenda/context), `projectsWithoutNext` (active projects with no open `isNext` task), `tasksWaitingOnArchivedProjects` (waiting tasks pointing at an archived or missing project).
+- **`waiting`** — `{ kind: 'waiting', sphere?: string }`. Sphere optional, unscoped (all spheres) when omitted. Open+waiting tasks grouped by `waitingFor.kind`, fixed order `review, agenda, project, trello`, empty groups omitted.
+- **`pick_list`** — `{ kind: 'pick_list', sphere: string }`. **`sphere` is required**, same as `dashboard`. Actionable tasks with a context in that sphere, grouped by context in the sphere's context order.
 
-`runQuery` and its `ParsedCommand` types are re-exported at the subpath `palimpsest-cli/query` (backed by `src/cli/index.ts`) so other packages can reuse the same filter/sort/resolution logic without depending on the ink/commander parts of the CLI — `packages/mcp` is the first consumer.
+Sphere/project/agenda/context filters are matched by name via `resolve.ts` (exact id → case-insensitive exact name → case-insensitive substring; zero or multiple matches throws with a candidate list) since `core/query.ts` itself stays ID-based.
 
 ### packages/mcp
 
-A local MCP server exposing the same six read-only operations as the CLI's non-interactive subcommands (`tasks`, `task`, `projects`, `spheres`, `agendas`, `contexts`), over the stdio transport, for use by MCP clients (e.g. Claude Desktop, Claude Code). Read-only — no create/update/delete tools.
+A local, read-only MCP server over the stdio transport, for use by MCP clients (e.g. Claude Desktop, Claude Code). No create/update/delete tools. Exposes ten tools mirroring `palimpsest-query`'s `ParsedCommand` kinds one-for-one: `tasks`, `task`, `projects`, `spheres`, `agendas`, `contexts`, `dashboard`, `processing`, `waiting`, `pick_list`.
 
 ```
 src/
   index.ts        — entry point: builds the store, connects McpServer over StdioServerTransport
-  server.ts       — createMcpServer(store): registers the 6 tools with zod input schemas
+  server.ts       — createMcpServer(store): registers the 10 tools with zod input schemas
   tools.ts        — pure per-tool handlers: map tool args → ParsedCommand, call runQuery, wrap as CallToolResult
   store.ts        — createStore(env): builds a TodoistStore from PALIMPSEST_TODOIST_TOKEN
 ```
 
 Only supports the Todoist store for now, so the only credential needed is the Todoist API token, read from the `PALIMPSEST_TODOIST_TOKEN` environment variable at startup (set it in the MCP client's server config, e.g. `{ "command": "palimpsest-mcp", "env": { "PALIMPSEST_TODOIST_TOKEN": "..." } }`). `createStore` throws a readable error (caught in `index.ts`, printed to stderr, exit `1`) if the token is missing.
 
-The store is built once at startup; each tool call runs `store.sync()` (an incremental Todoist sync) before `store.getState()`, so results stay fresh without re-authenticating per call. Each handler in `tools.ts` maps its zod-validated input onto a `ParsedCommand` from `palimpsest-cli/query` and calls the shared `runQuery` — the same filter/sort/pagination/name-resolution logic the CLI uses. Success returns `{ content: [{ type: 'text', text: JSON.stringify({ ok: true, ...data }) }] }`; a thrown domain error (unresolved name, unknown task id) or a failed sync is caught and returned as `{ content: [...], isError: true }` with the error message as the text — never a thrown protocol error — mirroring the CLI's stdout/stderr JSON-envelope-vs-message contract.
+The store is built once at startup; each tool call runs `store.sync()` (an incremental Todoist sync) before `store.getState()`, so results stay fresh without re-authenticating per call. Each handler in `tools.ts` maps its zod-validated input onto a `ParsedCommand` from `palimpsest-query` and calls the shared `runQuery`. Success returns `{ content: [{ type: 'text', text: JSON.stringify({ ok: true, ...data }) }] }`; a thrown domain error (unresolved name, unknown task id) or a failed sync is caught and returned as `{ content: [...], isError: true }` with the error message as the text — never a thrown protocol error. `dashboard` and `pick_list` require `sphere` in their input schema (no `.optional()`); `processing` takes an empty schema.
 
 `tools.ts`'s `TaskStore` interface (`{ sync(): Promise<void>; getState(): Promise<ProjectionState> }`) is a minimal structural type, not tied to any concrete store class — this keeps the handlers unit-testable against a fake without needing a real `TodoistStore`/`PollingStore`.
 
-### packages/web
+### packages/hooks
 
-React web app built with Vite and Mantine. It is a thin rendering layer over `ui-core`, mirroring the CLI's role.
+React hooks + a Context for reading palimpsest data from arbitrary third-party React apps (web, React Native, etc.) — read-only for now; write support (`useCompleteTask()`, `useCreateTask()`, etc.) is a planned later phase. Built on `palimpsest-query` (same filter vocabulary and denormalized JSON shapes as `packages/mcp`, so the two remaining UI surfaces stay aligned). `PalimpsestProvider`'s `todoistToken` prop is a convenience that builds a `palimpsest-todoist` `TodoistStore` (zero Node dependencies, `fetch`-based, safe in any bundler); its `store` prop accepts any `PalimpsestStore`, including this package's own `ClientPalimpsestStore` (synced against `packages/backend`'s custom `/sync` API — the same backend `packages/cdk` deploys — for projects that want their own infrastructure instead of relying on Todoist) paired with `LocalStoragePendingEventStore` for the browser-local pending-write buffer.
 
 ```
 src/
-  App.tsx            — root: reads /config.json or prompts for API URL; manages auth token (localStorage)
-  LoadedApp.tsx      — main shell: AppShell, header, footer, NavDrawer
-  SetupScreen.tsx    — first-run config UI (API URL + auth token entry)
-  useKeyboard.ts     — keyboard handler (arrow keys, letter shortcuts, Escape, Ctrl+K)
-  components/
-    TaskList.tsx     — task list with selection/hover
-    TaskDetail.tsx   — single task view (inline editing of title, due date, recurrence, etc.)
-    ProjectList.tsx  — project list view
-    CommandBar.tsx   — footer input bar, adapts per mode
-    NavDrawer.tsx    — mobile/sidebar sphere and view navigation
-    Pickers.tsx      — modal pickers: due date, agenda, context, project
-    SyncStatus.tsx   — sync status indicator
-  stubs/
-    node-fs.ts       — browser stub for node:fs (required because ui-core imports core's store.ts)
+  PalimpsestProvider.tsx        — Context + Provider: fuses the connect phase (store.init() → getState())
+                                  with the live-update phase (store.subscribe()/start()/stop()); exposes
+                                  store, projState, isLoading, connectionError, syncState, refresh,
+                                  currentSphereId/setCurrentSphere, today
+  useStore.ts                   — lower-level subscribe/poll hook over an already-known ProjectionState
+  ClientPalimpsestStore.ts       — PalimpsestStore synced against a custom backend's POST /sync endpoint
+                                  (SyncFn injected by the caller); alternative to palimpsest-todoist's TodoistStore
+  LocalStoragePendingEventStore.ts — PendingEventStore backed by browser localStorage, pairs with the above
+  internal/useRunQuery.ts       — shared memoized runQuery(projState, command) wrapper every data hook uses
+  use*.ts                       — one hook per read capability (see below)
+  presentation/                 — opt-in display/formatting helpers operating on TaskJson (not ProjectionState)
 ```
 
-Auth token is stored in `localStorage` under `palimpsest_auth_token`. The API URL comes from `config.json` (injected by CDK at deploy time) or from the setup screen. All sync calls send `Authorization: Bearer <token>`.
+Hooks: `useSpheres`, `useAgendas`, `useContexts`, `useProjects`, `useTasks`, `useTask`, `useDashboard`, `useProcessing`, `useWaiting`, `usePickList`, `useSyncStatus`, `useCurrentSphere`. Every data hook returns a consistent envelope — `QueryResult<T>` (`{ data, isLoading, error }`) for single-value/aggregate results, `ListResult<T>` (adds `total`/`truncated`) for paginated lists — and returns plain denormalized `TaskJson`/`ProjectJson`/etc., never pre-formatted strings.
 
-Views: `dashboard` (starred + due today), `tasks` (all/completed per sphere), `projects`, `project` (tasks in one project), `processing` (inbox tasks + projects without a next action). Modes: `list`, `adding`, `editing-task`, `editing-description`, `editing-due-date`, `editing-recurrence`, `adding-project`, `editing-project`. Modal pickers overlay any view.
+Filter param shapes mirror `palimpsest-query`'s `ParsedCommand` fields exactly (same sphere/project/agenda/context/status/etc. vocabulary as the MCP tools), with one exception: **sphere-scoping for the four aggregate hooks is split by hook family**. `useTasks`/`useProjects`/`useAgendas`/`useContexts` stay fully parameterized — an omitted `sphere` never falls back to context state. `useWaiting` mirrors its MCP tool (`sphere` optional, unscoped when omitted). `useDashboard`/`usePickList` mirror their MCP tools' required-`sphere` constraint, but satisfy it at the hook layer by falling back to the Context's `currentSphereId` when their own argument is omitted — if neither resolves, they return an empty-but-valid result (`{ data: [], isLoading: false, error: undefined, ... }`), never an error. `useProcessing` takes no sphere argument at all, matching its MCP tool's always-global scope.
+
+`presentation/taskDisplay.ts` (`getDueStatus`, `hasDescription`, `getTaskBadges`, `getTaskDetailFields`) operates on `TaskJson` rather than raw `Task`+`ProjectionState`, and badges carry a `kind` discriminant (`'description'|'waiting'|'project'|'agenda'|'context'|'dueDate'|'recurrence'|'completedAt'`) rather than a pre-rendered prefix glyph, so different renderers (web, React Native) can style each kind however they like. A dangling `waitingFor` reference (the waited-on agenda or project has been deleted/archived) denormalizes to `name: null` in `palimpsest-query`'s `WaitingForJson` rather than throwing or silently showing a blank name; `taskDisplay.ts` renders this as a `?` placeholder (`w/ ?` badge, `?` detail-field value) so it's visibly distinct from a resolved name. `presentation/previews.ts` carries `getDueDatePreview`/`getRecurrencePreview` (due-date/recurrence input preview helpers, unused today but salvaged for the future write-support phase) alongside `formatDateWithDay`.
+
+The Context exposes `store: PalimpsestStore` directly (not hidden) so that future write hooks can call `store.appendEvents(commands.completeTask(...))` and rely on the same `subscribe`→`getState` refresh loop already wired into the Provider, without needing a breaking Context-shape change later.
 
 ### packages/backend
 
@@ -231,18 +213,16 @@ Auth secret lives in AWS Secrets Manager under secret name `palimpsest`, key `au
 
 ### packages/cdk
 
-AWS CDK app (`app.ts`) that provisions the full stack in `eu-west-2`:
+AWS CDK app (`app.ts`) that provisions the sync API stack in `eu-west-2` (no web hosting — there is no web app):
 
 - **DynamoDB table** — `pk`/`sk` keys, on-demand, PITR enabled, RETAIN on stack deletion
 - **Secrets Manager** — pre-existing secret `palimpsest` containing `auth-token` (must be created manually before first deploy)
 - **Lambda** — 256 MB, 10 s timeout, env vars `TABLE_NAME` + `SECRET_NAME`
 - **HTTP API Gateway** — `POST /sync` → Lambda; CORS open to all origins
-- **S3 + CloudFront** — hosts the built web app; 404/403 → `index.html` for SPA routing; cache invalidated on each deploy
-- **S3 deployment** — uploads `packages/web/dist` plus a generated `config.json` containing the API Gateway URL
 
-Stack outputs: `ApiUrl`, `WebUrl`, `TableName`.
+Stack outputs: `ApiUrl`, `TableName`.
 
-**Deploy order:** build backend → build web → `npm run deploy --workspace=packages/cdk`. The `deploy:ci` script skips manual approval for CI pipelines.
+**Deploy order:** build backend → `npm run deploy --workspace=packages/cdk`. The `deploy:ci` script skips manual approval for CI pipelines.
 
 ### TypeScript strictness
 
