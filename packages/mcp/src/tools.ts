@@ -1,4 +1,4 @@
-import type { PalimpsestEvent, ProjectionState, TaskId } from '@alnorth/palimpsest'
+import type { PalimpsestEvent, ProjectionState, SyncState, TaskId } from '@alnorth/palimpsest'
 import { completeTask, getTask } from '@alnorth/palimpsest'
 import { runQuery } from '@alnorth/palimpsest-query'
 import type { ParsedCommand, StatusArg } from '@alnorth/palimpsest-query'
@@ -8,6 +8,9 @@ export interface TaskStore {
   sync(): Promise<void>
   getState(): Promise<ProjectionState>
   appendEvents(events: PalimpsestEvent[]): Promise<void>
+  // Optional: PollingStore-backed stores (e.g. TodoistStore) expose this; handleCompleteTask uses
+  // it to detect a confirmation sync that failed silently (see below) rather than throwing.
+  readonly syncState?: SyncState
 }
 
 export interface TasksToolInput {
@@ -163,11 +166,22 @@ export async function handleCompleteTask(store: TaskStore, input: CompleteTaskTo
     await store.appendEvents(completeTask(task))
     // Flush the just-appended event through immediately rather than leaving it for the
     // pending-queue's debounced sync, so the response reflects what the remote store actually
-    // confirmed (e.g. a recurring task's server-normalized next due date).
+    // confirmed (e.g. a recurring task's server-normalized next due date). TodoistStore.sync()
+    // swallows network failures internally (sets syncState.health to 'error' instead of
+    // rejecting), so a failed flush would otherwise look identical to a confirmed one here —
+    // check syncState afterwards rather than assuming the flush succeeded just because it didn't
+    // throw. The write itself already happened (appendEvents succeeded), so this is reported as
+    // an unsynced success, not an error.
     await store.sync()
     const finalState = await store.getState()
     const data = runQuery(finalState, { kind: 'task', id: input.id })
-    return { content: [{ type: 'text', text: JSON.stringify({ ok: true, ...data }, null, 2) }] }
+    const synced = store.syncState?.health !== 'error'
+    const response: Record<string, unknown> = { ok: true, synced, ...data }
+    if (!synced) {
+      response['warning'] =
+        `Change applied locally but not yet confirmed by the server (${store.syncState?.lastError ?? 'sync failed'}); it will retry automatically.`
+    }
+    return { content: [{ type: 'text', text: JSON.stringify(response, null, 2) }] }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
     return { content: [{ type: 'text', text: message }], isError: true }

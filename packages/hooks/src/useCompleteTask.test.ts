@@ -109,4 +109,19 @@ describe('useCompleteTask', () => {
     expect(result.current.complete.error?.message).toBe('Task not found: missing')
     expect(store.appended).toEqual([])
   })
+
+  test('mutate keeps a stable identity across re-renders when store and projState are unchanged', async () => {
+    const store = new RecordingStore(buildState({}))
+
+    const { result, rerender } = renderHook(() => ({
+      ctx: usePalimpsestContext(),
+      complete: useCompleteTask(),
+    }), { wrapper: makeWrapper(store) })
+    await waitFor(() => expect(result.current.ctx.isLoading).toBe(false))
+
+    const firstMutate = result.current.complete.mutate
+    rerender()
+
+    expect(result.current.complete.mutate).toBe(firstMutate)
+  })
 })

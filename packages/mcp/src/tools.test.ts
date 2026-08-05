@@ -44,6 +44,38 @@ function parseOk<T>(text: string): { ok: boolean } & T {
   return JSON.parse(text) as { ok: boolean } & T
 }
 
+// A fake store whose second sync() call (the post-append confirmation flush) silently "fails" by
+// flipping syncState.health to 'error' rather than throwing — mirroring how TodoistStore.sync()
+// swallows network errors internally instead of rejecting. appendEvents still folds the event
+// into state, since the local write itself succeeded; only the confirmation flush is unreliable.
+function flakyFlushStore(initial: ProjectionState): TaskStore & { calls: string[] } {
+  const state = initial
+  const calls: string[] = []
+  let syncCount = 0
+  let health: 'idle' | 'error' = 'idle'
+  return {
+    calls,
+    get syncState() {
+      return {
+        health,
+        unsyncedCount: 0,
+        pendingConflicts: [],
+        lastError: health === 'error' ? 'Todoist Sync API → 500' : undefined,
+      }
+    },
+    sync: vi.fn(async () => {
+      calls.push('sync')
+      syncCount++
+      if (syncCount === 2) health = 'error'
+    }),
+    getState: vi.fn(async () => { calls.push('getState'); return cloneState(state) }),
+    appendEvents: vi.fn(async (events: PalimpsestEvent[]) => {
+      calls.push('appendEvents')
+      for (const event of events) applyEvent(state, event)
+    }),
+  }
+}
+
 describe('handleTasks', () => {
   test('returns a JSON envelope of matching tasks', async () => {
     const sphere = makeSphere({ name: 'Work' })
@@ -282,8 +314,25 @@ describe('handleCompleteTask', () => {
     expect(store.calls).toEqual(['sync', 'getState', 'appendEvents', 'sync', 'getState'])
     expect(store.appended).toEqual([[expect.objectContaining({ type: 'task.completed', taskId: task.id })]])
     const text = (result.content[0] as { type: 'text'; text: string }).text
-    const parsed = parseOk<{ task: { title: string; status: string } }>(text)
+    const parsed = parseOk<{ synced: boolean; task: { title: string; status: string } }>(text)
+    expect(parsed.synced).toBe(true)
     expect(parsed.task).toEqual(expect.objectContaining({ title: 'Ship it', status: 'completed' }))
+  })
+
+  test('reports synced:false with a warning when the confirmation flush silently fails, without treating the call as an error', async () => {
+    const task = makeTask({ title: 'Ship it', status: 'open' })
+    const store = flakyFlushStore(buildState({ tasks: [task] }))
+
+    const result = await handleCompleteTask(store, { id: task.id })
+
+    expect(result.isError).toBeUndefined()
+    const text = (result.content[0] as { type: 'text'; text: string }).text
+    const parsed = parseOk<{ synced: boolean; warning?: string; task: { status: string } }>(text)
+    expect(parsed.ok).toBe(true)
+    expect(parsed.synced).toBe(false)
+    expect(parsed.warning).toMatch(/not yet confirmed/)
+    // The event was still applied locally — the task is completed even though confirmation failed.
+    expect(parsed.task.status).toBe('completed')
   })
 
   test('recurs a recurring task instead of closing it', async () => {

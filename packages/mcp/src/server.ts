@@ -102,7 +102,7 @@ export function createMcpServer(store: TaskStore): McpServer {
   }, args => handlePickList(store, args))
 
   server.registerTool('complete_task', {
-    description: 'Mark a task complete. Recurring tasks (with a recurrence expression) advance to their next due date instead of closing; non-recurring tasks are closed. Fails if the task is already completed or deleted.',
+    description: 'Mark a task complete. Recurring tasks (with a recurrence expression) advance to their next due date instead of closing; non-recurring tasks are closed. Fails if the task is already completed or deleted. The response includes `synced: false` and a `warning` if the change could not be immediately confirmed by the remote store (it is still applied and will retry automatically).',
     inputSchema: {
       id: z.string().describe('Task id'),
     },
