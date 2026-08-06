@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { ClientPalimpsestStore } from './ClientPalimpsestStore.js'
-import type { PendingEventStore } from 'palimpsest'
-import { createEmptyState, buildStateFromConfig } from 'palimpsest'
-import type { PalimpsestEvent, TaskId, SphereId, EventId } from 'palimpsest'
+import type { PendingEventStore } from '@alnorth/palimpsest'
+import { createEmptyState, buildStateFromConfig } from '@alnorth/palimpsest'
+import type { PalimpsestEvent, TaskId, SphereId, EventId } from '@alnorth/palimpsest'
 
 const SPHERE_ID = 'sph1' as SphereId
 const testInitialState = { ...createEmptyState(), ...buildStateFromConfig([{ id: SPHERE_ID, name: 'Work', agendas: [], contexts: [] }]) }

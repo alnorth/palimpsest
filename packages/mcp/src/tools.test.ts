@@ -1,5 +1,5 @@
 import { describe, test, expect, vi } from 'vitest'
-import type { ProjectionState } from 'palimpsest'
+import type { ProjectionState } from '@alnorth/palimpsest'
 import { makeSphere, makeProject, makeAgenda, makeContext, makeTask, buildState } from './testFixtures.js'
 import type { TaskStore } from './tools.js'
 import {

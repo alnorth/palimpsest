@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import { buildCommands } from './write.js'
-import { createEmptyState, buildStateFromConfig } from 'palimpsest'
-import type { PalimpsestEvent, ProjectionState, TaskId, ProjectId, SphereId, AgendaId, ContextId, EventId } from 'palimpsest'
-import { CLEAR } from 'palimpsest'
+import { createEmptyState, buildStateFromConfig } from '@alnorth/palimpsest'
+import type { PalimpsestEvent, ProjectionState, TaskId, ProjectId, SphereId, AgendaId, ContextId, EventId } from '@alnorth/palimpsest'
+import { CLEAR } from '@alnorth/palimpsest'
 import {
   WORK_SPHERE_ID,
   PERSONAL_SPHERE_ID,

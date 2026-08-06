@@ -1,7 +1,10 @@
 {
-  "name": "palimpsest-todoist",
+  "name": "@alnorth/palimpsest-todoist",
   "version": "0.1.0",
   "type": "module",
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
+  },
   "exports": {
     ".": "./src/index.ts"
   },
@@ -12,7 +15,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "palimpsest": "*"
+    "@alnorth/palimpsest": "*"
   },
   "devDependencies": {
     "tsup": "^8.0.0",

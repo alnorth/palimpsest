@@ -1,5 +1,5 @@
 import { describe, test, expect } from 'vitest'
-import type { SphereId } from 'palimpsest'
+import type { SphereId } from '@alnorth/palimpsest'
 import { makeSphere, makeProject, makeAgenda, makeContext, buildState } from './fixtures.js'
 import { resolveSphere, resolveProject, resolveAgenda, resolveContext } from './resolve.js'
 

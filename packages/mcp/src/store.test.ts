@@ -1,5 +1,5 @@
 import { describe, test, expect, vi, afterEach } from 'vitest'
-import { TodoistStore } from 'palimpsest-todoist'
+import { TodoistStore } from '@alnorth/palimpsest-todoist'
 import { createStore } from './store.js'
 
 describe('createStore', () => {

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach } from 'vitest'
 import { LocalStoragePendingEventStore } from './LocalStoragePendingEventStore.js'
-import type { PalimpsestEvent, TaskId, SphereId, EventId } from 'palimpsest'
+import type { PalimpsestEvent, TaskId, SphereId, EventId } from '@alnorth/palimpsest'
 
 function makeEvent(id: string): PalimpsestEvent {
   return {

@@ -1,8 +1,11 @@
 {
-  "name": "palimpsest",
+  "name": "@alnorth/palimpsest",
   "version": "0.1.6",
   "type": "module",
   "description": "Append-only event-sourced to-do list library",
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
+  },
   "exports": {
     ".": "./src/index.ts",
     "./file-store": "./src/fileStore.ts"

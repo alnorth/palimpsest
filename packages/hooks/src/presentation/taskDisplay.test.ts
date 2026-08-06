@@ -1,5 +1,5 @@
 import { describe, test, expect } from 'vitest'
-import type { TaskJson } from 'palimpsest-query'
+import type { TaskJson } from '@alnorth/palimpsest-query'
 import { getDueStatus, hasDescription, getTaskBadges, getTaskDetailFields, formatDateTime } from './taskDisplay.js'
 
 const TODAY = '2026-06-30'

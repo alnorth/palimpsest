@@ -14,9 +14,9 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.30.0",
-    "palimpsest": "*",
-    "palimpsest-query": "*",
-    "palimpsest-todoist": "*",
+    "@alnorth/palimpsest": "*",
+    "@alnorth/palimpsest-query": "*",
+    "@alnorth/palimpsest-todoist": "*",
     "zod": "^4.4.3"
   },
   "devDependencies": {

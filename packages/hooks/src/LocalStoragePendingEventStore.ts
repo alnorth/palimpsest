@@ -1,5 +1,5 @@
-import type { PalimpsestEvent } from 'palimpsest'
-import type { PendingEventStore } from 'palimpsest'
+import type { PalimpsestEvent } from '@alnorth/palimpsest'
+import type { PendingEventStore } from '@alnorth/palimpsest'
 
 export class LocalStoragePendingEventStore implements PendingEventStore {
   private cache: PalimpsestEvent[] | undefined

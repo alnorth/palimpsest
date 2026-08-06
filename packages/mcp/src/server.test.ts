@@ -1,7 +1,7 @@
 import { describe, test, expect, beforeEach } from 'vitest'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js'
-import type { ProjectionState } from 'palimpsest'
+import type { ProjectionState } from '@alnorth/palimpsest'
 import { makeSphere, makeContext, makeTask, buildState } from './testFixtures.js'
 import type { TaskStore } from './tools.js'
 import { createMcpServer } from './server.js'

@@ -1,4 +1,4 @@
-import type { TaskJson } from 'palimpsest-query'
+import type { TaskJson } from '@alnorth/palimpsest-query'
 import { MONTHS } from './previews.js'
 
 function localToday(): string {

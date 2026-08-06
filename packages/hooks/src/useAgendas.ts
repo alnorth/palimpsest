@@ -1,4 +1,4 @@
-import type { AgendaJson } from 'palimpsest-query'
+import type { AgendaJson } from '@alnorth/palimpsest-query'
 import { useRunQuery } from './internal/useRunQuery.js'
 import type { ListResult, SphereScopedFilter } from './types.js'
 

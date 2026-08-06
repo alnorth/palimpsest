@@ -1,8 +1,11 @@
 {
-  "name": "palimpsest-query",
+  "name": "@alnorth/palimpsest-query",
   "version": "0.1.0",
   "type": "module",
   "description": "Shared read query engine (filter/sort/paginate/resolve/serialize) for palimpsest UI surfaces",
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
+  },
   "exports": {
     ".": "./src/index.ts"
   },
@@ -13,7 +16,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "palimpsest": "*"
+    "@alnorth/palimpsest": "*"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",

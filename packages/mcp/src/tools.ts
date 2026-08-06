@@ -1,6 +1,6 @@
-import type { ProjectionState } from 'palimpsest'
-import { runQuery } from 'palimpsest-query'
-import type { ParsedCommand, StatusArg } from 'palimpsest-query'
+import type { ProjectionState } from '@alnorth/palimpsest'
+import { runQuery } from '@alnorth/palimpsest-query'
+import type { ParsedCommand, StatusArg } from '@alnorth/palimpsest-query'
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js'
 
 export interface TaskStore {

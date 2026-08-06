@@ -1,5 +1,5 @@
-import type { ProjectionState, Task, TaskFilter, TaskId, TaskStatus } from 'palimpsest'
-import { getTask, listTasks, listProjects, listAgendas, listContexts, listSpheres } from 'palimpsest'
+import type { ProjectionState, Task, TaskFilter, TaskId, TaskStatus } from '@alnorth/palimpsest'
+import { getTask, listTasks, listProjects, listAgendas, listContexts, listSpheres } from '@alnorth/palimpsest'
 import { resolveSphere, resolveProject, resolveAgenda, resolveContext } from './resolve.js'
 import {
   toTaskJson, toProjectJson, toSphereJson, toAgendaJson, toContextJson, computeProjectStats,

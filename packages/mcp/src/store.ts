@@ -1,5 +1,5 @@
-import { buildStateFromConfig, PALIMPSEST_CONFIG, createEmptyState } from 'palimpsest'
-import { TodoistStore } from 'palimpsest-todoist'
+import { buildStateFromConfig, PALIMPSEST_CONFIG, createEmptyState } from '@alnorth/palimpsest'
+import { TodoistStore } from '@alnorth/palimpsest-todoist'
 
 export function createStore(env: NodeJS.ProcessEnv = process.env): TodoistStore {
   const token = env['PALIMPSEST_TODOIST_TOKEN']

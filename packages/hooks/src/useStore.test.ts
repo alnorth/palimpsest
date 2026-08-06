@@ -2,9 +2,9 @@
 import { describe, it, expect } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
 import { useStore } from './useStore.js'
-import { INITIAL_SYNC_STATE, PalimpsestStore, PollingStore } from 'palimpsest'
-import { createEmptyState, buildStateFromConfig } from 'palimpsest'
-import type { ProjectionState, SphereId } from 'palimpsest'
+import { INITIAL_SYNC_STATE, PalimpsestStore, PollingStore } from '@alnorth/palimpsest'
+import { createEmptyState, buildStateFromConfig } from '@alnorth/palimpsest'
+import type { ProjectionState, SphereId } from '@alnorth/palimpsest'
 
 const SPHERE_ID = 'sph1' as SphereId
 const initialState: ProjectionState = {
