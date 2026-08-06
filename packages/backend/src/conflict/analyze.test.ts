@@ -4,8 +4,8 @@ import type {
   TaskCreatedEvent, TaskUpdatedEvent, TaskCompletedEvent, TaskDeletedEvent,
   TaskRecurredEvent, TaskUncompletedEvent,
   ProjectCreatedEvent, ProjectUpdatedEvent,
-} from 'palimpsest'
-import type { TaskId, ProjectId, SphereId, EventId } from 'palimpsest'
+} from '@alnorth/palimpsest'
+import type { TaskId, ProjectId, SphereId, EventId } from '@alnorth/palimpsest'
 
 const T = '2024-01-01T00:00:00Z'
 

@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { handleSync } from './handleSync.js'
 import type { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb'
-import { createTask } from 'palimpsest'
-import type { PalimpsestEvent, SphereId } from 'palimpsest'
+import { createTask } from '@alnorth/palimpsest'
+import type { PalimpsestEvent, SphereId } from '@alnorth/palimpsest'
 
 // Minimal DynamoDB mock factory — returns an empty store by default
 function makeClient(overrides: {

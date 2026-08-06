@@ -1,5 +1,5 @@
 import { describe, test, expect } from 'vitest'
-import type { TaskId } from 'palimpsest'
+import type { TaskId } from '@alnorth/palimpsest'
 import { makeSphere, makeProject, makeAgenda, makeContext, makeTask, buildState } from './fixtures.js'
 import { runQuery } from './runQuery.js'
 

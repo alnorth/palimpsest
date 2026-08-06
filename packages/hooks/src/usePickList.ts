@@ -1,4 +1,4 @@
-import type { TaskJson, EntityRef } from 'palimpsest-query'
+import type { TaskJson, EntityRef } from '@alnorth/palimpsest-query'
 import { usePalimpsestContext } from './PalimpsestProvider.js'
 import { useRunQuery } from './internal/useRunQuery.js'
 import type { QueryResult } from './types.js'

@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
-import type { PalimpsestStore, ProjectionState, SphereId, SyncState } from 'palimpsest'
-import { TodoistStore } from 'palimpsest-todoist'
+import type { PalimpsestStore, ProjectionState, SphereId, SyncState } from '@alnorth/palimpsest'
+import { TodoistStore } from '@alnorth/palimpsest-todoist'
 
 interface HasSyncState {
   readonly syncState: SyncState

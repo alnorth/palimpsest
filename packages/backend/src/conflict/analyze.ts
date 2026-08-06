@@ -1,4 +1,4 @@
-import type { PalimpsestEvent } from 'palimpsest'
+import type { PalimpsestEvent } from '@alnorth/palimpsest'
 
 export type ConflictResult =
   | { status: 'ok'; idempotent?: boolean }

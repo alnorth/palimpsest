@@ -1,4 +1,4 @@
-import type { SphereJson } from 'palimpsest-query'
+import type { SphereJson } from '@alnorth/palimpsest-query'
 import { usePalimpsestContext } from './PalimpsestProvider.js'
 import { useSpheres } from './useSpheres.js'
 

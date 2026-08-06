@@ -1,4 +1,4 @@
-import type { SyncState } from 'palimpsest'
+import type { SyncState } from '@alnorth/palimpsest'
 import { usePalimpsestContext } from './PalimpsestProvider.js'
 
 export interface SyncStatus {

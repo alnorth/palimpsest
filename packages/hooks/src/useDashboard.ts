@@ -1,4 +1,4 @@
-import type { TaskJson } from 'palimpsest-query'
+import type { TaskJson } from '@alnorth/palimpsest-query'
 import { usePalimpsestContext } from './PalimpsestProvider.js'
 import { useRunQuery } from './internal/useRunQuery.js'
 import type { ListResult } from './types.js'

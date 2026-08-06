@@ -1,5 +1,5 @@
-import type { PalimpsestEvent, ProjectionState } from 'palimpsest'
-import { CLEAR } from 'palimpsest'
+import type { PalimpsestEvent, ProjectionState } from '@alnorth/palimpsest'
+import { CLEAR } from '@alnorth/palimpsest'
 import type { SyncCommand } from './api.js'
 import { computeLabels } from './labels.js'
 import {

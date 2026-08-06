@@ -1,5 +1,5 @@
-import { PollingStore, project, createEmptyState } from 'palimpsest'
-import type { PalimpsestEvent, ProjectionState, ProjectId, PendingEventStore } from 'palimpsest'
+import { PollingStore, project, createEmptyState } from '@alnorth/palimpsest'
+import type { PalimpsestEvent, ProjectionState, ProjectId, PendingEventStore } from '@alnorth/palimpsest'
 import { sync } from './api.js'
 import type { SyncCommand } from './api.js'
 import { buildEvents, buildDeltaEvents } from './read.js'

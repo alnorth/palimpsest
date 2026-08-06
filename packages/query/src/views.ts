@@ -1,5 +1,5 @@
-import type { ProjectionState, Task, Project, Context, WaitingFor, SphereId } from 'palimpsest'
-import { listTasks, listProjects, listContexts } from 'palimpsest'
+import type { ProjectionState, Task, Project, Context, WaitingFor, SphereId } from '@alnorth/palimpsest'
+import { listTasks, listProjects, listContexts } from '@alnorth/palimpsest'
 
 export function dashboardTasks(state: ProjectionState, sphereId: SphereId, today: string): Task[] {
   const allOpen = listTasks(state, { status: 'open', sphereId })

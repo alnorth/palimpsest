@@ -3,7 +3,7 @@ import type { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb'
 import { QueryCommand, TransactWriteCommand, GetCommand } from '@aws-sdk/lib-dynamodb'
 import { DynamoPalimpsestStore } from './DynamoPalimpsestStore.js'
 import { EVENTS_PK, META_PK, META_SEQ_SK, eventSK } from './schema.js'
-import type { PalimpsestEvent } from 'palimpsest'
+import type { PalimpsestEvent } from '@alnorth/palimpsest'
 
 function makeEvent(seq: number, id: string, type = 'sphere.created'): PalimpsestEvent {
   return { id: id as any, type: type as any, sphereId: 'sid' as any, name: 'Test', occurredAt: '2024-01-01T00:00:00Z' } as unknown as PalimpsestEvent

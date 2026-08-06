@@ -1,5 +1,5 @@
-import { PollingStore } from 'palimpsest'
-import type { PalimpsestEvent, ProjectionState, PendingEventStore } from 'palimpsest'
+import { PollingStore } from '@alnorth/palimpsest'
+import type { PalimpsestEvent, ProjectionState, PendingEventStore } from '@alnorth/palimpsest'
 
 export type SyncStatus = 'ok' | 'conflict' | 'rerun'
 

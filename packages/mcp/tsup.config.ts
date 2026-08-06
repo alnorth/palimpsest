@@ -4,7 +4,7 @@ export default defineConfig({
   entry: ['src/index.ts'],
   format: ['esm'],
   conditions: ['source'],
-  noExternal: [/^palimpsest/],
+  noExternal: [/^@alnorth\/palimpsest/],
   target: 'node24',
   clean: true,
   banner: {

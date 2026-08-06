@@ -1,4 +1,4 @@
-import type { SphereJson } from 'palimpsest-query'
+import type { SphereJson } from '@alnorth/palimpsest-query'
 import { useRunQuery } from './internal/useRunQuery.js'
 import type { ListResult } from './types.js'
 

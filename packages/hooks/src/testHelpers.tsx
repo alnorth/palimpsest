@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
-import { PalimpsestStore } from 'palimpsest'
-import type { ProjectionState } from 'palimpsest'
+import { PalimpsestStore } from '@alnorth/palimpsest'
+import type { ProjectionState } from '@alnorth/palimpsest'
 import { PalimpsestProvider } from './PalimpsestProvider.js'
 
 export class FakeStore extends PalimpsestStore {

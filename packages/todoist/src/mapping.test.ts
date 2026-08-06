@@ -15,7 +15,7 @@ import {
   WORK_SPHERE_ID,
   PERSONAL_SPHERE_ID,
 } from './mapping.js'
-import type { ProjectId } from 'palimpsest'
+import type { ProjectId } from '@alnorth/palimpsest'
 
 describe('todoistProjectUrl', () => {
   it('builds correct URL', () => {

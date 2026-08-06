@@ -1,4 +1,4 @@
-import type { TaskJson, ProjectJson } from 'palimpsest-query'
+import type { TaskJson, ProjectJson } from '@alnorth/palimpsest-query'
 import { useRunQuery } from './internal/useRunQuery.js'
 import type { QueryResult } from './types.js'
 

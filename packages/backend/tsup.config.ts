@@ -7,8 +7,8 @@ export default defineConfig({
   outDir: 'dist',
   // @aws-sdk is available in the Lambda runtime — don't bundle it
   external: ['@aws-sdk/client-dynamodb', '@aws-sdk/client-secrets-manager', '@aws-sdk/lib-dynamodb'],
-  // palimpsest is a workspace dep — force-bundle it since it won't be on Lambda
-  noExternal: ['palimpsest'],
+  // @alnorth/palimpsest is a workspace dep — force-bundle it since it won't be on Lambda
+  noExternal: ['@alnorth/palimpsest'],
   bundle: true,
   sourcemap: true,
   onSuccess() {

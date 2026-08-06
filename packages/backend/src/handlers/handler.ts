@@ -3,7 +3,7 @@ import { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb'
 import { SecretsManagerClient, GetSecretValueCommand } from '@aws-sdk/client-secrets-manager'
 import type { APIGatewayProxyHandlerV2 } from 'aws-lambda'
 import { handleSync } from './handleSync.js'
-import type { PalimpsestEvent } from 'palimpsest'
+import type { PalimpsestEvent } from '@alnorth/palimpsest'
 
 const dynamoClient = DynamoDBDocumentClient.from(new DynamoDBClient({}))
 const secretsClient = new SecretsManagerClient({})

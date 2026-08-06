@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { TodoistStore } from './TodoistStore.js'
 import * as api from './api.js'
-import { createEmptyState, buildStateFromConfig } from 'palimpsest'
-import type { PalimpsestEvent, SphereId, TaskId, EventId } from 'palimpsest'
+import { createEmptyState, buildStateFromConfig } from '@alnorth/palimpsest'
+import type { PalimpsestEvent, SphereId, TaskId, EventId } from '@alnorth/palimpsest'
 import type { SyncResponse } from './api.js'
 
 vi.mock('./api.js')

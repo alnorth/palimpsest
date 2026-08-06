@@ -1,5 +1,5 @@
-import type { Task, Project, Sphere, Agenda, Context, ProjectId, ProjectionState } from 'palimpsest'
-import { getTaskSphereId } from 'palimpsest'
+import type { Task, Project, Sphere, Agenda, Context, ProjectId, ProjectionState } from '@alnorth/palimpsest'
+import { getTaskSphereId } from '@alnorth/palimpsest'
 
 export interface EntityRef {
   id: string

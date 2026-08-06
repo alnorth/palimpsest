@@ -1,5 +1,5 @@
 import { describe, test, expect } from 'vitest'
-import type { ProjectId, AgendaId } from 'palimpsest'
+import type { ProjectId, AgendaId } from '@alnorth/palimpsest'
 import { makeSphere, makeProject, makeAgenda, makeContext, makeTask, buildState } from './fixtures.js'
 import { toTaskJson, toProjectJson, toSphereJson, toAgendaJson, toContextJson, computeProjectStats } from './serialize.js'
 

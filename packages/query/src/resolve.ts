@@ -1,5 +1,5 @@
-import type { ProjectionState, SphereId, ProjectId, AgendaId, ContextId } from 'palimpsest'
-import { listSpheres, listProjects, listAgendas, listContexts } from 'palimpsest'
+import type { ProjectionState, SphereId, ProjectId, AgendaId, ContextId } from '@alnorth/palimpsest'
+import { listSpheres, listProjects, listAgendas, listContexts } from '@alnorth/palimpsest'
 
 interface Candidate {
   id: string

@@ -1,4 +1,4 @@
-import type { ContextJson } from 'palimpsest-query'
+import type { ContextJson } from '@alnorth/palimpsest-query'
 import { useRunQuery } from './internal/useRunQuery.js'
 import type { ListResult, SphereScopedFilter } from './types.js'
 

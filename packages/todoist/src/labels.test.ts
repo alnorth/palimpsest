@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { computeLabels } from './labels.js'
-import type { AgendaId, ContextId } from 'palimpsest'
+import type { AgendaId, ContextId } from '@alnorth/palimpsest'
 
 const jimId    = 'agenda-jim'    as AgendaId
 const marciaId = 'agenda-marcia' as AgendaId

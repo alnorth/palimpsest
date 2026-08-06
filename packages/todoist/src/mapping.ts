@@ -1,4 +1,4 @@
-import type { AgendaId, ContextId, SphereId, ProjectId } from 'palimpsest'
+import type { AgendaId, ContextId, SphereId, ProjectId } from '@alnorth/palimpsest'
 
 // ── Todoist project IDs (hardcoded to this account's layout) ─────────────────
 

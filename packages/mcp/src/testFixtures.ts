@@ -2,8 +2,8 @@ import type {
   Task, Project, Sphere, Agenda, Context,
   TaskId, ProjectId, SphereId, AgendaId, ContextId,
   ProjectionState,
-} from 'palimpsest'
-import { createEmptyState } from 'palimpsest'
+} from '@alnorth/palimpsest'
+import { createEmptyState } from '@alnorth/palimpsest'
 
 let counter = 0
 function nextId(prefix: string): string {

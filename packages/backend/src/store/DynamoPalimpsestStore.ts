@@ -1,7 +1,7 @@
 import { QueryCommand, GetCommand, TransactWriteCommand } from '@aws-sdk/lib-dynamodb'
 import type { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb'
-import { PalimpsestStore } from 'palimpsest'
-import type { PalimpsestEvent } from 'palimpsest'
+import { PalimpsestStore } from '@alnorth/palimpsest'
+import type { PalimpsestEvent } from '@alnorth/palimpsest'
 import {
   EVENTS_PK, META_PK, META_SEQ_SK,
   eventSK, seqToSK,

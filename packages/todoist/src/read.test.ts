@@ -11,8 +11,8 @@ import {
   WORK_SPHERE_ID,
   PERSONAL_SPHERE_ID,
 } from './mapping.js'
-import { buildStateFromConfig, createEmptyState, PALIMPSEST_CONFIG, project } from 'palimpsest'
-import type { ProjectId, TaskId } from 'palimpsest'
+import { buildStateFromConfig, createEmptyState, PALIMPSEST_CONFIG, project } from '@alnorth/palimpsest'
+import type { ProjectId, TaskId } from '@alnorth/palimpsest'
 
 const CONFIG_STATE = { ...createEmptyState(), ...buildStateFromConfig(PALIMPSEST_CONFIG) }
 
