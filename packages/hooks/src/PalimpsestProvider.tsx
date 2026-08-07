@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import type { PalimpsestStore, ProjectionState, SphereId, SyncState } from '@alnorth/palimpsest'
+import { buildStateFromConfig, createEmptyState, PALIMPSEST_CONFIG } from '@alnorth/palimpsest'
 import { TodoistStore } from '@alnorth/palimpsest-todoist'
 
 interface HasSyncState {
@@ -56,6 +57,7 @@ export function PalimpsestProvider(props: PalimpsestProviderProps): ReactNode {
   const store = useMemo<PalimpsestStore>(() => {
     if ('store' in props) return props.store
     return new TodoistStore(props.todoistToken, {
+      initialState: { ...createEmptyState(), ...buildStateFromConfig(PALIMPSEST_CONFIG) },
       ...(props.syncIntervalMs !== undefined && { syncIntervalMs: props.syncIntervalMs }),
     })
   }, [

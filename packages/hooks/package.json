@@ -1,6 +1,6 @@
 {
   "name": "@alnorth/palimpsest-hooks",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "type": "module",
   "description": "React hooks + Context for reading palimpsest data in third-party apps",
   "publishConfig": {
