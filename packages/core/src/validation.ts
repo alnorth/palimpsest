@@ -1,6 +1,6 @@
-import type { ProjectionState } from './projection.js'
-import type { PalimpsestEvent } from './events.js'
-import { applyEvent, cloneState } from './projection.js'
+import type { ProjectionState } from './projection'
+import type { PalimpsestEvent } from './events'
+import { applyEvent, cloneState } from './projection'
 
 function validateEvent(state: ProjectionState, event: PalimpsestEvent): void {
   switch (event.type) {

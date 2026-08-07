@@ -1,7 +1,7 @@
-import type { PalimpsestEvent } from './events.js'
-import type { ProjectionState } from './projection.js'
-import { project } from './projection.js'
-import { validateBatch } from './validation.js'
+import type { PalimpsestEvent } from './events'
+import type { ProjectionState } from './projection'
+import { project } from './projection'
+import { validateBatch } from './validation'
 
 export abstract class PalimpsestStore {
   readonly initialState: ProjectionState | undefined

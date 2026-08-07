@@ -1,8 +1,8 @@
-import type { Task, Project } from './types.js'
-import type { PalimpsestEvent, TaskPatch, ProjectPatch } from './events.js'
-import type { ProjectId, SphereId, AgendaId, ContextId } from './ids.js'
-import { newTaskId, newProjectId, newEventId } from './ids.js'
-import { nextDueDate, isValidExpression } from './dateParser.js'
+import type { Task, Project } from './types'
+import type { PalimpsestEvent, TaskPatch, ProjectPatch } from './events'
+import type { ProjectId, SphereId, AgendaId, ContextId } from './ids'
+import { newTaskId, newProjectId, newEventId } from './ids'
+import { nextDueDate, isValidExpression } from './dateParser'
 
 function now(): string {
   return new Date().toISOString()

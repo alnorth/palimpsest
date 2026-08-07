@@ -14,7 +14,7 @@ import {
   TODOIST_FUTURE_LOG_ID,
   WORK_SPHERE_ID,
   PERSONAL_SPHERE_ID,
-} from './mapping.js'
+} from './mapping'
 import type { ProjectId } from '@alnorth/palimpsest'
 
 describe('todoistProjectUrl', () => {

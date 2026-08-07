@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { analyzeConflict } from './analyze.js'
+import { analyzeConflict } from './analyze'
 import type {
   TaskCreatedEvent, TaskUpdatedEvent, TaskCompletedEvent, TaskDeletedEvent,
   TaskRecurredEvent, TaskUncompletedEvent,

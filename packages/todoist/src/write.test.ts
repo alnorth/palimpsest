@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { buildCommands } from './write.js'
+import { buildCommands } from './write'
 import { createEmptyState, buildStateFromConfig } from '@alnorth/palimpsest'
 import type { PalimpsestEvent, ProjectionState, TaskId, ProjectId, SphereId, AgendaId, ContextId, EventId } from '@alnorth/palimpsest'
 import { CLEAR } from '@alnorth/palimpsest'
@@ -12,7 +12,7 @@ import {
   TODOIST_PERSONAL_PROJECT_ID,
   TODOIST_RECURRING_ID,
   TODOIST_FUTURE_LOG_ID,
-} from './mapping.js'
+} from './mapping'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 

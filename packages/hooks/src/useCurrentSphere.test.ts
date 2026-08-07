@@ -1,9 +1,9 @@
 // @vitest-environment jsdom
 import { describe, test, expect } from 'vitest'
 import { renderHook, waitFor, act } from '@testing-library/react'
-import { makeSphere, buildState } from './testFixtures.js'
-import { FakeStore, makeWrapper } from './testHelpers.js'
-import { useCurrentSphere } from './useCurrentSphere.js'
+import { makeSphere, buildState } from './testFixtures'
+import { FakeStore, makeWrapper } from './testHelpers'
+import { useCurrentSphere } from './useCurrentSphere'
 
 describe('useCurrentSphere', () => {
   test('lists all spheres and tracks the selected one', async () => {

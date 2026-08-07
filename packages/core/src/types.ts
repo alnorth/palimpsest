@@ -1,4 +1,4 @@
-import type { TaskId, ProjectId, SphereId, AgendaId, ContextId } from './ids.js'
+import type { TaskId, ProjectId, SphereId, AgendaId, ContextId } from './ids'
 
 export type TaskStatus = 'open' | 'completed' | 'deleted'
 

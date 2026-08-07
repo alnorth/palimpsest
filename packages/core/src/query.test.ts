@@ -1,10 +1,10 @@
 import { describe, it, expect } from 'vitest'
-import { createEmptyState, project } from './projection.js'
-import { buildStateFromConfig } from './config.js'
-import { createProject, createTask, completeTask, updateTask } from './commands.js'
-import { listTasksBySphere, listOpenTasks, getTaskSphereId, listTasks } from './query.js'
-import type { SphereId, ProjectId, TaskId } from './ids.js'
-import type { PalimpsestEvent } from './events.js'
+import { createEmptyState, project } from './projection'
+import { buildStateFromConfig } from './config'
+import { createProject, createTask, completeTask, updateTask } from './commands'
+import { listTasksBySphere, listOpenTasks, getTaskSphereId, listTasks } from './query'
+import type { SphereId, ProjectId, TaskId } from './ids'
+import type { PalimpsestEvent } from './events'
 
 const sphereId = 'sph1' as SphereId
 const baseState = { ...createEmptyState(), ...buildStateFromConfig([{ id: sphereId, name: 'Work', agendas: [], contexts: [] }]) }

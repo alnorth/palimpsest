@@ -1,9 +1,9 @@
 // @vitest-environment jsdom
 import { describe, test, expect } from 'vitest'
 import { renderHook, waitFor } from '@testing-library/react'
-import { buildState } from './testFixtures.js'
-import { FakeStore, makeWrapper } from './testHelpers.js'
-import { useSyncStatus } from './useSyncStatus.js'
+import { buildState } from './testFixtures'
+import { FakeStore, makeWrapper } from './testHelpers'
+import { useSyncStatus } from './useSyncStatus'
 
 describe('useSyncStatus', () => {
   test('reflects the connecting state and then settles', async () => {

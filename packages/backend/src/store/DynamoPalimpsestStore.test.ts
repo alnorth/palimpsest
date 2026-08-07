@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import type { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb'
 import { QueryCommand, TransactWriteCommand, GetCommand } from '@aws-sdk/lib-dynamodb'
-import { DynamoPalimpsestStore } from './DynamoPalimpsestStore.js'
-import { EVENTS_PK, META_PK, META_SEQ_SK, eventSK } from './schema.js'
+import { DynamoPalimpsestStore } from './DynamoPalimpsestStore'
+import { EVENTS_PK, META_PK, META_SEQ_SK, eventSK } from './schema'
 import type { PalimpsestEvent } from '@alnorth/palimpsest'
 
 function makeEvent(seq: number, id: string, type = 'sphere.created'): PalimpsestEvent {

@@ -1,7 +1,7 @@
 import { readFileSync, appendFileSync, existsSync } from 'node:fs'
-import type { PalimpsestEvent } from './events.js'
-import type { ProjectionState } from './projection.js'
-import { PalimpsestStore } from './store.js'
+import type { PalimpsestEvent } from './events'
+import type { ProjectionState } from './projection'
+import { PalimpsestStore } from './store'
 
 export class FilePalimpsestStore extends PalimpsestStore {
   readonly filePath: string

@@ -1,6 +1,6 @@
 import type { TaskJson } from '@alnorth/palimpsest-query'
-import { useRunQuery } from './internal/useRunQuery.js'
-import type { QueryResult } from './types.js'
+import { useRunQuery } from './internal/useRunQuery'
+import type { QueryResult } from './types'
 
 export function useTask(id: string): QueryResult<TaskJson> {
   const { raw, isLoading, error } = useRunQuery({ kind: 'task', id })

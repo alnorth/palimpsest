@@ -1,7 +1,7 @@
 import type { TaskJson } from '@alnorth/palimpsest-query'
-import { usePalimpsestContext } from './PalimpsestProvider.js'
-import { useRunQuery } from './internal/useRunQuery.js'
-import type { ListResult } from './types.js'
+import { usePalimpsestContext } from './PalimpsestProvider'
+import { useRunQuery } from './internal/useRunQuery'
+import type { ListResult } from './types'
 
 export function useDashboard(sphere?: string): ListResult<TaskJson> {
   const { currentSphereId } = usePalimpsestContext()

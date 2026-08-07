@@ -1,13 +1,13 @@
 import type { PalimpsestEvent, ProjectionState } from '@alnorth/palimpsest'
 import { CLEAR } from '@alnorth/palimpsest'
-import type { SyncCommand } from './api.js'
-import { computeLabels } from './labels.js'
+import type { SyncCommand } from './api'
+import { computeLabels } from './labels'
 import {
   WORK_SPHERE_ID,
   freeFloatingProjectFor,
   sphereParentProjectFor,
   todoistProjectUrl,
-} from './mapping.js'
+} from './mapping'
 
 function uuid(): string {
   return crypto.randomUUID()

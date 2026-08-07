@@ -1,10 +1,10 @@
 import type { ProjectionState, Task, TaskFilter, TaskId, TaskStatus } from '@alnorth/palimpsest'
 import { getTask, listTasks, listProjects, listAgendas, listContexts, listSpheres } from '@alnorth/palimpsest'
-import { resolveSphere, resolveProject, resolveAgenda, resolveContext } from './resolve.js'
+import { resolveSphere, resolveProject, resolveAgenda, resolveContext } from './resolve'
 import {
   toTaskJson, toProjectJson, toSphereJson, toAgendaJson, toContextJson, computeProjectStats,
-} from './serialize.js'
-import { dashboardTasks, processingBuckets, waitingGroups, pickListGroups } from './views.js'
+} from './serialize'
+import { dashboardTasks, processingBuckets, waitingGroups, pickListGroups } from './views'
 
 export type StatusArg = 'open' | 'completed' | 'deleted' | 'any'
 

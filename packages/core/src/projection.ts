@@ -1,7 +1,7 @@
-import type { Task, Project, Sphere, Agenda, Context } from './types.js'
-import type { TaskId, ProjectId, SphereId, AgendaId, ContextId } from './ids.js'
-import type { PalimpsestEvent } from './events.js'
-import { CLEAR } from './events.js'
+import type { Task, Project, Sphere, Agenda, Context } from './types'
+import type { TaskId, ProjectId, SphereId, AgendaId, ContextId } from './ids'
+import type { PalimpsestEvent } from './events'
+import { CLEAR } from './events'
 
 export interface ProjectionState {
   spheres:   Map<SphereId, Sphere>

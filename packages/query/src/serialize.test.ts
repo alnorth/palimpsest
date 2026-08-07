@@ -1,7 +1,7 @@
 import { describe, test, expect } from 'vitest'
 import type { ProjectId, AgendaId } from '@alnorth/palimpsest'
-import { makeSphere, makeProject, makeAgenda, makeContext, makeTask, buildState } from './fixtures.js'
-import { toTaskJson, toProjectJson, toSphereJson, toAgendaJson, toContextJson, computeProjectStats } from './serialize.js'
+import { makeSphere, makeProject, makeAgenda, makeContext, makeTask, buildState } from './fixtures'
+import { toTaskJson, toProjectJson, toSphereJson, toAgendaJson, toContextJson, computeProjectStats } from './serialize'
 
 describe('toTaskJson', () => {
   test('task with a project denormalizes sphere via the project', () => {

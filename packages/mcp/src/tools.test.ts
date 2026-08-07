@@ -1,11 +1,11 @@
 import { describe, test, expect, vi } from 'vitest'
 import type { ProjectionState } from '@alnorth/palimpsest'
-import { makeSphere, makeProject, makeAgenda, makeContext, makeTask, buildState } from './testFixtures.js'
-import type { TaskStore } from './tools.js'
+import { makeSphere, makeProject, makeAgenda, makeContext, makeTask, buildState } from './testFixtures'
+import type { TaskStore } from './tools'
 import {
   handleTasks, handleTask, handleProjects, handleSpheres, handleAgendas, handleContexts,
   handleDashboard, handleProcessing, handleWaiting, handlePickList,
-} from './tools.js'
+} from './tools'
 
 function fakeStore(state: ProjectionState): TaskStore & { calls: string[] } {
   const calls: string[] = []

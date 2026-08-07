@@ -1,7 +1,7 @@
 import { describe, test, expect } from 'vitest'
 import type { TaskId } from '@alnorth/palimpsest'
-import { makeSphere, makeProject, makeAgenda, makeContext, makeTask, buildState } from './fixtures.js'
-import { runQuery } from './runQuery.js'
+import { makeSphere, makeProject, makeAgenda, makeContext, makeTask, buildState } from './fixtures'
+import { runQuery } from './runQuery'
 
 describe('tasks: default filtering and ordering', () => {
   test('defaults to open status only', () => {

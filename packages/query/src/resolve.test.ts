@@ -1,7 +1,7 @@
 import { describe, test, expect } from 'vitest'
 import type { SphereId } from '@alnorth/palimpsest'
-import { makeSphere, makeProject, makeAgenda, makeContext, buildState } from './fixtures.js'
-import { resolveSphere, resolveProject, resolveAgenda, resolveContext } from './resolve.js'
+import { makeSphere, makeProject, makeAgenda, makeContext, buildState } from './fixtures'
+import { resolveSphere, resolveProject, resolveAgenda, resolveContext } from './resolve'
 
 describe('resolveSphere', () => {
   test('resolves by exact id', () => {

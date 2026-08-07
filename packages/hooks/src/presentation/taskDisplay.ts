@@ -1,5 +1,5 @@
 import type { TaskJson } from '@alnorth/palimpsest-query'
-import { MONTHS } from './previews.js'
+import { MONTHS } from './previews'
 
 function localToday(): string {
   const d = new Date()

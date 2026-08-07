@@ -1,5 +1,5 @@
-import type { TaskId, ProjectId, SphereId, AgendaId, ContextId, EventId } from './ids.js'
-import type { WaitingFor } from './types.js'
+import type { TaskId, ProjectId, SphereId, AgendaId, ContextId, EventId } from './ids'
+import type { WaitingFor } from './types'
 
 export const CLEAR = null
 

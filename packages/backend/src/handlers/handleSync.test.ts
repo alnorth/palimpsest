@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { handleSync } from './handleSync.js'
+import { handleSync } from './handleSync'
 import type { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb'
 import { createTask } from '@alnorth/palimpsest'
 import type { PalimpsestEvent, SphereId } from '@alnorth/palimpsest'

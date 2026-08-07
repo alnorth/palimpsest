@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { buildEvents, buildDeltaEvents } from './read.js'
-import type { SyncItem, SyncProject } from './api.js'
+import { buildEvents, buildDeltaEvents } from './read'
+import type { SyncItem, SyncProject } from './api'
 import {
   TODOIST_WORK_PROJECT_ID,
   TODOIST_PERSONAL_PROJECT_ID,
@@ -10,7 +10,7 @@ import {
   TODOIST_AGENDAS_ID,
   WORK_SPHERE_ID,
   PERSONAL_SPHERE_ID,
-} from './mapping.js'
+} from './mapping'
 import { buildStateFromConfig, createEmptyState, PALIMPSEST_CONFIG, project } from '@alnorth/palimpsest'
 import type { ProjectId, TaskId } from '@alnorth/palimpsest'
 

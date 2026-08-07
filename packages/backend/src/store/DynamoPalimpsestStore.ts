@@ -5,8 +5,8 @@ import type { PalimpsestEvent } from '@alnorth/palimpsest'
 import {
   EVENTS_PK, META_PK, META_SEQ_SK,
   eventSK, seqToSK,
-} from './schema.js'
-import type { EventItem } from './schema.js'
+} from './schema'
+import type { EventItem } from './schema'
 
 function entityTypeFromEvent(event: PalimpsestEvent): string {
   return event.type.split('.')[0] ?? 'unknown'

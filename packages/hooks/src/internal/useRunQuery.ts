@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import type { ParsedCommand } from '@alnorth/palimpsest-query'
 import { runQuery } from '@alnorth/palimpsest-query'
-import { usePalimpsestContext } from '../PalimpsestProvider.js'
+import { usePalimpsestContext } from '../PalimpsestProvider'
 
 export interface RawQueryState {
   raw: Record<string, unknown> | undefined

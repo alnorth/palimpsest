@@ -1,9 +1,9 @@
 // @vitest-environment jsdom
 import { describe, test, expect } from 'vitest'
 import { renderHook, waitFor, act } from '@testing-library/react'
-import { makeSphere, buildState } from './testFixtures.js'
-import { usePalimpsestContext } from './PalimpsestProvider.js'
-import { FakeStore, makeWrapper } from './testHelpers.js'
+import { makeSphere, buildState } from './testFixtures'
+import { usePalimpsestContext } from './PalimpsestProvider'
+import { FakeStore, makeWrapper } from './testHelpers'
 
 describe('PalimpsestProvider', () => {
   test('starts loading and resolves projState once the store connects', async () => {

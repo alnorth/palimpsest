@@ -1,10 +1,10 @@
 // @vitest-environment jsdom
 import { describe, test, expect } from 'vitest'
 import { renderHook, waitFor, act } from '@testing-library/react'
-import { makeSphere, makeTask, buildState } from './testFixtures.js'
-import { FakeStore, makeWrapper } from './testHelpers.js'
-import { useDashboard } from './useDashboard.js'
-import { usePalimpsestContext } from './PalimpsestProvider.js'
+import { makeSphere, makeTask, buildState } from './testFixtures'
+import { FakeStore, makeWrapper } from './testHelpers'
+import { useDashboard } from './useDashboard'
+import { usePalimpsestContext } from './PalimpsestProvider'
 
 describe('useDashboard', () => {
   test('returns due-today/overdue/starred tasks when an explicit sphere is given', async () => {

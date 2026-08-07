@@ -1,9 +1,9 @@
 import { PollingStore, project, createEmptyState } from '@alnorth/palimpsest'
 import type { PalimpsestEvent, ProjectionState, ProjectId, PendingEventStore } from '@alnorth/palimpsest'
-import { sync } from './api.js'
-import type { SyncCommand } from './api.js'
-import { buildEvents, buildDeltaEvents } from './read.js'
-import { buildCommands } from './write.js'
+import { sync } from './api'
+import type { SyncCommand } from './api'
+import { buildEvents, buildDeltaEvents } from './read'
+import { buildCommands } from './write'
 
 export class TodoistStore extends PollingStore {
   private baseEvents: PalimpsestEvent[] = []

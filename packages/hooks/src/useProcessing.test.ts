@@ -1,9 +1,9 @@
 // @vitest-environment jsdom
 import { describe, test, expect } from 'vitest'
 import { renderHook, waitFor } from '@testing-library/react'
-import { makeSphere, makeTask, buildState } from './testFixtures.js'
-import { FakeStore, makeWrapper } from './testHelpers.js'
-import { useProcessing } from './useProcessing.js'
+import { makeSphere, makeTask, buildState } from './testFixtures'
+import { FakeStore, makeWrapper } from './testHelpers'
+import { useProcessing } from './useProcessing'
 
 describe('useProcessing', () => {
   test('takes no sphere argument and aggregates across all spheres', async () => {

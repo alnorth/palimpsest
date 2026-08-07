@@ -1,5 +1,5 @@
 import type { AgendaId, ContextId, WaitingFor } from '@alnorth/palimpsest'
-import { AGENDA_ID_TO_LABEL, CONTEXT_ID_TO_LABEL } from './mapping.js'
+import { AGENDA_ID_TO_LABEL, CONTEXT_ID_TO_LABEL } from './mapping'
 
 interface TaskLabelFields {
   isNext?: true | undefined

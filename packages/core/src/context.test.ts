@@ -1,10 +1,10 @@
 import { describe, it, expect } from 'vitest'
-import { createEmptyState, project } from './projection.js'
-import { buildStateFromConfig } from './config.js'
-import { createTask } from './commands.js'
-import { validateBatch } from './validation.js'
-import { getContext, listContexts, listTasksByContext } from './query.js'
-import type { SphereId, ContextId } from './ids.js'
+import { createEmptyState, project } from './projection'
+import { buildStateFromConfig } from './config'
+import { createTask } from './commands'
+import { validateBatch } from './validation'
+import { getContext, listContexts, listTasksByContext } from './query'
+import type { SphereId, ContextId } from './ids'
 
 const sphereId = 'sph1' as SphereId
 const contextId = 'ctx1' as ContextId

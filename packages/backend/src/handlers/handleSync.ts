@@ -1,8 +1,8 @@
 import type { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb'
 import type { PalimpsestEvent } from '@alnorth/palimpsest'
-import { DynamoPalimpsestStore } from '../store/DynamoPalimpsestStore.js'
-import { analyzeConflict } from '../conflict/analyze.js'
-import { verifyToken } from '../auth/verify.js'
+import { DynamoPalimpsestStore } from '../store/DynamoPalimpsestStore'
+import { analyzeConflict } from '../conflict/analyze'
+import { verifyToken } from '../auth/verify'
 
 interface HandleSyncInput {
   client: DynamoDBDocumentClient

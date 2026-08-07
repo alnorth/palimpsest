@@ -1,6 +1,6 @@
 import type { SphereJson } from '@alnorth/palimpsest-query'
-import { useRunQuery } from './internal/useRunQuery.js'
-import type { ListResult } from './types.js'
+import { useRunQuery } from './internal/useRunQuery'
+import type { ListResult } from './types'
 
 export function useSpheres(): ListResult<SphereJson> {
   const { raw, isLoading, error } = useRunQuery({ kind: 'spheres' })

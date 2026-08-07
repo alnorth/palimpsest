@@ -1,1 +1,1 @@
-export { TodoistStore } from './TodoistStore.js'
+export { TodoistStore } from './TodoistStore'

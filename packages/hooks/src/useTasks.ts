@@ -1,6 +1,6 @@
 import type { TaskJson, StatusArg } from '@alnorth/palimpsest-query'
-import { useRunQuery } from './internal/useRunQuery.js'
-import type { ListResult } from './types.js'
+import { useRunQuery } from './internal/useRunQuery'
+import type { ListResult } from './types'
 
 export interface TasksFilter {
   sphere?: string

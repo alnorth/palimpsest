@@ -1,9 +1,9 @@
 // @vitest-environment jsdom
 import { describe, test, expect } from 'vitest'
 import { renderHook, waitFor } from '@testing-library/react'
-import { makeSphere, makeTask, buildState } from './testFixtures.js'
-import { FakeStore, makeWrapper } from './testHelpers.js'
-import { useWaiting } from './useWaiting.js'
+import { makeSphere, makeTask, buildState } from './testFixtures'
+import { FakeStore, makeWrapper } from './testHelpers'
+import { useWaiting } from './useWaiting'
 
 describe('useWaiting', () => {
   test('groups waiting tasks by kind for the given sphere', async () => {

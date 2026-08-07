@@ -1,6 +1,6 @@
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
-import { createStore } from './store.js'
-import { createMcpServer } from './server.js'
+import { createStore } from './store'
+import { createMcpServer } from './server'
 
 try {
   const store = createStore()

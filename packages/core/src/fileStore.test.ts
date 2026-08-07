@@ -2,12 +2,12 @@ import { describe, it, expect, afterEach, vi } from 'vitest'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
-import { FilePalimpsestStore } from './fileStore.js'
-import { buildStateFromConfig } from './config.js'
-import { createTask } from './commands.js'
-import { createEmptyState } from './projection.js'
-import { listOpenTasks } from './query.js'
-import type { SphereId } from './ids.js'
+import { FilePalimpsestStore } from './fileStore'
+import { buildStateFromConfig } from './config'
+import { createTask } from './commands'
+import { createEmptyState } from './projection'
+import { listOpenTasks } from './query'
+import type { SphereId } from './ids'
 
 let tempDir: string
 

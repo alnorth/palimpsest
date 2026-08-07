@@ -1,10 +1,10 @@
 // @vitest-environment jsdom
 import { describe, test, expect } from 'vitest'
 import { renderHook, waitFor, act } from '@testing-library/react'
-import { makeSphere, makeContext, makeTask, buildState } from './testFixtures.js'
-import { FakeStore, makeWrapper } from './testHelpers.js'
-import { usePickList } from './usePickList.js'
-import { usePalimpsestContext } from './PalimpsestProvider.js'
+import { makeSphere, makeContext, makeTask, buildState } from './testFixtures'
+import { FakeStore, makeWrapper } from './testHelpers'
+import { usePickList } from './usePickList'
+import { usePalimpsestContext } from './PalimpsestProvider'
 
 describe('usePickList', () => {
   test('groups actionable, context-bearing tasks by context for an explicit sphere', async () => {

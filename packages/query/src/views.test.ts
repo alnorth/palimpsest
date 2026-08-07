@@ -1,6 +1,6 @@
 import { describe, test, expect } from 'vitest'
-import { makeSphere, makeProject, makeAgenda, makeContext, makeTask, buildState } from './fixtures.js'
-import { dashboardTasks, processingBuckets, waitingGroups, pickListGroups } from './views.js'
+import { makeSphere, makeProject, makeAgenda, makeContext, makeTask, buildState } from './fixtures'
+import { dashboardTasks, processingBuckets, waitingGroups, pickListGroups } from './views'
 
 describe('dashboardTasks', () => {
   test('includes tasks due today or earlier, and starred tasks, excludes others', () => {

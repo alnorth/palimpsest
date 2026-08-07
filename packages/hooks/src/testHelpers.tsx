@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import { PalimpsestStore } from '@alnorth/palimpsest'
 import type { ProjectionState } from '@alnorth/palimpsest'
-import { PalimpsestProvider } from './PalimpsestProvider.js'
+import { PalimpsestProvider } from './PalimpsestProvider'
 
 export class FakeStore extends PalimpsestStore {
   private state: ProjectionState

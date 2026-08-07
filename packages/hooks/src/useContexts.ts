@@ -1,6 +1,6 @@
 import type { ContextJson } from '@alnorth/palimpsest-query'
-import { useRunQuery } from './internal/useRunQuery.js'
-import type { ListResult, SphereScopedFilter } from './types.js'
+import { useRunQuery } from './internal/useRunQuery'
+import type { ListResult, SphereScopedFilter } from './types'
 
 export function useContexts(filter: SphereScopedFilter = {}): ListResult<ContextJson> {
   const { raw, isLoading, error } = useRunQuery({

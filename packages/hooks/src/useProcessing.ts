@@ -1,6 +1,6 @@
 import type { TaskJson, ProjectJson } from '@alnorth/palimpsest-query'
-import { useRunQuery } from './internal/useRunQuery.js'
-import type { QueryResult } from './types.js'
+import { useRunQuery } from './internal/useRunQuery'
+import type { QueryResult } from './types'
 
 export interface ProcessingResult {
   actionableTasks: TaskJson[]

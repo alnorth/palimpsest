@@ -3,8 +3,8 @@ import { z } from 'zod'
 import {
   handleTasks, handleTask, handleProjects, handleSpheres, handleAgendas, handleContexts,
   handleDashboard, handleProcessing, handleWaiting, handlePickList,
-} from './tools.js'
-import type { TaskStore } from './tools.js'
+} from './tools'
+import type { TaskStore } from './tools'
 
 const VERSION = '0.1.0'
 

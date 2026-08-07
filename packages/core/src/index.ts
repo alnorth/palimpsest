@@ -1,30 +1,30 @@
-export type { Task, Project, Sphere, Agenda, Context, TaskStatus, WaitingFor } from './types.js'
-export type { TaskId, ProjectId, SphereId, AgendaId, ContextId, EventId } from './ids.js'
-export { newEventId } from './ids.js'
+export type { Task, Project, Sphere, Agenda, Context, TaskStatus, WaitingFor } from './types'
+export type { TaskId, ProjectId, SphereId, AgendaId, ContextId, EventId } from './ids'
+export { newEventId } from './ids'
 export type {
   PalimpsestEvent,
   ProjectCreatedEvent, ProjectUpdatedEvent, ProjectArchivedEvent, ProjectUnarchivedEvent,
   TaskCreatedEvent, TaskUpdatedEvent, TaskCompletedEvent, TaskUncompletedEvent, TaskRecurredEvent, TaskDeletedEvent,
   TaskPatch, ProjectPatch,
-} from './events.js'
-export { CLEAR } from './events.js'
-export type { ProjectionState } from './projection.js'
+} from './events'
+export { CLEAR } from './events'
+export type { ProjectionState } from './projection'
 export type {
   CreateProjectInput,
   CreateTaskInput,
-} from './commands.js'
-export type { TaskFilter } from './query.js'
-export type { SphereConfig, AgendaConfig, ContextConfig } from './config.js'
+} from './commands'
+export type { TaskFilter } from './query'
+export type { SphereConfig, AgendaConfig, ContextConfig } from './config'
 
-export { project, applyEvent, createEmptyState, cloneState } from './projection.js'
-export { PalimpsestStore } from './store.js'
-export { PollingStore } from './pollingStore.js'
-export type { SyncHealth, PendingConflict, SyncState } from './pollingStore.js'
-export { INITIAL_SYNC_STATE } from './pollingStore.js'
+export { project, applyEvent, createEmptyState, cloneState } from './projection'
+export { PalimpsestStore } from './store'
+export { PollingStore } from './pollingStore'
+export type { SyncHealth, PendingConflict, SyncState } from './pollingStore'
+export { INITIAL_SYNC_STATE } from './pollingStore'
 export {
   createProject, updateProject, archiveProject, unarchiveProject,
   createTask, updateTask, completeTask, uncompleteTask, deleteTask, postponeTask, finishRecurringTask,
-} from './commands.js'
+} from './commands'
 export {
   getTask, listTasks, listOpenTasks, listTasksBySphere, listTasksByAgenda,
   getProject, listProjects,
@@ -32,9 +32,9 @@ export {
   getAgenda, listAgendas,
   getSphere, listSpheres,
   getTaskSphereId,
-} from './query.js'
-export { parseDueDate, addDays, nextWeekday, isValidExpression, nextDueDate } from './dateParser.js'
-export { buildStateFromConfig, PALIMPSEST_CONFIG } from './config.js'
-export { validateBatch } from './validation.js'
-export type { PendingEventStore } from './pendingEventStore.js'
-export { MemoryPendingEventStore } from './pendingEventStore.js'
+} from './query'
+export { parseDueDate, addDays, nextWeekday, isValidExpression, nextDueDate } from './dateParser'
+export { buildStateFromConfig, PALIMPSEST_CONFIG } from './config'
+export { validateBatch } from './validation'
+export type { PendingEventStore } from './pendingEventStore'
+export { MemoryPendingEventStore } from './pendingEventStore'

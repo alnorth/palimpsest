@@ -1,5 +1,5 @@
 import type { SyncState } from '@alnorth/palimpsest'
-import { usePalimpsestContext } from './PalimpsestProvider.js'
+import { usePalimpsestContext } from './PalimpsestProvider'
 
 export interface SyncStatus {
   syncState: SyncState | undefined

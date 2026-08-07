@@ -1,12 +1,12 @@
 // @vitest-environment jsdom
 import { describe, test, expect } from 'vitest'
 import { renderHook, waitFor } from '@testing-library/react'
-import { makeSphere, makeProject, makeTask, makeAgenda, makeContext, buildState } from './testFixtures.js'
-import { FakeStore, makeWrapper } from './testHelpers.js'
-import { useProjects } from './useProjects.js'
-import { useSpheres } from './useSpheres.js'
-import { useAgendas } from './useAgendas.js'
-import { useContexts } from './useContexts.js'
+import { makeSphere, makeProject, makeTask, makeAgenda, makeContext, buildState } from './testFixtures'
+import { FakeStore, makeWrapper } from './testHelpers'
+import { useProjects } from './useProjects'
+import { useSpheres } from './useSpheres'
+import { useAgendas } from './useAgendas'
+import { useContexts } from './useContexts'
 
 describe('useProjects', () => {
   test('returns projects with computed stats', async () => {

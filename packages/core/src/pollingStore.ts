@@ -1,8 +1,8 @@
-import { PalimpsestStore } from './store.js'
-import { MemoryPendingEventStore } from './pendingEventStore.js'
-import type { PendingEventStore } from './pendingEventStore.js'
-import type { PalimpsestEvent } from './events.js'
-import type { ProjectionState } from './projection.js'
+import { PalimpsestStore } from './store'
+import { MemoryPendingEventStore } from './pendingEventStore'
+import type { PendingEventStore } from './pendingEventStore'
+import type { PalimpsestEvent } from './events'
+import type { ProjectionState } from './projection'
 
 function getDoc(): { addEventListener: Function; removeEventListener: Function; visibilityState: string } | undefined {
   return typeof (globalThis as any).document !== 'undefined' ? (globalThis as any).document : undefined

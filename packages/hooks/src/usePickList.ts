@@ -1,7 +1,7 @@
 import type { TaskJson, EntityRef } from '@alnorth/palimpsest-query'
-import { usePalimpsestContext } from './PalimpsestProvider.js'
-import { useRunQuery } from './internal/useRunQuery.js'
-import type { QueryResult } from './types.js'
+import { usePalimpsestContext } from './PalimpsestProvider'
+import { useRunQuery } from './internal/useRunQuery'
+import type { QueryResult } from './types'
 
 export interface PickListGroup {
   context: EntityRef

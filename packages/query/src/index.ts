@@ -12,9 +12,9 @@ export type {
   PickListCommand,
   StatusArg,
   RunQueryOptions,
-} from './runQuery.js'
-export { runQuery } from './runQuery.js'
-export { resolveSphere, resolveProject, resolveAgenda, resolveContext } from './resolve.js'
+} from './runQuery'
+export { runQuery } from './runQuery'
+export { resolveSphere, resolveProject, resolveAgenda, resolveContext } from './resolve'
 export type {
   EntityRef,
   WaitingForJson,
@@ -24,9 +24,9 @@ export type {
   AgendaJson,
   ContextJson,
   ProjectStats,
-} from './serialize.js'
+} from './serialize'
 export {
   toTaskJson, toProjectJson, toSphereJson, toAgendaJson, toContextJson, computeProjectStats,
-} from './serialize.js'
-export type { ProcessingBuckets, WaitingGroup, PickListGroup } from './views.js'
-export { dashboardTasks, processingBuckets, waitingGroups, pickListGroups } from './views.js'
+} from './serialize'
+export type { ProcessingBuckets, WaitingGroup, PickListGroup } from './views'
+export { dashboardTasks, processingBuckets, waitingGroups, pickListGroups } from './views'

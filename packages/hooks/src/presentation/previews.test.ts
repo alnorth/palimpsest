@@ -1,5 +1,5 @@
 import { describe, test, expect } from 'vitest'
-import { formatDateWithDay, getDueDatePreview, getRecurrencePreview } from './previews.js'
+import { formatDateWithDay, getDueDatePreview, getRecurrencePreview } from './previews'
 
 describe('formatDateWithDay', () => {
   test('formats a known date correctly', () => {

@@ -1,4 +1,4 @@
-import type { PalimpsestEvent } from './events.js'
+import type { PalimpsestEvent } from './events'
 
 export interface PendingEventStore {
   readonly size: number

@@ -1,6 +1,6 @@
 import type { ProjectionState, Task, Project, SphereId, ProjectId, TaskId, PalimpsestEvent, TaskPatch } from '@alnorth/palimpsest'
 import { CLEAR, newEventId } from '@alnorth/palimpsest'
-import type { SyncItem, SyncProject } from './api.js'
+import type { SyncItem, SyncProject } from './api'
 import {
   TODOIST_WORK_PROJECT_ID,
   TODOIST_PERSONAL_PROJECT_ID,
@@ -12,7 +12,7 @@ import {
   LABEL_TO_AGENDA_ID,
   LABEL_TO_CONTEXT_ID,
   extractProjectIdFromUrl,
-} from './mapping.js'
+} from './mapping'
 
 // ── Project helpers ───────────────────────────────────────────────────────────
 

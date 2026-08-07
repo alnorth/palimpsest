@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { addDays, nextWeekday, parseDueDate, isValidExpression, nextDueDate } from './dateParser.js'
+import { addDays, nextWeekday, parseDueDate, isValidExpression, nextDueDate } from './dateParser'
 
 function nextN(expression: string, start: string, n = 5): string[] {
   const results: string[] = []

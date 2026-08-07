@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { eventSK, parseSK, seqToSK, EVENTS_PK, META_PK, META_SEQ_SK } from './schema.js'
+import { eventSK, parseSK, seqToSK, EVENTS_PK, META_PK, META_SEQ_SK } from './schema'
 
 describe('EVENTS_PK / META_PK', () => {
   it('are stable constants', () => {

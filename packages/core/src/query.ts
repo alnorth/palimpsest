@@ -1,6 +1,6 @@
-import type { Task, Project, Sphere, Agenda, Context, TaskStatus } from './types.js'
-import type { TaskId, ProjectId, SphereId, AgendaId, ContextId } from './ids.js'
-import type { ProjectionState } from './projection.js'
+import type { Task, Project, Sphere, Agenda, Context, TaskStatus } from './types'
+import type { TaskId, ProjectId, SphereId, AgendaId, ContextId } from './ids'
+import type { ProjectionState } from './projection'
 
 export function getTaskSphereId(state: ProjectionState, task: Task): SphereId | undefined {
   if (task.projectId !== undefined) {

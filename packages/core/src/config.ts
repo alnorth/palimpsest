@@ -1,5 +1,5 @@
-import type { SphereId, AgendaId, ContextId } from './ids.js'
-import type { Sphere, Agenda, Context } from './types.js'
+import type { SphereId, AgendaId, ContextId } from './ids'
+import type { Sphere, Agenda, Context } from './types'
 
 export interface AgendaConfig {
   id: AgendaId

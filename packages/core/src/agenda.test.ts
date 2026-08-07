@@ -1,10 +1,10 @@
 import { describe, it, expect } from 'vitest'
-import { createEmptyState, project } from './projection.js'
-import { buildStateFromConfig } from './config.js'
-import { createTask } from './commands.js'
-import { validateBatch } from './validation.js'
-import { getAgenda, listAgendas, listTasksByAgenda } from './query.js'
-import type { SphereId, AgendaId } from './ids.js'
+import { createEmptyState, project } from './projection'
+import { buildStateFromConfig } from './config'
+import { createTask } from './commands'
+import { validateBatch } from './validation'
+import { getAgenda, listAgendas, listTasksByAgenda } from './query'
+import type { SphereId, AgendaId } from './ids'
 
 const sphereId = 'sph1' as SphereId
 const agendaId = 'ag1' as AgendaId

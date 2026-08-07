@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { computeLabels } from './labels.js'
+import { computeLabels } from './labels'
 import type { AgendaId, ContextId } from '@alnorth/palimpsest'
 
 const jimId    = 'agenda-jim'    as AgendaId

@@ -1,10 +1,10 @@
 // @vitest-environment jsdom
 import { describe, test, expect } from 'vitest'
 import { renderHook, waitFor } from '@testing-library/react'
-import { makeSphere, makeProject, makeTask, buildState } from './testFixtures.js'
-import { FakeStore, makeWrapper } from './testHelpers.js'
-import { useTasks } from './useTasks.js'
-import { useTask } from './useTask.js'
+import { makeSphere, makeProject, makeTask, buildState } from './testFixtures'
+import { FakeStore, makeWrapper } from './testHelpers'
+import { useTasks } from './useTasks'
+import { useTask } from './useTask'
 
 describe('useTasks', () => {
   test('starts loading, then returns matching tasks', async () => {

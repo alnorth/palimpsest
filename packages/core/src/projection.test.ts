@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest'
-import { project, applyEvent, createEmptyState } from './projection.js'
-import { buildStateFromConfig } from './config.js'
-import type { PalimpsestEvent } from './events.js'
-import type { SphereId, ProjectId, TaskId, EventId } from './ids.js'
+import { project, applyEvent, createEmptyState } from './projection'
+import { buildStateFromConfig } from './config'
+import type { PalimpsestEvent } from './events'
+import type { SphereId, ProjectId, TaskId, EventId } from './ids'
 
 function eventId(): EventId { return 'evt' as EventId }
 function sphereId(): SphereId { return 'sph1' as SphereId }
