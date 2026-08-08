@@ -2,6 +2,10 @@
 // https://developer.todoist.com/sync/v9/
 
 const SYNC_URL = 'https://api.todoist.com/api/v1/sync'
+// A stalled request otherwise hangs forever: fetch() never resolves or rejects, so callers
+// awaiting it (PollingStore.refresh()'s single-flight `syncing` guard) never recover and every
+// future sync attempt — including the periodic poll — silently no-ops.
+const REQUEST_TIMEOUT_MS = 20_000
 
 // ── Response types ────────────────────────────────────────────────────────────
 
@@ -59,14 +63,27 @@ async function post<T>(token: string, body: Record<string, unknown>): Promise<T>
   for (const [key, value] of Object.entries(body)) {
     params.set(key, typeof value === 'string' ? value : JSON.stringify(value))
   }
-  const res = await fetch(SYNC_URL, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/x-www-form-urlencoded',
-    },
-    body: params.toString(),
-  })
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
+  let res: Response
+  try {
+    res = await fetch(SYNC_URL, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: params.toString(),
+      signal: controller.signal,
+    })
+  } catch (err) {
+    if (err instanceof Error && err.name === 'AbortError') {
+      throw new Error(`Todoist Sync API request timed out after ${REQUEST_TIMEOUT_MS}ms`)
+    }
+    throw err
+  } finally {
+    clearTimeout(timeout)
+  }
   if (!res.ok) {
     const text = await res.text().catch(() => '')
     throw new Error(`Todoist Sync API → ${res.status}: ${text}`)
