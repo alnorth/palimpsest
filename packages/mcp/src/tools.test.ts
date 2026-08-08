@@ -1,10 +1,11 @@
 import { describe, test, expect, vi } from 'vitest'
-import type { ProjectionState } from '@alnorth/palimpsest'
+import type { PalimpsestEvent, ProjectionState } from '@alnorth/palimpsest'
+import { applyEvent, cloneState, nextDueDate } from '@alnorth/palimpsest'
 import { makeSphere, makeProject, makeAgenda, makeContext, makeTask, buildState } from './testFixtures'
 import type { TaskStore } from './tools'
 import {
   handleTasks, handleTask, handleProjects, handleSpheres, handleAgendas, handleContexts,
-  handleDashboard, handleProcessing, handleWaiting, handlePickList,
+  handleDashboard, handleProcessing, handleWaiting, handlePickList, handleCompleteTask,
 } from './tools'
 
 function fakeStore(state: ProjectionState): TaskStore & { calls: string[] } {
@@ -13,11 +14,66 @@ function fakeStore(state: ProjectionState): TaskStore & { calls: string[] } {
     calls,
     sync: vi.fn(async () => { calls.push('sync') }),
     getState: vi.fn(async () => { calls.push('getState'); return state }),
+    appendEvents: vi.fn(async () => { calls.push('appendEvents') }),
+  }
+}
+
+// A fake store whose appendEvents actually folds events into its state via the real projection
+// (mirroring how the real TodoistStore's pending-event queue is folded into every getState()
+// call), so a completed task is visible to the second getState() a write handler makes after
+// appending. getState() clones so each call returns a fresh reference, same as project()-backed
+// stores do in production.
+function mutableFakeStore(initial: ProjectionState): TaskStore & { calls: string[]; appended: PalimpsestEvent[][] } {
+  const state = initial
+  const calls: string[] = []
+  const appended: PalimpsestEvent[][] = []
+  return {
+    calls,
+    appended,
+    sync: vi.fn(async () => { calls.push('sync') }),
+    getState: vi.fn(async () => { calls.push('getState'); return cloneState(state) }),
+    appendEvents: vi.fn(async (events: PalimpsestEvent[]) => {
+      calls.push('appendEvents')
+      appended.push(events)
+      for (const event of events) applyEvent(state, event)
+    }),
   }
 }
 
 function parseOk<T>(text: string): { ok: boolean } & T {
   return JSON.parse(text) as { ok: boolean } & T
+}
+
+// A fake store whose second sync() call (the post-append confirmation flush) silently "fails" by
+// flipping syncState.health to 'error' rather than throwing — mirroring how TodoistStore.sync()
+// swallows network errors internally instead of rejecting. appendEvents still folds the event
+// into state, since the local write itself succeeded; only the confirmation flush is unreliable.
+function flakyFlushStore(initial: ProjectionState): TaskStore & { calls: string[] } {
+  const state = initial
+  const calls: string[] = []
+  let syncCount = 0
+  let health: 'idle' | 'error' = 'idle'
+  return {
+    calls,
+    get syncState() {
+      return {
+        health,
+        unsyncedCount: 0,
+        pendingConflicts: [],
+        lastError: health === 'error' ? 'Todoist Sync API → 500' : undefined,
+      }
+    },
+    sync: vi.fn(async () => {
+      calls.push('sync')
+      syncCount++
+      if (syncCount === 2) health = 'error'
+    }),
+    getState: vi.fn(async () => { calls.push('getState'); return cloneState(state) }),
+    appendEvents: vi.fn(async (events: PalimpsestEvent[]) => {
+      calls.push('appendEvents')
+      for (const event of events) applyEvent(state, event)
+    }),
+  }
 }
 
 describe('handleTasks', () => {
@@ -55,6 +111,7 @@ describe('handleTasks', () => {
     const store: TaskStore = {
       sync: vi.fn(async () => { throw new Error('Todoist Sync API → 500') }),
       getState: vi.fn(async () => { throw new Error('should not be called') }),
+      appendEvents: vi.fn(async () => { throw new Error('should not be called') }),
     }
 
     const result = await handleTasks(store, {})
@@ -242,6 +299,96 @@ describe('handleWaiting', () => {
     const text = (result.content[0] as { type: 'text'; text: string }).text
     const parsed = parseOk<{ groups: { kind: string; tasks: { title: string }[] }[] }>(text)
     expect(parsed.groups).toEqual([{ kind: 'review', tasks: [expect.objectContaining({ title: 'Review' })] }])
+  })
+})
+
+describe('handleCompleteTask', () => {
+  test('completes a non-recurring task: appends task.completed, flushes, and returns the updated task', async () => {
+    const sphere = makeSphere({ name: 'Work' })
+    const task = makeTask({ sphereId: sphere.id, title: 'Ship it', status: 'open' })
+    const store = mutableFakeStore(buildState({ spheres: [sphere], tasks: [task] }))
+
+    const result = await handleCompleteTask(store, { id: task.id })
+
+    expect(result.isError).toBeUndefined()
+    expect(store.calls).toEqual(['sync', 'getState', 'appendEvents', 'sync', 'getState'])
+    expect(store.appended).toEqual([[expect.objectContaining({ type: 'task.completed', taskId: task.id })]])
+    const text = (result.content[0] as { type: 'text'; text: string }).text
+    const parsed = parseOk<{ synced: boolean; task: { title: string; status: string } }>(text)
+    expect(parsed.synced).toBe(true)
+    expect(parsed.task).toEqual(expect.objectContaining({ title: 'Ship it', status: 'completed' }))
+  })
+
+  test('reports synced:false with a warning when the confirmation flush silently fails, without treating the call as an error', async () => {
+    const task = makeTask({ title: 'Ship it', status: 'open' })
+    const store = flakyFlushStore(buildState({ tasks: [task] }))
+
+    const result = await handleCompleteTask(store, { id: task.id })
+
+    expect(result.isError).toBeUndefined()
+    const text = (result.content[0] as { type: 'text'; text: string }).text
+    const parsed = parseOk<{ synced: boolean; warning?: string; task: { status: string } }>(text)
+    expect(parsed.ok).toBe(true)
+    expect(parsed.synced).toBe(false)
+    expect(parsed.warning).toMatch(/not yet confirmed/)
+    // The event was still applied locally — the task is completed even though confirmation failed.
+    expect(parsed.task.status).toBe('completed')
+  })
+
+  test('recurs a recurring task instead of closing it', async () => {
+    const sphere = makeSphere({ name: 'Work' })
+    const task = makeTask({
+      sphereId: sphere.id, title: 'Water plants', status: 'open',
+      dueDate: '2026-06-25', dueDateExpression: 'every day',
+    })
+    const store = mutableFakeStore(buildState({ spheres: [sphere], tasks: [task] }))
+    const expectedNewDueDate = nextDueDate('every day', new Date().toISOString().slice(0, 10))
+
+    const result = await handleCompleteTask(store, { id: task.id })
+
+    expect(result.isError).toBeUndefined()
+    expect(store.appended).toEqual([[expect.objectContaining({ type: 'task.recurred', taskId: task.id })]])
+    const text = (result.content[0] as { type: 'text'; text: string }).text
+    const parsed = parseOk<{ task: { status: string; dueDate: string } }>(text)
+    expect(parsed.task).toEqual(expect.objectContaining({ status: 'open', dueDate: expectedNewDueDate }))
+  })
+
+  test('surfaces an unknown id as isError, and never appends', async () => {
+    const store = mutableFakeStore(buildState({}))
+
+    const result = await handleCompleteTask(store, { id: 'missing-id' })
+
+    expect(result.isError).toBe(true)
+    const text = (result.content[0] as { type: 'text'; text: string }).text
+    expect(text).toMatch(/Task not found: missing-id/)
+    expect(store.appended).toEqual([])
+  })
+
+  test('surfaces an already-completed task as isError, and never appends', async () => {
+    const task = makeTask({ status: 'completed' })
+    const store = mutableFakeStore(buildState({ tasks: [task] }))
+
+    const result = await handleCompleteTask(store, { id: task.id })
+
+    expect(result.isError).toBe(true)
+    const text = (result.content[0] as { type: 'text'; text: string }).text
+    expect(text).toMatch(/already completed/)
+    expect(store.appended).toEqual([])
+  })
+
+  test('surfaces a sync/appendEvents rejection as isError rather than throwing', async () => {
+    const task = makeTask({ status: 'open' })
+    const store: TaskStore = {
+      sync: vi.fn(async () => { /* first sync ok */ }),
+      getState: vi.fn(async () => buildState({ tasks: [task] })),
+      appendEvents: vi.fn(async () => { throw new Error('Todoist Sync API → 500') }),
+    }
+
+    const result = await handleCompleteTask(store, { id: task.id })
+
+    expect(result.isError).toBe(true)
+    const text = (result.content[0] as { type: 'text'; text: string }).text
+    expect(text).toMatch(/Todoist Sync API/)
   })
 })
 

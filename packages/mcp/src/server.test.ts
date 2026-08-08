@@ -1,7 +1,8 @@
 import { describe, test, expect, beforeEach } from 'vitest'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js'
-import type { ProjectionState } from '@alnorth/palimpsest'
+import type { PalimpsestEvent, ProjectionState } from '@alnorth/palimpsest'
+import { applyEvent } from '@alnorth/palimpsest'
 import { makeSphere, makeContext, makeTask, buildState } from './testFixtures'
 import type { TaskStore } from './tools'
 import { createMcpServer } from './server'
@@ -10,6 +11,9 @@ function fakeStore(state: ProjectionState): TaskStore {
   return {
     sync: async () => {},
     getState: async () => state,
+    appendEvents: async (events: PalimpsestEvent[]) => {
+      for (const event of events) applyEvent(state, event)
+    },
   }
 }
 
@@ -41,12 +45,12 @@ describe('createMcpServer', () => {
     client = await connectedClient(fakeStore(buildState({ spheres: [sphere], tasks: [task] })))
   })
 
-  test('registers all ten read-only tools', async () => {
+  test('registers all eleven tools', async () => {
     const { tools } = await client.listTools()
     expect(tools.map(t => t.name).sort()).toEqual(
       [
         'agendas', 'contexts', 'projects', 'spheres', 'task', 'tasks',
-        'dashboard', 'processing', 'waiting', 'pick_list',
+        'dashboard', 'processing', 'waiting', 'pick_list', 'complete_task',
       ].sort(),
     )
   })
@@ -120,5 +124,23 @@ describe('createMcpServer', () => {
     const result = await client.callTool({ name: 'pick_list', arguments: {} })
     expect(result.isError).toBe(true)
     expect(firstText(result)).toMatch(/Invalid arguments/)
+  })
+
+  test('complete_task tool completes a task by id and returns the updated task', async () => {
+    const sphere = makeSphere({ name: 'Errands' })
+    const task = makeTask({ sphereId: sphere.id, title: 'Buy milk', status: 'open' })
+    const scopedClient = await connectedClient(fakeStore(buildState({ spheres: [sphere], tasks: [task] })))
+
+    const result = await scopedClient.callTool({ name: 'complete_task', arguments: { id: task.id } })
+
+    expect(result.isError).toBeUndefined()
+    const parsed = JSON.parse(firstText(result)) as { task: { title: string; status: string } }
+    expect(parsed.task).toEqual(expect.objectContaining({ title: 'Buy milk', status: 'completed' }))
+  })
+
+  test('complete_task tool surfaces an unknown id as a tool error, not a protocol error', async () => {
+    const result = await client.callTool({ name: 'complete_task', arguments: { id: 'missing' } })
+    expect(result.isError).toBe(true)
+    expect(firstText(result)).toMatch(/Task not found: missing/)
   })
 })
