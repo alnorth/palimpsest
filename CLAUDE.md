@@ -143,6 +143,30 @@ src/
 
 Sphere/project/agenda/context filters are matched by name via `resolve.ts` (exact id → case-insensitive exact name → case-insensitive substring; zero or multiple matches throws with a candidate list) since `core/query.ts` itself stays ID-based.
 
+### packages/todoist
+
+`TodoistStore` (extends `packages/core`'s `PollingStore`) is the `PalimpsestStore` backing every
+Todoist-connected consumer (`packages/mcp`, `packages/hooks`'s `todoistToken` convenience prop).
+`readAllEvents()` returns `[...baseEvents, ...pending]` — `baseEvents` from the last successful sync,
+`pending` from `PollingStore`'s in-memory-by-default queue of locally-appended, not-yet-flushed events.
+`sync()` converts `pending` into Todoist Sync API commands via `write.ts`'s `buildCommands` (one
+`PalimpsestEvent` type → one or more commands each, e.g. `task.completed` → `item_close`,
+`task.recurred` → `item_update_date_complete` with `is_forward: 1` so a recurring task's next
+occurrence advances in Todoist too rather than closing it), POSTs them alongside the stored
+`syncToken`, and on success clears `pending` and folds the response into `baseEvents`. On failure it
+sets `syncState.health = 'error'` and `syncState.lastError` instead of rejecting — callers awaiting
+`sync()`/`refresh()` see a normal return, not a thrown error, and check `syncState` if they need to know
+whether it actually flushed (see `packages/mcp`'s `handleCompleteTask` below).
+
+**`api.ts`'s `post()` applies a 20s timeout (`AbortController`) to every Sync API request.** Without
+it, a stalled connection leaves `fetch()`'s promise unsettled forever — since `PollingStore.refresh()`
+guards against overlapping syncs with a single `syncing` boolean that only resets in `sync()`'s
+`finally`/return path, a hung request never resets it, so every subsequent sync attempt (the periodic
+poll included) silently no-ops indefinitely with no visible error, and any pending writes queue up
+without ever flushing. The timeout converts a hang into a normal rejection, which `sync()`'s existing
+catch already turns into a visible `health: 'error'` + `lastError`, letting `refresh()`'s `finally`
+reset `syncing` so the next poll can retry.
+
 ### packages/mcp
 
 A local MCP server over the stdio transport, for use by MCP clients (e.g. Claude Desktop, Claude Code). Exposes ten read-only tools mirroring `@alnorth/palimpsest-query`'s `ParsedCommand` kinds one-for-one (`tasks`, `task`, `projects`, `spheres`, `agendas`, `contexts`, `dashboard`, `processing`, `waiting`, `pick_list`) plus one write tool, `complete_task` — the first of what's expected to grow into a small set of write tools alongside the read ones.
