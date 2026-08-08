@@ -1,6 +1,6 @@
 {
   "name": "@alnorth/palimpsest",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "type": "module",
   "description": "Append-only event-sourced to-do list library",
   "publishConfig": {
