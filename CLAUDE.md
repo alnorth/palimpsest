@@ -167,6 +167,20 @@ without ever flushing. The timeout converts a hang into a normal rejection, whic
 catch already turns into a visible `health: 'error'` + `lastError`, letting `refresh()`'s `finally`
 reset `syncing` so the next poll can retry.
 
+**Converting `pending` events to commands (`buildAllCommands`, called from `sync()`) is wrapped in its
+own try/catch, separate from the network call's.** `buildCommands` can throw for a given event (e.g.
+`task.recurred` looks its task up in the *last-synced* base state, not the pending-inclusive state
+`appendEvents` validated against — so recurring the same not-yet-synced task twice, or any other event
+whose conversion depends on state `pending` itself hasn't reached yet, throws "task not found"). Before
+this was split out, that exception propagated straight out of `sync()`, before ever reaching the network
+try/catch below it — meaning `health`/`lastError` never got set (that assignment only happens in a
+catch block the throw skipped entirely) and the network call was never attempted. Worse, since the
+offending event is never dequeued (only a successful POST clears `pending`), the exact same throw
+recurs on every later call to `sync()` too — the periodic poll and manual refreshes alike — permanently,
+with nothing to distinguish it from a sync that simply was never attempted. Catching it separately and
+setting `health`/`lastError` the same way the network catch does turns a silent permanent wedge into a
+visible (if not automatically recoverable) error.
+
 ### packages/mcp
 
 A local MCP server over the stdio transport, for use by MCP clients (e.g. Claude Desktop, Claude Code). Exposes ten read-only tools mirroring `@alnorth/palimpsest-query`'s `ParsedCommand` kinds one-for-one (`tasks`, `task`, `projects`, `spheres`, `agendas`, `contexts`, `dashboard`, `processing`, `waiting`, `pick_list`) plus one write tool, `complete_task` — the first of what's expected to grow into a small set of write tools alongside the read ones.

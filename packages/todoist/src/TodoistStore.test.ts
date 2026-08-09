@@ -139,4 +139,49 @@ describe('syncState', () => {
       expect(vi.mocked(api.sync)).toHaveBeenCalledTimes(2)
     })
   })
+
+  describe('a pending event that fails to convert to Todoist commands', () => {
+    // task.recurred looks its task up in the last-synced base state, not the pending-inclusive
+    // state appendEvents validates against — so a task created and then recurred in the same
+    // unsynced batch (never an unreasonable sequence: complete a recurring task twice before a
+    // sync ever gets a chance to run) exists for validateBatch's purposes but not yet for
+    // buildCommands'.
+    function appendCreatedThenRecurredTask(store: TodoistStore): Promise<void> {
+      const taskId = 'tsk1' as TaskId
+      return store.appendEvents([
+        {
+          id: 'ev1' as EventId, type: 'task.created', taskId,
+          occurredAt: new Date().toISOString(), title: 'Recurring task', description: '', sphereId: SPHERE_ID,
+        },
+        { id: 'ev2' as EventId, type: 'task.recurred', taskId, occurredAt: new Date().toISOString(), newDueDate: '2026-01-02' },
+      ])
+    }
+
+    // Regression test: this previously threw synchronously inside sync(), before the network
+    // try/catch, so it never called api.sync at all, never set health/lastError, and — because
+    // it happens again on every future attempt — silently blocked every later refresh() (poll
+    // and manual alike) forever, indistinguishable from a sync that was never even attempted.
+    it('surfaces as a sync error instead of throwing out of refresh()', async () => {
+      const store = makeStore()
+      await appendCreatedThenRecurredTask(store)
+
+      await expect(store.refresh()).resolves.toBeUndefined()
+
+      expect(store.syncState.health).toBe('error')
+      expect(store.syncState.lastError).toMatch(/task.recurred.*tsk1/)
+      expect(vi.mocked(api.sync)).not.toHaveBeenCalled()
+    })
+
+    it('keeps failing the same way on every later refresh, without ever throwing out of it', async () => {
+      const store = makeStore()
+      await appendCreatedThenRecurredTask(store)
+
+      await expect(store.refresh()).resolves.toBeUndefined()
+      await expect(store.refresh()).resolves.toBeUndefined()
+
+      expect(store.syncState.health).toBe('error')
+      expect(store.syncState.unsyncedCount).toBe(2)
+      expect(vi.mocked(api.sync)).not.toHaveBeenCalled()
+    })
+  })
 })
