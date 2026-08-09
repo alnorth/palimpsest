@@ -5,7 +5,8 @@ import { makeSphere, makeProject, makeAgenda, makeContext, makeTask, buildState 
 import type { TaskStore } from './tools'
 import {
   handleTasks, handleTask, handleProjects, handleSpheres, handleAgendas, handleContexts,
-  handleDashboard, handleProcessing, handleWaiting, handlePickList, handleCompleteTask,
+  handleDashboard, handleProcessing, handleWaiting, handlePickList,
+  handleCompleteTask, handleSetDueDate, handleDeleteTask,
 } from './tools'
 
 function fakeStore(state: ProjectionState): TaskStore & { calls: string[] } {
@@ -385,6 +386,158 @@ describe('handleCompleteTask', () => {
     }
 
     const result = await handleCompleteTask(store, { id: task.id })
+
+    expect(result.isError).toBe(true)
+    const text = (result.content[0] as { type: 'text'; text: string }).text
+    expect(text).toMatch(/Todoist Sync API/)
+  })
+})
+
+describe('handleSetDueDate', () => {
+  test('sets a due date on an open task, flushes, and returns the updated task', async () => {
+    const task = makeTask({ title: 'Ship it', status: 'open' })
+    const store = mutableFakeStore(buildState({ tasks: [task] }))
+
+    const result = await handleSetDueDate(store, { id: task.id, dueDate: '2026-08-15' })
+
+    expect(result.isError).toBeUndefined()
+    expect(store.calls).toEqual(['sync', 'getState', 'appendEvents', 'sync', 'getState'])
+    expect(store.appended).toEqual([[expect.objectContaining({
+      type: 'task.updated', taskId: task.id, patch: { dueDate: '2026-08-15' },
+    })]])
+    const text = (result.content[0] as { type: 'text'; text: string }).text
+    const parsed = parseOk<{ synced: boolean; task: { dueDate: string } }>(text)
+    expect(parsed.synced).toBe(true)
+    expect(parsed.task.dueDate).toBe('2026-08-15')
+  })
+
+  test('resolves "today" to today\'s date', async () => {
+    const task = makeTask({ status: 'open' })
+    const store = mutableFakeStore(buildState({ tasks: [task] }))
+    const today = new Date()
+    const expected = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
+
+    const result = await handleSetDueDate(store, { id: task.id, dueDate: 'today' })
+
+    const text = (result.content[0] as { type: 'text'; text: string }).text
+    const parsed = parseOk<{ task: { dueDate: string } }>(text)
+    expect(parsed.task.dueDate).toBe(expected)
+  })
+
+  test('clears a due date when dueDate is null', async () => {
+    const task = makeTask({ status: 'open', dueDate: '2026-01-01' })
+    const store = mutableFakeStore(buildState({ tasks: [task] }))
+
+    const result = await handleSetDueDate(store, { id: task.id, dueDate: null })
+
+    expect(store.appended).toEqual([[expect.objectContaining({
+      type: 'task.updated', taskId: task.id, patch: { dueDate: null },
+    })]])
+    const text = (result.content[0] as { type: 'text'; text: string }).text
+    const parsed = parseOk<{ task: { dueDate: string | null } }>(text)
+    expect(parsed.task.dueDate).toBeNull()
+  })
+
+  test('reports synced:false with a warning when the confirmation flush silently fails', async () => {
+    const task = makeTask({ title: 'Ship it', status: 'open' })
+    const store = flakyFlushStore(buildState({ tasks: [task] }))
+
+    const result = await handleSetDueDate(store, { id: task.id, dueDate: '2026-08-15' })
+
+    expect(result.isError).toBeUndefined()
+    const text = (result.content[0] as { type: 'text'; text: string }).text
+    const parsed = parseOk<{ synced: boolean; warning?: string; task: { dueDate: string } }>(text)
+    expect(parsed.synced).toBe(false)
+    expect(parsed.warning).toMatch(/not yet confirmed/)
+    expect(parsed.task.dueDate).toBe('2026-08-15')
+  })
+
+  test('surfaces an unknown id as isError, and never appends', async () => {
+    const store = mutableFakeStore(buildState({}))
+
+    const result = await handleSetDueDate(store, { id: 'missing-id', dueDate: '2026-08-15' })
+
+    expect(result.isError).toBe(true)
+    const text = (result.content[0] as { type: 'text'; text: string }).text
+    expect(text).toMatch(/Task not found: missing-id/)
+    expect(store.appended).toEqual([])
+  })
+
+  test('surfaces a completed task as isError, and never appends', async () => {
+    const task = makeTask({ status: 'completed' })
+    const store = mutableFakeStore(buildState({ tasks: [task] }))
+
+    const result = await handleSetDueDate(store, { id: task.id, dueDate: '2026-08-15' })
+
+    expect(result.isError).toBe(true)
+    const text = (result.content[0] as { type: 'text'; text: string }).text
+    expect(text).toMatch(/Cannot update a completed task/)
+    expect(store.appended).toEqual([])
+  })
+})
+
+describe('handleDeleteTask', () => {
+  test('deletes an open task, flushes, and returns the updated task', async () => {
+    const task = makeTask({ title: 'Ship it', status: 'open' })
+    const store = mutableFakeStore(buildState({ tasks: [task] }))
+
+    const result = await handleDeleteTask(store, { id: task.id })
+
+    expect(result.isError).toBeUndefined()
+    expect(store.calls).toEqual(['sync', 'getState', 'appendEvents', 'sync', 'getState'])
+    expect(store.appended).toEqual([[expect.objectContaining({ type: 'task.deleted', taskId: task.id })]])
+    const text = (result.content[0] as { type: 'text'; text: string }).text
+    const parsed = parseOk<{ synced: boolean; task: { status: string } }>(text)
+    expect(parsed.synced).toBe(true)
+    expect(parsed.task.status).toBe('deleted')
+  })
+
+  test('reports synced:false with a warning when the confirmation flush silently fails', async () => {
+    const task = makeTask({ title: 'Ship it', status: 'open' })
+    const store = flakyFlushStore(buildState({ tasks: [task] }))
+
+    const result = await handleDeleteTask(store, { id: task.id })
+
+    expect(result.isError).toBeUndefined()
+    const text = (result.content[0] as { type: 'text'; text: string }).text
+    const parsed = parseOk<{ synced: boolean; warning?: string; task: { status: string } }>(text)
+    expect(parsed.synced).toBe(false)
+    expect(parsed.warning).toMatch(/not yet confirmed/)
+    expect(parsed.task.status).toBe('deleted')
+  })
+
+  test('surfaces an unknown id as isError, and never appends', async () => {
+    const store = mutableFakeStore(buildState({}))
+
+    const result = await handleDeleteTask(store, { id: 'missing-id' })
+
+    expect(result.isError).toBe(true)
+    const text = (result.content[0] as { type: 'text'; text: string }).text
+    expect(text).toMatch(/Task not found: missing-id/)
+    expect(store.appended).toEqual([])
+  })
+
+  test('surfaces an already-deleted task as isError, and never appends', async () => {
+    const task = makeTask({ status: 'deleted' })
+    const store = mutableFakeStore(buildState({ tasks: [task] }))
+
+    const result = await handleDeleteTask(store, { id: task.id })
+
+    expect(result.isError).toBe(true)
+    const text = (result.content[0] as { type: 'text'; text: string }).text
+    expect(text).toMatch(/already deleted/)
+    expect(store.appended).toEqual([])
+  })
+
+  test('surfaces a sync/appendEvents rejection as isError rather than throwing', async () => {
+    const task = makeTask({ status: 'open' })
+    const store: TaskStore = {
+      sync: vi.fn(async () => { /* first sync ok */ }),
+      getState: vi.fn(async () => buildState({ tasks: [task] })),
+      appendEvents: vi.fn(async () => { throw new Error('Todoist Sync API → 500') }),
+    }
+
+    const result = await handleDeleteTask(store, { id: task.id })
 
     expect(result.isError).toBe(true)
     const text = (result.content[0] as { type: 'text'; text: string }).text
