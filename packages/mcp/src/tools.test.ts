@@ -1,6 +1,7 @@
 import { describe, test, expect, vi } from 'vitest'
 import type { PalimpsestEvent, ProjectionState } from '@alnorth/palimpsest'
 import { applyEvent, cloneState, nextDueDate } from '@alnorth/palimpsest'
+import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js'
 import { makeSphere, makeProject, makeAgenda, makeContext, makeTask, buildState } from './testFixtures'
 import type { TaskStore } from './tools'
 import {
@@ -41,8 +42,12 @@ function mutableFakeStore(initial: ProjectionState): TaskStore & { calls: string
   }
 }
 
-function parseOk<T>(text: string): { ok: boolean } & T {
-  return JSON.parse(text) as { ok: boolean } & T
+function resultText(result: CallToolResult): string {
+  return (result.content[0] as { type: 'text'; text: string }).text
+}
+
+function parseOk<T>(result: CallToolResult): { ok: boolean } & T {
+  return JSON.parse(resultText(result)) as { ok: boolean } & T
 }
 
 // A fake store whose second sync() call (the post-append confirmation flush) silently "fails" by
@@ -86,8 +91,7 @@ describe('handleTasks', () => {
     const result = await handleTasks(store, { sphere: 'Work' })
 
     expect(result.isError).toBeUndefined()
-    const text = (result.content[0] as { type: 'text'; text: string }).text
-    const parsed = parseOk<{ tasks: { title: string }[] }>(text)
+    const parsed = parseOk<{ tasks: { title: string }[] }>(result)
     expect(parsed.ok).toBe(true)
     expect(parsed.tasks.map(t => t.title)).toEqual(['Ship it'])
   })
@@ -104,8 +108,7 @@ describe('handleTasks', () => {
     const result = await handleTasks(store, { sphere: 'Nope' })
 
     expect(result.isError).toBe(true)
-    const text = (result.content[0] as { type: 'text'; text: string }).text
-    expect(text).toMatch(/No sphere matching "Nope"/)
+    expect(resultText(result)).toMatch(/No sphere matching "Nope"/)
   })
 
   test('surfaces a store sync failure as isError', async () => {
@@ -118,8 +121,7 @@ describe('handleTasks', () => {
     const result = await handleTasks(store, {})
 
     expect(result.isError).toBe(true)
-    const text = (result.content[0] as { type: 'text'; text: string }).text
-    expect(text).toMatch(/Todoist Sync API/)
+    expect(resultText(result)).toMatch(/Todoist Sync API/)
   })
 
   test('maps all filter flags through to the query', async () => {
@@ -131,8 +133,7 @@ describe('handleTasks', () => {
 
     const result = await handleTasks(store, { project: 'Launch', actionable: true, limit: 5 })
 
-    const text = (result.content[0] as { type: 'text'; text: string }).text
-    const parsed = parseOk<{ tasks: { title: string }[] }>(text)
+    const parsed = parseOk<{ tasks: { title: string }[] }>(result)
     expect(parsed.tasks.map(t => t.title)).toEqual(['Actionable one'])
   })
 
@@ -146,8 +147,7 @@ describe('handleTasks', () => {
       actionable: true, withoutDueDate: true, withoutAgenda: true, withoutContext: true,
     })
 
-    const text = (result.content[0] as { type: 'text'; text: string }).text
-    const parsed = parseOk<{ tasks: { title: string }[] }>(text)
+    const parsed = parseOk<{ tasks: { title: string }[] }>(result)
     expect(parsed.tasks.map(t => t.title)).toEqual(['Bare'])
   })
 
@@ -160,8 +160,7 @@ describe('handleTasks', () => {
 
     const result = await handleTasks(store, { hasContext: true })
 
-    const text = (result.content[0] as { type: 'text'; text: string }).text
-    const parsed = parseOk<{ tasks: { title: string }[] }>(text)
+    const parsed = parseOk<{ tasks: { title: string }[] }>(result)
     expect(parsed.tasks.map(t => t.title)).toEqual(['HasContext'])
   })
 })
@@ -173,8 +172,7 @@ describe('handleTask', () => {
 
     const result = await handleTask(store, { id: task.id })
 
-    const text = (result.content[0] as { type: 'text'; text: string }).text
-    const parsed = parseOk<{ task: { title: string } }>(text)
+    const parsed = parseOk<{ task: { title: string } }>(result)
     expect(parsed.task.title).toBe('Find me')
   })
 
@@ -184,8 +182,7 @@ describe('handleTask', () => {
     const result = await handleTask(store, { id: 'missing-id' })
 
     expect(result.isError).toBe(true)
-    const text = (result.content[0] as { type: 'text'; text: string }).text
-    expect(text).toMatch(/No task with id "missing-id"/)
+    expect(resultText(result)).toMatch(/No task with id "missing-id"/)
   })
 })
 
@@ -198,8 +195,7 @@ describe('handleProjects', () => {
 
     const result = await handleProjects(store, { sphere: 'Work' })
 
-    const text = (result.content[0] as { type: 'text'; text: string }).text
-    const parsed = parseOk<{ projects: { name: string; hasNextAction: boolean }[] }>(text)
+    const parsed = parseOk<{ projects: { name: string; hasNextAction: boolean }[] }>(result)
     expect(parsed.projects).toEqual([expect.objectContaining({ name: 'Launch', hasNextAction: true })])
   })
 })
@@ -210,8 +206,7 @@ describe('handleSpheres', () => {
 
     const result = await handleSpheres(store, {})
 
-    const text = (result.content[0] as { type: 'text'; text: string }).text
-    const parsed = parseOk<{ spheres: { name: string }[] }>(text)
+    const parsed = parseOk<{ spheres: { name: string }[] }>(result)
     expect(parsed.spheres.map(s => s.name)).toEqual(['Alpha', 'Zeta'])
   })
 })
@@ -227,8 +222,7 @@ describe('handleAgendas', () => {
 
     const result = await handleAgendas(store, { sphere: 'Work' })
 
-    const text = (result.content[0] as { type: 'text'; text: string }).text
-    const parsed = parseOk<{ agendas: { name: string }[] }>(text)
+    const parsed = parseOk<{ agendas: { name: string }[] }>(result)
     expect(parsed.agendas.map(a => a.name)).toEqual(['Standup'])
   })
 })
@@ -244,8 +238,7 @@ describe('handleContexts', () => {
 
     const result = await handleContexts(store, { sphere: 'Work' })
 
-    const text = (result.content[0] as { type: 'text'; text: string }).text
-    const parsed = parseOk<{ contexts: { name: string }[] }>(text)
+    const parsed = parseOk<{ contexts: { name: string }[] }>(result)
     expect(parsed.contexts.map(c => c.name)).toEqual(['@errand'])
   })
 })
@@ -259,8 +252,7 @@ describe('handleDashboard', () => {
 
     const result = await handleDashboard(store, { sphere: 'Work' })
 
-    const text = (result.content[0] as { type: 'text'; text: string }).text
-    const parsed = parseOk<{ tasks: { title: string }[] }>(text)
+    const parsed = parseOk<{ tasks: { title: string }[] }>(result)
     expect(parsed.tasks.map(t => t.title)).toEqual(['Overdue'])
   })
 
@@ -268,8 +260,7 @@ describe('handleDashboard', () => {
     const store = fakeStore(buildState({}))
     const result = await handleDashboard(store, { sphere: 'Nope' })
     expect(result.isError).toBe(true)
-    const text = (result.content[0] as { type: 'text'; text: string }).text
-    expect(text).toMatch(/No sphere matching "Nope"/)
+    expect(resultText(result)).toMatch(/No sphere matching "Nope"/)
   })
 })
 
@@ -283,8 +274,7 @@ describe('handleProcessing', () => {
 
     const result = await handleProcessing(store, {})
 
-    const text = (result.content[0] as { type: 'text'; text: string }).text
-    const parsed = parseOk<{ actionableTasks: { title: string }[] }>(text)
+    const parsed = parseOk<{ actionableTasks: { title: string }[] }>(result)
     expect(parsed.actionableTasks.map(t => t.title).sort()).toEqual(['A', 'B'])
   })
 })
@@ -297,8 +287,7 @@ describe('handleWaiting', () => {
 
     const result = await handleWaiting(store, { sphere: 'Work' })
 
-    const text = (result.content[0] as { type: 'text'; text: string }).text
-    const parsed = parseOk<{ groups: { kind: string; tasks: { title: string }[] }[] }>(text)
+    const parsed = parseOk<{ groups: { kind: string; tasks: { title: string }[] }[] }>(result)
     expect(parsed.groups).toEqual([{ kind: 'review', tasks: [expect.objectContaining({ title: 'Review' })] }])
   })
 })
@@ -314,8 +303,7 @@ describe('handleCompleteTask', () => {
     expect(result.isError).toBeUndefined()
     expect(store.calls).toEqual(['sync', 'getState', 'appendEvents', 'sync', 'getState'])
     expect(store.appended).toEqual([[expect.objectContaining({ type: 'task.completed', taskId: task.id })]])
-    const text = (result.content[0] as { type: 'text'; text: string }).text
-    const parsed = parseOk<{ synced: boolean; task: { title: string; status: string } }>(text)
+    const parsed = parseOk<{ synced: boolean; task: { title: string; status: string } }>(result)
     expect(parsed.synced).toBe(true)
     expect(parsed.task).toEqual(expect.objectContaining({ title: 'Ship it', status: 'completed' }))
   })
@@ -327,8 +315,7 @@ describe('handleCompleteTask', () => {
     const result = await handleCompleteTask(store, { id: task.id })
 
     expect(result.isError).toBeUndefined()
-    const text = (result.content[0] as { type: 'text'; text: string }).text
-    const parsed = parseOk<{ synced: boolean; warning?: string; task: { status: string } }>(text)
+    const parsed = parseOk<{ synced: boolean; warning?: string; task: { status: string } }>(result)
     expect(parsed.ok).toBe(true)
     expect(parsed.synced).toBe(false)
     expect(parsed.warning).toMatch(/not yet confirmed/)
@@ -349,8 +336,7 @@ describe('handleCompleteTask', () => {
 
     expect(result.isError).toBeUndefined()
     expect(store.appended).toEqual([[expect.objectContaining({ type: 'task.recurred', taskId: task.id })]])
-    const text = (result.content[0] as { type: 'text'; text: string }).text
-    const parsed = parseOk<{ task: { status: string; dueDate: string } }>(text)
+    const parsed = parseOk<{ task: { status: string; dueDate: string } }>(result)
     expect(parsed.task).toEqual(expect.objectContaining({ status: 'open', dueDate: expectedNewDueDate }))
   })
 
@@ -360,8 +346,7 @@ describe('handleCompleteTask', () => {
     const result = await handleCompleteTask(store, { id: 'missing-id' })
 
     expect(result.isError).toBe(true)
-    const text = (result.content[0] as { type: 'text'; text: string }).text
-    expect(text).toMatch(/Task not found: missing-id/)
+    expect(resultText(result)).toMatch(/Task not found: missing-id/)
     expect(store.appended).toEqual([])
   })
 
@@ -372,8 +357,7 @@ describe('handleCompleteTask', () => {
     const result = await handleCompleteTask(store, { id: task.id })
 
     expect(result.isError).toBe(true)
-    const text = (result.content[0] as { type: 'text'; text: string }).text
-    expect(text).toMatch(/already completed/)
+    expect(resultText(result)).toMatch(/already completed/)
     expect(store.appended).toEqual([])
   })
 
@@ -388,8 +372,7 @@ describe('handleCompleteTask', () => {
     const result = await handleCompleteTask(store, { id: task.id })
 
     expect(result.isError).toBe(true)
-    const text = (result.content[0] as { type: 'text'; text: string }).text
-    expect(text).toMatch(/Todoist Sync API/)
+    expect(resultText(result)).toMatch(/Todoist Sync API/)
   })
 })
 
@@ -405,8 +388,7 @@ describe('handleSetDueDate', () => {
     expect(store.appended).toEqual([[expect.objectContaining({
       type: 'task.updated', taskId: task.id, patch: { dueDate: '2026-08-15' },
     })]])
-    const text = (result.content[0] as { type: 'text'; text: string }).text
-    const parsed = parseOk<{ synced: boolean; task: { dueDate: string } }>(text)
+    const parsed = parseOk<{ synced: boolean; task: { dueDate: string } }>(result)
     expect(parsed.synced).toBe(true)
     expect(parsed.task.dueDate).toBe('2026-08-15')
   })
@@ -419,8 +401,7 @@ describe('handleSetDueDate', () => {
 
     const result = await handleSetDueDate(store, { id: task.id, dueDate: 'today' })
 
-    const text = (result.content[0] as { type: 'text'; text: string }).text
-    const parsed = parseOk<{ task: { dueDate: string } }>(text)
+    const parsed = parseOk<{ task: { dueDate: string } }>(result)
     expect(parsed.task.dueDate).toBe(expected)
   })
 
@@ -433,8 +414,7 @@ describe('handleSetDueDate', () => {
     expect(store.appended).toEqual([[expect.objectContaining({
       type: 'task.updated', taskId: task.id, patch: { dueDate: null },
     })]])
-    const text = (result.content[0] as { type: 'text'; text: string }).text
-    const parsed = parseOk<{ task: { dueDate: string | null } }>(text)
+    const parsed = parseOk<{ task: { dueDate: string | null } }>(result)
     expect(parsed.task.dueDate).toBeNull()
   })
 
@@ -445,8 +425,7 @@ describe('handleSetDueDate', () => {
     const result = await handleSetDueDate(store, { id: task.id, dueDate: '2026-08-15' })
 
     expect(result.isError).toBeUndefined()
-    const text = (result.content[0] as { type: 'text'; text: string }).text
-    const parsed = parseOk<{ synced: boolean; warning?: string; task: { dueDate: string } }>(text)
+    const parsed = parseOk<{ synced: boolean; warning?: string; task: { dueDate: string } }>(result)
     expect(parsed.synced).toBe(false)
     expect(parsed.warning).toMatch(/not yet confirmed/)
     expect(parsed.task.dueDate).toBe('2026-08-15')
@@ -458,8 +437,7 @@ describe('handleSetDueDate', () => {
     const result = await handleSetDueDate(store, { id: 'missing-id', dueDate: '2026-08-15' })
 
     expect(result.isError).toBe(true)
-    const text = (result.content[0] as { type: 'text'; text: string }).text
-    expect(text).toMatch(/Task not found: missing-id/)
+    expect(resultText(result)).toMatch(/Task not found: missing-id/)
     expect(store.appended).toEqual([])
   })
 
@@ -470,8 +448,7 @@ describe('handleSetDueDate', () => {
     const result = await handleSetDueDate(store, { id: task.id, dueDate: '2026-08-15' })
 
     expect(result.isError).toBe(true)
-    const text = (result.content[0] as { type: 'text'; text: string }).text
-    expect(text).toMatch(/Cannot update a completed task/)
+    expect(resultText(result)).toMatch(/Cannot update a completed task/)
     expect(store.appended).toEqual([])
   })
 })
@@ -486,8 +463,7 @@ describe('handleDeleteTask', () => {
     expect(result.isError).toBeUndefined()
     expect(store.calls).toEqual(['sync', 'getState', 'appendEvents', 'sync', 'getState'])
     expect(store.appended).toEqual([[expect.objectContaining({ type: 'task.deleted', taskId: task.id })]])
-    const text = (result.content[0] as { type: 'text'; text: string }).text
-    const parsed = parseOk<{ synced: boolean; task: { status: string } }>(text)
+    const parsed = parseOk<{ synced: boolean; task: { status: string } }>(result)
     expect(parsed.synced).toBe(true)
     expect(parsed.task.status).toBe('deleted')
   })
@@ -499,8 +475,7 @@ describe('handleDeleteTask', () => {
     const result = await handleDeleteTask(store, { id: task.id })
 
     expect(result.isError).toBeUndefined()
-    const text = (result.content[0] as { type: 'text'; text: string }).text
-    const parsed = parseOk<{ synced: boolean; warning?: string; task: { status: string } }>(text)
+    const parsed = parseOk<{ synced: boolean; warning?: string; task: { status: string } }>(result)
     expect(parsed.synced).toBe(false)
     expect(parsed.warning).toMatch(/not yet confirmed/)
     expect(parsed.task.status).toBe('deleted')
@@ -512,8 +487,7 @@ describe('handleDeleteTask', () => {
     const result = await handleDeleteTask(store, { id: 'missing-id' })
 
     expect(result.isError).toBe(true)
-    const text = (result.content[0] as { type: 'text'; text: string }).text
-    expect(text).toMatch(/Task not found: missing-id/)
+    expect(resultText(result)).toMatch(/Task not found: missing-id/)
     expect(store.appended).toEqual([])
   })
 
@@ -524,8 +498,7 @@ describe('handleDeleteTask', () => {
     const result = await handleDeleteTask(store, { id: task.id })
 
     expect(result.isError).toBe(true)
-    const text = (result.content[0] as { type: 'text'; text: string }).text
-    expect(text).toMatch(/already deleted/)
+    expect(resultText(result)).toMatch(/already deleted/)
     expect(store.appended).toEqual([])
   })
 
@@ -540,8 +513,7 @@ describe('handleDeleteTask', () => {
     const result = await handleDeleteTask(store, { id: task.id })
 
     expect(result.isError).toBe(true)
-    const text = (result.content[0] as { type: 'text'; text: string }).text
-    expect(text).toMatch(/Todoist Sync API/)
+    expect(resultText(result)).toMatch(/Todoist Sync API/)
   })
 })
 
@@ -554,8 +526,7 @@ describe('handlePickList', () => {
 
     const result = await handlePickList(store, { sphere: 'Work' })
 
-    const text = (result.content[0] as { type: 'text'; text: string }).text
-    const parsed = parseOk<{ groups: { context: { name: string }; tasks: { title: string }[] }[] }>(text)
+    const parsed = parseOk<{ groups: { context: { name: string }; tasks: { title: string }[] }[] }>(result)
     expect(parsed.groups).toEqual([{ context: { id: context.id, name: '@errand' }, tasks: [expect.objectContaining({ title: 'DoTheThing' })] }])
   })
 
