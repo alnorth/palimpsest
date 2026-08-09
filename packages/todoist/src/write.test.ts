@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi, afterEach } from 'vitest'
 import { buildCommands } from './write'
 import { createEmptyState, buildStateFromConfig } from '@alnorth/palimpsest'
 import type { PalimpsestEvent, ProjectionState, TaskId, ProjectId, SphereId, AgendaId, ContextId, EventId } from '@alnorth/palimpsest'
@@ -473,5 +473,35 @@ describe('buildCommands — project lifecycle', () => {
       baseState(),
     )
     expect(commands[0]?.type).toBe('project_unarchive')
+  })
+})
+
+const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+
+describe('command uuid', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('uses crypto.randomUUID when the environment provides it', () => {
+    const { commands } = buildCommands(
+      { type: 'task.completed', id: evId(), occurredAt: '', taskId: taskId() },
+      baseState(),
+    )
+    expect(commands[0]?.uuid).toMatch(UUID_V4)
+  })
+
+  // Regression test: Hermes (React Native's JS engine) doesn't implement crypto.randomUUID even
+  // with react-native-get-random-values installed, which only polyfills crypto.getRandomValues.
+  // Calling the missing method threw "undefined is not a function" on every single write.
+  it('falls back to building a v4 UUID from crypto.getRandomValues when randomUUID is missing', () => {
+    vi.stubGlobal('crypto', { getRandomValues: crypto.getRandomValues.bind(crypto) })
+
+    const { commands } = buildCommands(
+      { type: 'task.completed', id: evId(), occurredAt: '', taskId: taskId() },
+      baseState(),
+    )
+
+    expect(commands[0]?.uuid).toMatch(UUID_V4)
   })
 })

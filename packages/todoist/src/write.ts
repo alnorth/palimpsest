@@ -9,8 +9,22 @@ import {
   todoistProjectUrl,
 } from './mapping'
 
+// crypto.randomUUID() isn't implemented by Hermes (React Native's JS engine) even with
+// react-native-get-random-values installed — that polyfill only covers the older
+// crypto.getRandomValues(), not this newer, separate Web Crypto API method. Calling the missing
+// method throws "undefined is not a function", and since this runs for every single Sync API
+// command (item_add, item_close, ...), it broke every write in a bare RN app, every time, with
+// no read-path equivalent to have already caught it (reads never call buildCommands/uuid() at
+// all). Building an RFC4122 v4 UUID from crypto.getRandomValues() instead works in every
+// environment that already needs that polyfill for nanoid (see cockpit's CLAUDE.md), without
+// requiring a second one.
 function uuid(): string {
-  return crypto.randomUUID()
+  if (typeof crypto.randomUUID === 'function') return crypto.randomUUID()
+  const bytes = crypto.getRandomValues(new Uint8Array(16))
+  bytes[6] = (bytes[6]! & 0x0f) | 0x40
+  bytes[8] = (bytes[8]! & 0x3f) | 0x80
+  const hex = Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('')
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`
 }
 
 // Build the due date args for a Sync API item_add / item_update command.

@@ -181,6 +181,19 @@ with nothing to distinguish it from a sync that simply was never attempted. Catc
 setting `health`/`lastError` the same way the network catch does turns a silent permanent wedge into a
 visible (if not automatically recoverable) error.
 
+**`write.ts`'s `uuid()` (used for every Sync API command's idempotency `uuid` field) falls back to
+building an RFC4122 v4 UUID from `crypto.getRandomValues()` when `crypto.randomUUID` isn't a
+function.** Hermes (React Native's JS engine) doesn't implement `crypto.randomUUID` even with
+`react-native-get-random-values` installed — that polyfill only covers the older
+`crypto.getRandomValues`, a separate Web Crypto API method. Calling the missing one throws "undefined
+is not a function", and since every single command build calls `uuid()`, this broke *every* write in a
+bare React Native app outright — surfaced by the `buildAllCommands` try/catch above as `health: 'error'`
+with exactly that message, once that catch existed to report it at all. The read path has no equivalent
+call, so polling alone never exercised this and looked completely healthy. Vitest's Node environment
+has `crypto.randomUUID` natively, so this needs an explicit `vi.stubGlobal('crypto', { getRandomValues
+})` test to reproduce — nothing in the existing suite exercised the "missing" branch before this bug was
+found.
+
 ### packages/mcp
 
 A local MCP server over the stdio transport, for use by MCP clients (e.g. Claude Desktop, Claude Code). Exposes ten read-only tools mirroring `@alnorth/palimpsest-query`'s `ParsedCommand` kinds one-for-one (`tasks`, `task`, `projects`, `spheres`, `agendas`, `contexts`, `dashboard`, `processing`, `waiting`, `pick_list`) plus one write tool, `complete_task` — the first of what's expected to grow into a small set of write tools alongside the read ones.
