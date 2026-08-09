@@ -45,12 +45,13 @@ describe('createMcpServer', () => {
     client = await connectedClient(fakeStore(buildState({ spheres: [sphere], tasks: [task] })))
   })
 
-  test('registers all eleven tools', async () => {
+  test('registers all thirteen tools', async () => {
     const { tools } = await client.listTools()
     expect(tools.map(t => t.name).sort()).toEqual(
       [
         'agendas', 'contexts', 'projects', 'spheres', 'task', 'tasks',
-        'dashboard', 'processing', 'waiting', 'pick_list', 'complete_task',
+        'dashboard', 'processing', 'waiting', 'pick_list',
+        'complete_task', 'set_due_date', 'delete_task',
       ].sort(),
     )
   })
@@ -140,6 +141,56 @@ describe('createMcpServer', () => {
 
   test('complete_task tool surfaces an unknown id as a tool error, not a protocol error', async () => {
     const result = await client.callTool({ name: 'complete_task', arguments: { id: 'missing' } })
+    expect(result.isError).toBe(true)
+    expect(firstText(result)).toMatch(/Task not found: missing/)
+  })
+
+  test('set_due_date tool sets a due date on a task by id and returns the updated task', async () => {
+    const sphere = makeSphere({ name: 'Errands' })
+    const task = makeTask({ sphereId: sphere.id, title: 'Buy milk', status: 'open' })
+    const scopedClient = await connectedClient(fakeStore(buildState({ spheres: [sphere], tasks: [task] })))
+
+    const result = await scopedClient.callTool({
+      name: 'set_due_date', arguments: { id: task.id, dueDate: '2026-08-15' },
+    })
+
+    expect(result.isError).toBeUndefined()
+    const parsed = JSON.parse(firstText(result)) as { task: { title: string; dueDate: string } }
+    expect(parsed.task).toEqual(expect.objectContaining({ title: 'Buy milk', dueDate: '2026-08-15' }))
+  })
+
+  test('set_due_date tool clears a due date when dueDate is null', async () => {
+    const sphere = makeSphere({ name: 'Errands' })
+    const task = makeTask({ sphereId: sphere.id, title: 'Buy milk', status: 'open', dueDate: '2026-01-01' })
+    const scopedClient = await connectedClient(fakeStore(buildState({ spheres: [sphere], tasks: [task] })))
+
+    const result = await scopedClient.callTool({ name: 'set_due_date', arguments: { id: task.id, dueDate: null } })
+
+    expect(result.isError).toBeUndefined()
+    const parsed = JSON.parse(firstText(result)) as { task: { dueDate: string | null } }
+    expect(parsed.task.dueDate).toBeNull()
+  })
+
+  test('set_due_date tool surfaces an unknown id as a tool error, not a protocol error', async () => {
+    const result = await client.callTool({ name: 'set_due_date', arguments: { id: 'missing', dueDate: '2026-08-15' } })
+    expect(result.isError).toBe(true)
+    expect(firstText(result)).toMatch(/Task not found: missing/)
+  })
+
+  test('delete_task tool deletes a task by id and returns the updated task', async () => {
+    const sphere = makeSphere({ name: 'Errands' })
+    const task = makeTask({ sphereId: sphere.id, title: 'Buy milk', status: 'open' })
+    const scopedClient = await connectedClient(fakeStore(buildState({ spheres: [sphere], tasks: [task] })))
+
+    const result = await scopedClient.callTool({ name: 'delete_task', arguments: { id: task.id } })
+
+    expect(result.isError).toBeUndefined()
+    const parsed = JSON.parse(firstText(result)) as { task: { title: string; status: string } }
+    expect(parsed.task).toEqual(expect.objectContaining({ title: 'Buy milk', status: 'deleted' }))
+  })
+
+  test('delete_task tool surfaces an unknown id as a tool error, not a protocol error', async () => {
+    const result = await client.callTool({ name: 'delete_task', arguments: { id: 'missing' } })
     expect(result.isError).toBe(true)
     expect(firstText(result)).toMatch(/Task not found: missing/)
   })

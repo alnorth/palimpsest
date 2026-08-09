@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
-import { PalimpsestStore } from '@alnorth/palimpsest'
-import type { ProjectionState } from '@alnorth/palimpsest'
+import { PalimpsestStore, applyEvent, cloneState } from '@alnorth/palimpsest'
+import type { PalimpsestEvent, ProjectionState } from '@alnorth/palimpsest'
 import { PalimpsestProvider } from './PalimpsestProvider'
 
 export class FakeStore extends PalimpsestStore {
@@ -33,6 +33,32 @@ export class FakeStore extends PalimpsestStore {
   setStateQuietly(state: ProjectionState): void {
     this.state = state
   }
+}
+
+// A FakeStore whose doAppend actually folds appended events into its state via the real
+// projection, so a write is visible on the very next getState() call — mirroring how
+// PollingStore's readAllEvents() already folds pending events into every projection in production.
+// getState() returns a fresh clone each call (as the real project()-backed getState() does) so
+// React sees a new ProjectionState reference and re-renders, rather than bailing out on an
+// unchanged object identity. Used by every write-hook test (useCompleteTask, useSetDueDate,
+// useDeleteTask, ...) to assert on the events a mutation appends.
+export class RecordingStore extends PalimpsestStore {
+  private state: ProjectionState
+  readonly appended: PalimpsestEvent[][] = []
+
+  constructor(state: ProjectionState) {
+    super()
+    this.state = state
+  }
+
+  override async readAllEvents(): Promise<PalimpsestEvent[]> { return [] }
+
+  protected override async doAppend(events: PalimpsestEvent[]): Promise<void> {
+    this.appended.push(events)
+    for (const event of events) applyEvent(this.state, event)
+  }
+
+  override async getState(): Promise<ProjectionState> { return cloneState(this.state) }
 }
 
 export function makeWrapper(store: PalimpsestStore, opts?: { initialSphere?: string }) {

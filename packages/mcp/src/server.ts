@@ -2,7 +2,8 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { z } from 'zod'
 import {
   handleTasks, handleTask, handleProjects, handleSpheres, handleAgendas, handleContexts,
-  handleDashboard, handleProcessing, handleWaiting, handlePickList, handleCompleteTask,
+  handleDashboard, handleProcessing, handleWaiting, handlePickList,
+  handleCompleteTask, handleSetDueDate, handleDeleteTask,
 } from './tools'
 import type { TaskStore } from './tools'
 
@@ -107,6 +108,21 @@ export function createMcpServer(store: TaskStore): McpServer {
       id: z.string().describe('Task id'),
     },
   }, args => handleCompleteTask(store, args))
+
+  server.registerTool('set_due_date', {
+    description: 'Set or clear a task\'s due date. Fails if the task is completed or deleted.',
+    inputSchema: {
+      id: z.string().describe('Task id'),
+      dueDate: z.string().nullable().describe('New due date (YYYY-MM-DD or "today"), or null to clear it'),
+    },
+  }, args => handleSetDueDate(store, args))
+
+  server.registerTool('delete_task', {
+    description: 'Delete a task. Fails if the task is already deleted.',
+    inputSchema: {
+      id: z.string().describe('Task id'),
+    },
+  }, args => handleDeleteTask(store, args))
 
   return server
 }

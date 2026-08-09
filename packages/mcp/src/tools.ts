@@ -1,5 +1,5 @@
-import type { PalimpsestEvent, ProjectionState, SyncState, TaskId } from '@alnorth/palimpsest'
-import { completeTask, getTask } from '@alnorth/palimpsest'
+import type { PalimpsestEvent, ProjectionState, SyncState, Task, TaskId } from '@alnorth/palimpsest'
+import { CLEAR, completeTask, deleteTask, getTask, updateTask } from '@alnorth/palimpsest'
 import { runQuery } from '@alnorth/palimpsest-query'
 import type { ParsedCommand, StatusArg } from '@alnorth/palimpsest-query'
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js'
@@ -63,6 +63,24 @@ export interface PickListToolInput {
 
 export interface CompleteTaskToolInput {
   id: string
+}
+
+export interface SetDueDateToolInput {
+  id: string
+  dueDate: string | null
+}
+
+export interface DeleteTaskToolInput {
+  id: string
+}
+
+// "today" is the only natural-language date form this tool resolves, mirroring the `tasks` tool's
+// dueOn/dueBefore filters (see @alnorth/palimpsest-query's resolveDateArg) — anything else is passed
+// straight through as an ISO date string.
+function resolveDueDate(value: string): string {
+  if (value !== 'today') return value
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
 async function runToolQuery(store: TaskStore, command: ParsedCommand): Promise<CallToolResult> {
@@ -157,24 +175,29 @@ export function handlePickList(store: TaskStore, input: PickListToolInput): Prom
   return runToolQuery(store, { kind: 'pick_list', sphere: input.sphere })
 }
 
-export async function handleCompleteTask(store: TaskStore, input: CompleteTaskToolInput): Promise<CallToolResult> {
+// Shared scaffolding for every write tool: sync → look up the task → append the event(s) the
+// caller's command produces → flush immediately (rather than leaving it for the pending-queue's
+// debounced sync) → re-read state so the response reflects what the remote store actually
+// confirmed (e.g. a recurring task's server-normalized next due date). TodoistStore.sync()
+// swallows network failures internally (sets syncState.health to 'error' instead of rejecting),
+// so a failed flush would otherwise look identical to a confirmed one here — check syncState
+// afterwards rather than assuming the flush succeeded just because it didn't throw. The write
+// itself already happened (appendEvents succeeded), so this is reported as an unsynced success,
+// not an error.
+async function runToolMutation(
+  store: TaskStore,
+  taskId: string,
+  buildEvents: (task: Task) => PalimpsestEvent[],
+): Promise<CallToolResult> {
   try {
     await store.sync()
     const state = await store.getState()
-    const task = getTask(state, input.id as TaskId)
-    if (task === undefined) throw new Error(`Task not found: ${input.id}`)
-    await store.appendEvents(completeTask(task))
-    // Flush the just-appended event through immediately rather than leaving it for the
-    // pending-queue's debounced sync, so the response reflects what the remote store actually
-    // confirmed (e.g. a recurring task's server-normalized next due date). TodoistStore.sync()
-    // swallows network failures internally (sets syncState.health to 'error' instead of
-    // rejecting), so a failed flush would otherwise look identical to a confirmed one here —
-    // check syncState afterwards rather than assuming the flush succeeded just because it didn't
-    // throw. The write itself already happened (appendEvents succeeded), so this is reported as
-    // an unsynced success, not an error.
+    const task = getTask(state, taskId as TaskId)
+    if (task === undefined) throw new Error(`Task not found: ${taskId}`)
+    await store.appendEvents(buildEvents(task))
     await store.sync()
     const finalState = await store.getState()
-    const data = runQuery(finalState, { kind: 'task', id: input.id })
+    const data = runQuery(finalState, { kind: 'task', id: taskId })
     const synced = store.syncState?.health !== 'error'
     const response: Record<string, unknown> = { ok: true, synced, ...data }
     if (!synced) {
@@ -186,4 +209,17 @@ export async function handleCompleteTask(store: TaskStore, input: CompleteTaskTo
     const message = error instanceof Error ? error.message : String(error)
     return { content: [{ type: 'text', text: message }], isError: true }
   }
+}
+
+export function handleCompleteTask(store: TaskStore, input: CompleteTaskToolInput): Promise<CallToolResult> {
+  return runToolMutation(store, input.id, completeTask)
+}
+
+export function handleSetDueDate(store: TaskStore, input: SetDueDateToolInput): Promise<CallToolResult> {
+  return runToolMutation(store, input.id, task =>
+    updateTask(task, { dueDate: input.dueDate === null ? CLEAR : resolveDueDate(input.dueDate) }))
+}
+
+export function handleDeleteTask(store: TaskStore, input: DeleteTaskToolInput): Promise<CallToolResult> {
+  return runToolMutation(store, input.id, deleteTask)
 }
