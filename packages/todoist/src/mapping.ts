@@ -51,6 +51,7 @@ export const LABEL_TO_AGENDA_ID: Readonly<Record<string, AgendaId>> = {
   devoteam: 'agenda-devoteam' as AgendaId,
   han:      'agenda-han'      as AgendaId,
   dad:      'agenda-dad'      as AgendaId,
+  inspire:  'agenda-inspire'  as AgendaId,
 }
 
 export const LABEL_TO_CONTEXT_ID: Readonly<Record<string, ContextId>> = {

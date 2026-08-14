@@ -55,14 +55,12 @@ export interface AgendaJson {
   id: string
   name: string
   sphere: EntityRef | null
-  key: string | null
 }
 
 export interface ContextJson {
   id: string
   name: string
   sphere: EntityRef | null
-  key: string | null
   description: string | null
 }
 
@@ -172,7 +170,6 @@ export function toAgendaJson(state: ProjectionState, agenda: Agenda): AgendaJson
     id: agenda.id,
     name: agenda.title,
     sphere: refFromSphere(state.spheres.get(agenda.sphereId)),
-    key: agenda.key ?? null,
   }
 }
 
@@ -181,7 +178,6 @@ export function toContextJson(state: ProjectionState, context: Context): Context
     id: context.id,
     name: context.name,
     sphere: refFromSphere(state.spheres.get(context.sphereId)),
-    key: context.key ?? null,
     description: context.description ?? null,
   }
 }
