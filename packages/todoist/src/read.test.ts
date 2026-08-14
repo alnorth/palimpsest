@@ -11,7 +11,7 @@ import {
   WORK_SPHERE_ID,
   PERSONAL_SPHERE_ID,
 } from './mapping'
-import { buildStateFromConfig, createEmptyState, PALIMPSEST_CONFIG, project } from '@alnorth/palimpsest'
+import { buildStateFromConfig, createEmptyState, PALIMPSEST_CONFIG, project, CLEAR } from '@alnorth/palimpsest'
 import type { ProjectId, TaskId } from '@alnorth/palimpsest'
 
 const CONFIG_STATE = { ...createEmptyState(), ...buildStateFromConfig(PALIMPSEST_CONFIG) }
@@ -278,6 +278,15 @@ describe('buildDeltaEvents — projects', () => {
     expect(updated).toMatchObject({ type: 'project.updated', patch: { description: 'new goal' } })
   })
 
+  it('emits project.updated with description CLEAR when the description is removed', () => {
+    const projects = [...CONTAINERS, makeProject({ id: 'p1', description: 'old goal', parent_id: TODOIST_WORK_PROJECT_ID })]
+    const base = makeBase(projects)
+    const events = buildDeltaEvents(base, [
+      makeProject({ id: 'p1', description: '', parent_id: TODOIST_WORK_PROJECT_ID }),
+    ], [])
+    const updated = events.find(e => e.type === 'project.updated' && e.projectId === 'p1')
+    expect(updated).toMatchObject({ type: 'project.updated', patch: { description: CLEAR } })
+  })
 
   it('emits project.archived for a deleted project (not project.deleted)', () => {
     const projects = [...CONTAINERS, makeProject({ id: 'pDel', parent_id: TODOIST_WORK_PROJECT_ID })]
