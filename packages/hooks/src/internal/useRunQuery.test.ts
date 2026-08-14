@@ -10,6 +10,9 @@ import { useRunQuery } from './useRunQuery'
 // filed here resolves straight to a sphere via its label, with no other projects needed in the
 // sync response.
 const TODOIST_WORK_ONEOFFS_ID = '6JJ5W472RVPP7rWq'
+// The work sphere's container project — a sub-project parented directly under it resolves to the
+// work sphere with no further parent-chain walking needed.
+const TODOIST_WORK_PROJECT_ID = '6JJ9prC5CQMwjRP4'
 
 describe('useRunQuery — todoistUrl attachment', () => {
   afterEach(() => {
@@ -34,6 +37,26 @@ describe('useRunQuery — todoistUrl attachment', () => {
     await waitFor(() => expect(result.current.raw).toBeDefined())
     const tasks = result.current.raw?.['tasks'] as { todoistUrl?: string }[]
     expect(tasks[0]?.todoistUrl).toBe('https://todoist.com/app/task/t1')
+  })
+
+  test('attaches todoistUrl to projects when the store is Todoist-backed', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({
+      sync_token: 'tok',
+      full_sync: true,
+      items: [],
+      projects: [{
+        id: 'p1', name: 'Launch', description: '', parent_id: TODOIST_WORK_PROJECT_ID,
+        is_inbox_project: false, is_archived: false, is_deleted: false,
+        created_at: '2026-01-01T00:00:00.000Z', updated_at: '2026-01-01T00:00:00.000Z',
+      }],
+    }), { status: 200 })))
+
+    const store = new TodoistStore('token')
+    const { result } = renderHook(() => useRunQuery({ kind: 'projects' }), { wrapper: makeWrapper(store) })
+
+    await waitFor(() => expect(result.current.raw).toBeDefined())
+    const projects = result.current.raw?.['projects'] as { todoistUrl?: string }[]
+    expect(projects[0]?.todoistUrl).toBe('https://todoist.com/app/project/p1')
   })
 
   test('does not attach todoistUrl for a non-Todoist store', async () => {
