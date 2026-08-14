@@ -32,7 +32,6 @@ export interface Agenda {
   id: AgendaId
   sphereId: SphereId
   title: string
-  key?: string
 }
 
 export interface Project {
@@ -57,5 +56,4 @@ export interface Context {
   sphereId: SphereId
   name: string
   description?: string
-  key?: string
 }

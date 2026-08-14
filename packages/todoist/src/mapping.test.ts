@@ -15,7 +15,10 @@ import {
   TODOIST_FUTURE_LOG_ID,
   WORK_SPHERE_ID,
   PERSONAL_SPHERE_ID,
+  LABEL_TO_AGENDA_ID,
+  AGENDA_ID_TO_LABEL,
 } from './mapping'
+import { buildStateFromConfig, PALIMPSEST_CONFIG } from '@alnorth/palimpsest'
 import type { ProjectId, TaskId } from '@alnorth/palimpsest'
 
 describe('todoistProjectUrl', () => {
@@ -96,5 +99,27 @@ describe('sphereParentProjectFor', () => {
 
   it('work → work container project', () => {
     expect(sphereParentProjectFor(WORK_SPHERE_ID)).toBe(TODOIST_WORK_PROJECT_ID)
+  })
+})
+
+describe('LABEL_TO_AGENDA_ID / PALIMPSEST_CONFIG stay in sync', () => {
+  const { agendas } = buildStateFromConfig(PALIMPSEST_CONFIG)
+  const configuredAgendaIds = new Set(agendas.keys())
+
+  it('every agenda in PALIMPSEST_CONFIG has a Todoist label mapping', () => {
+    for (const id of configuredAgendaIds) {
+      expect(AGENDA_ID_TO_LABEL[id]).toBeDefined()
+    }
+  })
+
+  it('every label in LABEL_TO_AGENDA_ID points at an agenda that exists in PALIMPSEST_CONFIG', () => {
+    for (const id of Object.values(LABEL_TO_AGENDA_ID)) {
+      expect(configuredAgendaIds.has(id)).toBe(true)
+    }
+  })
+
+  it('no two labels map to the same agenda id', () => {
+    const ids = Object.values(LABEL_TO_AGENDA_ID)
+    expect(new Set(ids).size).toBe(ids.length)
   })
 })

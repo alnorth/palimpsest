@@ -163,25 +163,23 @@ describe('project/sphere/agenda/context serialization', () => {
 
   test('toAgendaJson maps title to name and includes sphere ref', () => {
     const sphere = makeSphere({ name: 'Work' })
-    const agenda = makeAgenda(sphere, { title: 'Weekly sync', key: 'w' })
+    const agenda = makeAgenda(sphere, { title: 'Weekly sync' })
     const state = buildState({ spheres: [sphere], agendas: [agenda] })
     expect(toAgendaJson(state, agenda)).toEqual({
       id: agenda.id,
       name: 'Weekly sync',
       sphere: { id: sphere.id, name: 'Work' },
-      key: 'w',
     })
   })
 
   test('toContextJson includes description', () => {
     const sphere = makeSphere({ name: 'Work' })
-    const context = makeContext(sphere, { name: 'Email', description: 'inbox-only', key: 'e' })
+    const context = makeContext(sphere, { name: 'Email', description: 'inbox-only' })
     const state = buildState({ spheres: [sphere], contexts: [context] })
     expect(toContextJson(state, context)).toEqual({
       id: context.id,
       name: 'Email',
       sphere: { id: sphere.id, name: 'Work' },
-      key: 'e',
       description: 'inbox-only',
     })
   })
