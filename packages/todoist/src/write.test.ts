@@ -459,6 +459,64 @@ describe('buildCommands — project lifecycle', () => {
     expect(commands).toHaveLength(0)
   })
 
+  it('project.created with description → project_add includes description', () => {
+    const { commands } = buildCommands(
+      {
+        type: 'project.created', id: evId(), occurredAt: '',
+        projectId: projId(), sphereId: WORK_SPHERE_ID, name: 'Alpha', description: 'the goal',
+      },
+      baseState(),
+    )
+    expect(commands[0]?.args.description).toBe('the goal')
+  })
+
+  it('project.created without description → project_add omits description', () => {
+    const { commands } = buildCommands(
+      {
+        type: 'project.created', id: evId(), occurredAt: '',
+        projectId: projId(), sphereId: WORK_SPHERE_ID, name: 'Alpha',
+      },
+      baseState(),
+    )
+    expect(commands[0]?.args.description).toBeUndefined()
+  })
+
+  it('project.updated description → project_update with description', () => {
+    const { commands } = buildCommands(
+      {
+        type: 'project.updated', id: evId(), occurredAt: '',
+        projectId: projId(), patch: { description: 'new goal' },
+      },
+      baseState(),
+    )
+    expect(commands[0]?.type).toBe('project_update')
+    expect(commands[0]?.args.description).toBe('new goal')
+  })
+
+  it('project.updated description CLEAR → project_update with empty string description', () => {
+    const { commands } = buildCommands(
+      {
+        type: 'project.updated', id: evId(), occurredAt: '',
+        projectId: projId(), patch: { description: null },
+      },
+      baseState(),
+    )
+    expect(commands[0]?.args.description).toBe('')
+  })
+
+  it('project.updated name + description → single project_update with both args', () => {
+    const { commands } = buildCommands(
+      {
+        type: 'project.updated', id: evId(), occurredAt: '',
+        projectId: projId(), patch: { name: 'New name', description: 'new goal' },
+      },
+      baseState(),
+    )
+    expect(commands).toHaveLength(1)
+    expect(commands[0]?.args.name).toBe('New name')
+    expect(commands[0]?.args.description).toBe('new goal')
+  })
+
   it('project.archived → project_archive', () => {
     const { commands } = buildCommands(
       { type: 'project.archived', id: evId(), occurredAt: '', projectId: projId() },

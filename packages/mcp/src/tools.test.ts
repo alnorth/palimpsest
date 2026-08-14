@@ -102,6 +102,17 @@ describe('handleTasks', () => {
     expect(store.calls).toEqual(['sync', 'getState'])
   })
 
+  test('attaches a todoistUrl to each task', async () => {
+    const sphere = makeSphere({ name: 'Work' })
+    const task = makeTask({ sphereId: sphere.id, title: 'Ship it' })
+    const store = fakeStore(buildState({ spheres: [sphere], tasks: [task] }))
+
+    const result = await handleTasks(store, { sphere: 'Work' })
+
+    const parsed = parseOk<{ tasks: { id: string; todoistUrl: string }[] }>(result)
+    expect(parsed.tasks[0]?.todoistUrl).toBe(`https://todoist.com/app/task/${task.id}`)
+  })
+
   test('surfaces a domain error (unresolved sphere name) as isError', async () => {
     const store = fakeStore(buildState({ spheres: [makeSphere({ name: 'Work' })] }))
 
@@ -197,6 +208,17 @@ describe('handleProjects', () => {
 
     const parsed = parseOk<{ projects: { name: string; hasNextAction: boolean }[] }>(result)
     expect(parsed.projects).toEqual([expect.objectContaining({ name: 'Launch', hasNextAction: true })])
+  })
+
+  test('attaches a todoistUrl to each project', async () => {
+    const sphere = makeSphere({ name: 'Work' })
+    const project = makeProject(sphere, { name: 'Launch' })
+    const store = fakeStore(buildState({ spheres: [sphere], projects: [project] }))
+
+    const result = await handleProjects(store, { sphere: 'Work' })
+
+    const parsed = parseOk<{ projects: { id: string; todoistUrl: string }[] }>(result)
+    expect(parsed.projects[0]?.todoistUrl).toBe(`https://todoist.com/app/project/${project.id}`)
   })
 })
 
@@ -306,6 +328,17 @@ describe('handleCompleteTask', () => {
     const parsed = parseOk<{ synced: boolean; task: { title: string; status: string } }>(result)
     expect(parsed.synced).toBe(true)
     expect(parsed.task).toEqual(expect.objectContaining({ title: 'Ship it', status: 'completed' }))
+  })
+
+  test('attaches a todoistUrl to the returned task', async () => {
+    const sphere = makeSphere({ name: 'Work' })
+    const task = makeTask({ sphereId: sphere.id, title: 'Ship it', status: 'open' })
+    const store = mutableFakeStore(buildState({ spheres: [sphere], tasks: [task] }))
+
+    const result = await handleCompleteTask(store, { id: task.id })
+
+    const parsed = parseOk<{ task: { id: string; todoistUrl: string } }>(result)
+    expect(parsed.task.todoistUrl).toBe(`https://todoist.com/app/task/${task.id}`)
   })
 
   test('reports synced:false with a warning when the confirmation flush silently fails, without treating the call as an error', async () => {

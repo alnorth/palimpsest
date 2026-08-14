@@ -212,21 +212,23 @@ export function buildCommands(
           type: 'project_add',
           uuid: uuid(),
           temp_id: tempId,
-          args: { name: event.name, parent_id: parentId },
+          args: {
+            name: event.name,
+            parent_id: parentId,
+            ...(event.description !== undefined && { description: event.description }),
+          },
         }],
       }
     }
 
     case 'project.updated': {
       const patch = event.patch
-      if (patch.name !== undefined) {
-        return { commands: [{
-          type: 'project_update',
-          uuid: uuid(),
-          args: { id: String(event.projectId), name: patch.name },
-        }] }
-      }
-      return { commands: [] }
+      const args: Record<string, unknown> = { id: String(event.projectId) }
+      if (patch.name !== undefined) args['name'] = patch.name
+      if (patch.description !== undefined) args['description'] = patch.description === CLEAR ? '' : patch.description
+
+      if (Object.keys(args).length === 1) return { commands: [] }
+      return { commands: [{ type: 'project_update', uuid: uuid(), args }] }
     }
 
     case 'project.archived':

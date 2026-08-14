@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   todoistProjectUrl,
+  todoistTaskUrl,
   extractProjectIdFromUrl,
   sphereLabelFor,
   oneOffsProjectFor,
@@ -15,12 +16,19 @@ import {
   WORK_SPHERE_ID,
   PERSONAL_SPHERE_ID,
 } from './mapping'
-import type { ProjectId } from '@alnorth/palimpsest'
+import type { ProjectId, TaskId } from '@alnorth/palimpsest'
 
 describe('todoistProjectUrl', () => {
   it('builds correct URL', () => {
     const id = '6JJ9prC5CQMwjRP4' as ProjectId
     expect(todoistProjectUrl(id)).toBe('https://todoist.com/app/project/6JJ9prC5CQMwjRP4')
+  })
+})
+
+describe('todoistTaskUrl', () => {
+  it('builds correct URL', () => {
+    const id = '6JJ9prC5CQMwjRP4' as TaskId
+    expect(todoistTaskUrl(id)).toBe('https://todoist.com/app/task/6JJ9prC5CQMwjRP4')
   })
 })
 

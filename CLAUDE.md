@@ -147,6 +147,31 @@ Sphere/project/agenda/context filters are matched by name via `resolve.ts` (exac
 
 `TodoistStore` (extends `packages/core`'s `PollingStore`) is the `PalimpsestStore` backing every
 Todoist-connected consumer (`packages/mcp`, `packages/hooks`'s `todoistToken` convenience prop).
+
+Project descriptions round-trip like every other project field: `SyncProject.description` (added to
+Todoist's project object after this integration was first built) is mapped onto core's
+`Project.description` in `read.ts`'s `buildPalimpsestProjects`/`buildEvents`/`buildDeltaEvents`, and
+`write.ts`'s `project.updated` case sends it back via `project_update`'s `description` arg (`CLEAR` →
+`''`, matching how Todoist itself represents "no description"). Unlike `task.updated`'s patch (which
+diffs every field against the existing task), `project.updated`'s delta patch has never diffed —
+`name`/`sphereId`/`description` are rebuilt unconditionally from whatever `deltaProjects` contains, on
+the assumption that Todoist's sync response only includes a project in the delta when something on it
+actually changed.
+
+`mapping.ts`'s `todoistTaskUrl(taskId)` mirrors the existing `todoistProjectUrl(projectId)` — both are
+pure `id → https://todoist.com/app/{task,project}/{id}` builders, valid because `TodoistStore` never
+translates IDs: a palimpsest `Task`/`Project` id *is* the Todoist item/project id verbatim. Deliberately
+not added as a field on core's `Task`/`Project` or on `packages/query`'s `TaskJson`/`ProjectJson` —
+both are store-agnostic (`packages/hooks` also supports a non-Todoist backend store, where a Todoist URL
+would be meaningless) — so instead `urls.ts`'s `attachTodoistUrls(value)` walks an arbitrary `runQuery()`
+result (single task, lists, dashboard/waiting/pick_list groups — any shape, at any nesting depth) and
+adds a `todoistUrl` to every task-shaped and project-shaped object it structurally finds (fingerprinted
+by field presence, e.g. `waitingFor`+`isNext` for tasks, `openTaskCount`+`hasNextAction` for projects,
+since this package doesn't depend on `packages/query` and so can't check against `TaskJson`/`ProjectJson`
+nominally). Each Todoist-aware consumer opts in for itself: `packages/mcp`'s `runToolQuery`/
+`runToolMutation` call it unconditionally (mcp only supports the Todoist store); `packages/hooks`'
+`internal/useRunQuery.ts` calls it only when `store instanceof TodoistStore`, since a `store` prop can
+also be a non-Todoist `PalimpsestStore` (e.g. `ClientPalimpsestStore`).
 `readAllEvents()` returns `[...baseEvents, ...pending]` — `baseEvents` from the last successful sync,
 `pending` from `PollingStore`'s in-memory-by-default queue of locally-appended, not-yet-flushed events.
 `sync()` converts `pending` into Todoist Sync API commands via `write.ts`'s `buildCommands` (one

@@ -2,6 +2,7 @@ import type { PalimpsestEvent, ProjectionState, SyncState, Task, TaskId } from '
 import { CLEAR, completeTask, deleteTask, getTask, updateTask } from '@alnorth/palimpsest'
 import { runQuery } from '@alnorth/palimpsest-query'
 import type { ParsedCommand, StatusArg } from '@alnorth/palimpsest-query'
+import { attachTodoistUrls } from '@alnorth/palimpsest-todoist'
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js'
 
 export interface TaskStore {
@@ -87,7 +88,7 @@ async function runToolQuery(store: TaskStore, command: ParsedCommand): Promise<C
   try {
     await store.sync()
     const state = await store.getState()
-    const data = runQuery(state, command)
+    const data = attachTodoistUrls(runQuery(state, command))
     return { content: [{ type: 'text', text: JSON.stringify({ ok: true, ...data }, null, 2) }] }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
@@ -197,7 +198,7 @@ async function runToolMutation(
     await store.appendEvents(buildEvents(task))
     await store.sync()
     const finalState = await store.getState()
-    const data = runQuery(finalState, { kind: 'task', id: taskId })
+    const data = attachTodoistUrls(runQuery(finalState, { kind: 'task', id: taskId }))
     const synced = store.syncState?.health !== 'error'
     const response: Record<string, unknown> = { ok: true, synced, ...data }
     if (!synced) {
