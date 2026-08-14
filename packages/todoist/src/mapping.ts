@@ -1,4 +1,4 @@
-import type { AgendaId, ContextId, SphereId, ProjectId } from '@alnorth/palimpsest'
+import type { AgendaId, ContextId, SphereId, ProjectId, TaskId } from '@alnorth/palimpsest'
 
 // ── Todoist project IDs (hardcoded to this account's layout) ─────────────────
 
@@ -111,6 +111,11 @@ export function sphereParentProjectFor(sphereId: SphereId): string {
 // Todoist URL for a project (used in waitingFor.project descriptions)
 export function todoistProjectUrl(projectId: ProjectId): string {
   return `https://todoist.com/app/project/${projectId}`
+}
+
+// Todoist URL for a task (view-on-the-web link — Task.id is the Todoist item id verbatim)
+export function todoistTaskUrl(taskId: TaskId): string {
+  return `https://todoist.com/app/task/${taskId}`
 }
 
 // Extract a Todoist project ID from a project URL in a task description

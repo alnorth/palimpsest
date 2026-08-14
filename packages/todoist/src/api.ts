@@ -31,6 +31,7 @@ export interface SyncItem {
 export interface SyncProject {
   id: string
   name: string
+  description: string
   parent_id: string | null
   is_inbox_project: boolean
   is_archived: boolean

@@ -21,6 +21,7 @@ const CONFIG_STATE = { ...createEmptyState(), ...buildStateFromConfig(PALIMPSEST
 function makeProject(overrides: Partial<SyncProject> & { id: string }): SyncProject {
   return {
     name: 'Test Project',
+    description: '',
     parent_id: TODOIST_WORK_PROJECT_ID,
     is_inbox_project: false,
     is_archived: false,
@@ -113,6 +114,26 @@ describe('buildEvents — projects', () => {
     ]
     const events = buildEvents(projects, [])
     expect(events.some(e => 'projectId' in e && e.projectId === 'proj4')).toBe(false)
+  })
+
+  it('includes description in project.created when present', () => {
+    const projects = [
+      ...CONTAINERS,
+      makeProject({ id: 'proj1', name: 'Widgets', parent_id: TODOIST_WORK_PROJECT_ID, description: 'the goal' }),
+    ]
+    const events = buildEvents(projects, [])
+    const created = events.find(e => e.type === 'project.created' && e.projectId === 'proj1')
+    expect(created).toMatchObject({ description: 'the goal' })
+  })
+
+  it('omits description from project.created when empty', () => {
+    const projects = [
+      ...CONTAINERS,
+      makeProject({ id: 'proj1', name: 'Widgets', parent_id: TODOIST_WORK_PROJECT_ID, description: '' }),
+    ]
+    const events = buildEvents(projects, [])
+    const created = events.find(e => e.type === 'project.created' && e.projectId === 'proj1')
+    expect(created).not.toHaveProperty('description')
   })
 
   it('projects the correct state for multiple projects', () => {
@@ -236,6 +257,27 @@ describe('buildDeltaEvents — projects', () => {
     const updated = events.find(e => e.type === 'project.updated' && e.projectId === 'p1')
     expect(updated).toMatchObject({ type: 'project.updated', patch: { name: 'New' } })
   })
+
+  it('emits project.created with description for a new project when present', () => {
+    const base = makeBase()
+    const events = buildDeltaEvents(base, [
+      makeProject({ id: 'pNew', name: 'New Project', parent_id: TODOIST_WORK_PROJECT_ID, description: 'the goal' }),
+    ], [])
+    expect(events.find(e => e.type === 'project.created' && e.projectId === 'pNew')).toMatchObject({
+      description: 'the goal',
+    })
+  })
+
+  it('emits project.updated with description in patch when it changes', () => {
+    const projects = [...CONTAINERS, makeProject({ id: 'p1', description: 'old goal', parent_id: TODOIST_WORK_PROJECT_ID })]
+    const base = makeBase(projects)
+    const events = buildDeltaEvents(base, [
+      makeProject({ id: 'p1', description: 'new goal', parent_id: TODOIST_WORK_PROJECT_ID }),
+    ], [])
+    const updated = events.find(e => e.type === 'project.updated' && e.projectId === 'p1')
+    expect(updated).toMatchObject({ type: 'project.updated', patch: { description: 'new goal' } })
+  })
+
 
   it('emits project.archived for a deleted project (not project.deleted)', () => {
     const projects = [...CONTAINERS, makeProject({ id: 'pDel', parent_id: TODOIST_WORK_PROJECT_ID })]

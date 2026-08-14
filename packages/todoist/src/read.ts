@@ -48,6 +48,7 @@ function buildPalimpsestProjects(
       name: p.name,
       createdAt: p.created_at,
       updatedAt: p.updated_at,
+      ...(p.description !== '' && { description: p.description }),
       ...(p.is_archived && { isArchived: true, archivedAt: p.updated_at }),
     })
   }
@@ -202,6 +203,7 @@ export function buildEvents(
       id: newEventId(), type: 'project.created',
       projectId: p.id, sphereId: p.sphereId, name: p.name,
       occurredAt: p.createdAt,
+      ...(p.description !== undefined && { description: p.description }),
     })
     if (p.isArchived === true) {
       events.push({
@@ -242,7 +244,7 @@ export function buildDeltaEvents(
   const allProjects: SyncProject[] = []
   for (const [, p] of current.projects) {
     allProjects.push({
-      id: p.id, name: p.name,
+      id: p.id, name: p.name, description: p.description ?? '',
       parent_id: p.sphereId === PERSONAL_SPHERE_ID ? TODOIST_PERSONAL_PROJECT_ID : TODOIST_WORK_PROJECT_ID,
       is_inbox_project: false, is_archived: p.isArchived === true,
       is_deleted: false, created_at: p.createdAt, updated_at: p.updatedAt,
@@ -273,7 +275,7 @@ export function buildDeltaEvents(
       if (sphereId === undefined) continue
       events.push({
         id: newEventId(), type: 'project.updated',
-        projectId, patch: { name: p.name, sphereId },
+        projectId, patch: { name: p.name, sphereId, description: p.description !== '' ? p.description : CLEAR },
         occurredAt: p.updated_at,
       })
       if (!p.is_archived && existing?.isArchived === true) {
@@ -287,6 +289,7 @@ export function buildDeltaEvents(
     events.push({
       id: newEventId(), type: 'project.created',
       projectId, sphereId, name: p.name, occurredAt: p.created_at,
+      ...(p.description !== '' && { description: p.description }),
     })
     if (p.is_archived) {
       events.push({ id: newEventId(), type: 'project.archived', projectId, occurredAt: p.updated_at })
