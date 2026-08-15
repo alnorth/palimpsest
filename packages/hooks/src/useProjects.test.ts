@@ -39,6 +39,17 @@ describe('useProjects', () => {
     await waitFor(() => expect(withoutAgenda.result.current.isLoading).toBe(false))
     expect(withoutAgenda.result.current.data?.map(p => p.name)).toEqual(['Solo'])
   })
+
+  test('includeNextTasks includes each project\'s open next-action tasks', async () => {
+    const sphere = makeSphere({ name: 'Work' })
+    const project = makeProject(sphere, { name: 'Launch' })
+    const task = makeTask({ projectId: project.id, isNext: true, title: 'Ship it' })
+    const store = new FakeStore(buildState({ spheres: [sphere], projects: [project], tasks: [task] }))
+
+    const { result } = renderHook(() => useProjects({ sphere: 'Work', includeNextTasks: true }), { wrapper: makeWrapper(store) })
+    await waitFor(() => expect(result.current.isLoading).toBe(false))
+    expect(result.current.data?.[0]?.nextTasks?.map(t => t.title)).toEqual(['Ship it'])
+  })
 })
 
 describe('useSpheres', () => {

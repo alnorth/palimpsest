@@ -46,6 +46,20 @@ via `.github/workflows/publish-packages.yml`, triggered on push of a `v*` tag. `
 different repo (e.g. `cockpit`) always requires an authenticated `.npmrc` pointing `@alnorth` at
 `https://npm.pkg.github.com` — GitHub Packages requires auth even for public packages, unlike npmjs.
 
+Internal `@alnorth/*` dependencies (e.g. `packages/query`'s dependency on `@alnorth/palimpsest`,
+`packages/hooks`'s on `@alnorth/palimpsest-query`/`@alnorth/palimpsest-todoist`) are committed as `"*"`
+in every `packages/*/package.json` — inside the monorepo npm workspaces symlinks to local source
+regardless of range, so `"*"` is harmless there and needs no manual bumping. These `package.json` files
+are published verbatim to GitHub Packages, though, and a `"*"` range would give external consumers (e.g.
+`cockpit`) no floor and no ceiling on the depended-on package — so `scripts/sync-internal-versions.mjs`
+rewrites every `@alnorth/*` range to `^<current version>` of that dependency (reading each dependency's
+own `version` field), and `publish-packages.yml` runs it (`npm run sync-internal-versions`) right before
+the `npm publish` steps, after typecheck/test/build have already run against the committed `"*"` ranges.
+This means the `package.json` actually published to GitHub Packages always differs from what's committed
+on `main` (published ranges are real caret ranges; committed ranges are `"*"`) — that divergence is
+expected and permanent, not just a between-bumps gap, since the published artifact is what external
+consumers see and the committed source is never meant to carry real ranges.
+
 Run `npm install` from the repo root before running typechecks or tests in a fresh environment — missing `node_modules` will cause spurious errors.
 
 Run commands from the repo root, or `cd` into a package directory:
@@ -139,10 +153,9 @@ src/
   fixtures.ts   — test-only entity builders (makeSphere/makeProject/makeTask/etc., buildState)
 ```
 
-`ParsedCommand` kinds: `tasks`, `task`, `projects`, `spheres`, `agendas`, `contexts` (the original CLI-era surface, filters matching `core/query.ts`'s `TaskFilter` field-for-field, plus `dueOn`/`dueBefore`/`limit`), four aggregate views ported from the old interactive TUI's view model, with no equivalent anywhere else in the codebase, and `search`:
+`ParsedCommand` kinds: `tasks`, `task`, `spheres`, `agendas`, `contexts` (the original CLI-era surface, filters matching `core/query.ts`'s `TaskFilter` field-for-field, plus `dueOn`/`dueBefore`/`limit`), `projects` (same CLI-era surface, called out below for its `includeNextTasks` option), four aggregate views ported from the old interactive TUI's view model, with no equivalent anywhere else in the codebase, and `search`:
 
-`projects` additionally supports `agenda`/`hasAgenda`/`withoutAgenda`, mirroring `tasks`' own agenda vocabulary exactly (name resolved via `resolveAgenda`, `hasAgenda`/`withoutAgenda` mapping onto core's single `ProjectFilter.hasAgenda` tri-state) — this is how a "shared project" (a project linked to an agenda) is queried. `ProjectJson` denormalizes the link as `agenda: EntityRef | null`, same pattern as every other optional FK. There is no dedicated aggregate view for "shared projects" (e.g. grouped by agenda) — the extended `projects` command plus this `agenda` field is enough for a consumer to group client-side, and no second consumer needing that grouping exists in this codebase to justify centralizing it in `views.ts`.
-
+- **`projects`** — `{ kind: 'projects', sphere?: string, archived?: boolean, all?: boolean, agenda?: string, hasAgenda?: boolean, withoutAgenda?: boolean, includeNextTasks?: boolean }`. `agenda`/`hasAgenda`/`withoutAgenda` mirror `tasks`' own agenda vocabulary exactly (name resolved via `resolveAgenda`, `hasAgenda`/`withoutAgenda` mapping onto core's single `ProjectFilter.hasAgenda` tri-state) — this is how a "shared project" (a project linked to an agenda) is queried; `ProjectJson` denormalizes the link as `agenda: EntityRef | null`, same pattern as every other optional FK. There is no dedicated aggregate view for "shared projects" (e.g. grouped by agenda) — the extended `projects` command plus this `agenda` field is enough for a consumer to group client-side, and no second consumer needing that grouping exists in this codebase to justify centralizing it in `views.ts`. `includeNextTasks` opts each returned `ProjectJson` into a `nextTasks: TaskJson[]` field (the project's open `isNext` tasks, normally zero or one but not enforced as such) — omitted from the response entirely when the flag isn't passed, an empty array when passed but the project has no next action, so callers can distinguish "didn't ask" from "asked and there's nothing." Backed by `serialize.ts`'s `computeProjectNextTasks(state)`, a `Map<ProjectId, Task[]>` companion to `computeProjectStats` — `views.ts`'s `processingBuckets` also uses it (for `projectsWithoutNext`) rather than re-deriving the same "open + isNext + has a project" predicate inline. When `includeNextTasks` is requested, `runQuery.ts`'s `projects` handler calls `computeProjectStatsAndNextTasks(state)` instead, a single-pass sibling that fills both maps in one scan over `state.tasks` rather than running `computeProjectStats` and `computeProjectNextTasks` back to back; the plain `computeProjectStats(state)` alone still covers the common case where next tasks weren't asked for.
 - **`dashboard`** — `{ kind: 'dashboard', sphere: string, limit?: number }`. **`sphere` is required** — there is no "across all spheres" mode. Open tasks in that sphere where `dueDate <= today OR isStarred`, overdue/due-today sorted ascending before non-date-qualifying starred tasks.
 - **`processing`** — `{ kind: 'processing' }`. **Takes no sphere at all** — always aggregates across every sphere. Returns three buckets: `actionableTasks` (actionable, not waiting, no due date/agenda/context), `projectsWithoutNext` (active projects with no open `isNext` task), `tasksWaitingOnArchivedProjects` (waiting tasks pointing at an archived or missing project).
 - **`waiting`** — `{ kind: 'waiting', sphere?: string }`. Sphere optional, unscoped (all spheres) when omitted. Open+waiting tasks grouped by `waitingFor.kind`, fixed order `review, agenda, project, trello`, empty groups omitted.

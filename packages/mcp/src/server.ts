@@ -56,6 +56,7 @@ export function createMcpServer(store: TaskStore): McpServer {
       agenda: z.string().optional().describe('Filter by agenda name'),
       hasAgenda: z.boolean().optional().describe('Only projects linked to an agenda ("shared projects")'),
       withoutAgenda: z.boolean().optional().describe('Only projects not linked to an agenda'),
+      includeNextTasks: z.boolean().optional().describe('Include each project\'s open next-action tasks'),
     },
   }, args => handleProjects(store, args))
 

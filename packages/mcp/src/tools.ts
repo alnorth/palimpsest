@@ -49,6 +49,7 @@ export interface ProjectsToolInput {
   agenda?: string | undefined
   hasAgenda?: boolean | undefined
   withoutAgenda?: boolean | undefined
+  includeNextTasks?: boolean | undefined
 }
 
 export interface SphereScopedToolInput {
@@ -151,6 +152,7 @@ export function handleProjects(store: TaskStore, input: ProjectsToolInput): Prom
     ...(input.agenda !== undefined && { agenda: input.agenda }),
     ...(input.hasAgenda === true && { hasAgenda: true }),
     ...(input.withoutAgenda === true && { withoutAgenda: true }),
+    ...(input.includeNextTasks === true && { includeNextTasks: true }),
   })
 }
 

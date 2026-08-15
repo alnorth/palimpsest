@@ -1,7 +1,10 @@
 import { describe, test, expect } from 'vitest'
 import type { ProjectId, AgendaId } from '@alnorth/palimpsest'
 import { makeSphere, makeProject, makeAgenda, makeContext, makeTask, buildState } from './fixtures'
-import { toTaskJson, toProjectJson, toSphereJson, toAgendaJson, toContextJson, computeProjectStats } from './serialize'
+import {
+  toTaskJson, toProjectJson, toSphereJson, toAgendaJson, toContextJson,
+  computeProjectStats, computeProjectNextTasks, computeProjectStatsAndNextTasks,
+} from './serialize'
 
 describe('toTaskJson', () => {
   test('task with a project denormalizes sphere via the project', () => {
@@ -177,6 +180,100 @@ describe('project/sphere/agenda/context serialization', () => {
     const state = buildState({ spheres: [sphere], projects: [project], tasks: [task] })
     const stats = computeProjectStats(state)
     expect(stats.get(project.id)).toEqual({ openTaskCount: 1, hasNextAction: false })
+  })
+
+  test('toProjectJson omits nextTasks when not passed', () => {
+    const sphere = makeSphere()
+    const project = makeProject(sphere)
+    const state = buildState({ spheres: [sphere], projects: [project] })
+    const stats = computeProjectStats(state)
+
+    expect(toProjectJson(state, project, stats.get(project.id)!)).not.toHaveProperty('nextTasks')
+  })
+
+  test('toProjectJson includes nextTasks as TaskJson when passed', () => {
+    const sphere = makeSphere()
+    const project = makeProject(sphere)
+    const nextTask = makeTask({ projectId: project.id, isNext: true, title: 'Next one' })
+    const state = buildState({ spheres: [sphere], projects: [project], tasks: [nextTask] })
+    const stats = computeProjectStats(state)
+
+    const result = toProjectJson(state, project, stats.get(project.id)!, [nextTask])
+    expect(result.nextTasks).toEqual([toTaskJson(state, nextTask)])
+  })
+
+  test('toProjectJson includes an empty nextTasks array when passed one', () => {
+    const sphere = makeSphere()
+    const project = makeProject(sphere)
+    const state = buildState({ spheres: [sphere], projects: [project] })
+    const stats = computeProjectStats(state)
+
+    expect(toProjectJson(state, project, stats.get(project.id)!, [])).toEqual(
+      expect.objectContaining({ nextTasks: [] }),
+    )
+  })
+
+  test('computeProjectNextTasks: only open isNext tasks, grouped by project', () => {
+    const sphere = makeSphere()
+    const projectA = makeProject(sphere, { name: 'A' })
+    const projectB = makeProject(sphere, { name: 'B' })
+    const nextA = makeTask({ projectId: projectA.id, isNext: true, title: 'Next A' })
+    const notNextA = makeTask({ projectId: projectA.id, title: 'Not next A' })
+    const completedNextA = makeTask({ projectId: projectA.id, isNext: true, status: 'completed', title: 'Done next A' })
+    const nextB = makeTask({ projectId: projectB.id, isNext: true, title: 'Next B' })
+    const state = buildState({
+      spheres: [sphere],
+      projects: [projectA, projectB],
+      tasks: [nextA, notNextA, completedNextA, nextB],
+    })
+
+    const map = computeProjectNextTasks(state)
+    expect(map.get(projectA.id)).toEqual([nextA])
+    expect(map.get(projectB.id)).toEqual([nextB])
+  })
+
+  test('computeProjectNextTasks: project with no next task is absent from the map', () => {
+    const sphere = makeSphere()
+    const project = makeProject(sphere)
+    const state = buildState({ spheres: [sphere], projects: [project] })
+
+    expect(computeProjectNextTasks(state).get(project.id)).toBeUndefined()
+  })
+
+  test('computeProjectNextTasks: a project with multiple next tasks includes all of them', () => {
+    const sphere = makeSphere()
+    const project = makeProject(sphere)
+    const first = makeTask({ projectId: project.id, isNext: true, title: 'First next' })
+    const second = makeTask({ projectId: project.id, isNext: true, title: 'Second next' })
+    const state = buildState({ spheres: [sphere], projects: [project], tasks: [first, second] })
+
+    expect(computeProjectNextTasks(state).get(project.id)).toEqual([first, second])
+  })
+
+  test('computeProjectNextTasks: a next task that is waiting is still included', () => {
+    const sphere = makeSphere()
+    const project = makeProject(sphere)
+    const waitingNext = makeTask({
+      projectId: project.id, isNext: true, title: 'Waiting next', waitingFor: { kind: 'review' },
+    })
+    const state = buildState({ spheres: [sphere], projects: [project], tasks: [waitingNext] })
+
+    expect(computeProjectNextTasks(state).get(project.id)).toEqual([waitingNext])
+  })
+
+  test('computeProjectStatsAndNextTasks: matches computeProjectStats and computeProjectNextTasks in one pass', () => {
+    const sphere = makeSphere()
+    const projectA = makeProject(sphere, { name: 'A' })
+    const projectB = makeProject(sphere, { name: 'B' })
+    const nextA = makeTask({ projectId: projectA.id, isNext: true, title: 'Next A' })
+    const notNextA = makeTask({ projectId: projectA.id, title: 'Not next A' })
+    const state = buildState({
+      spheres: [sphere], projects: [projectA, projectB], tasks: [nextA, notNextA],
+    })
+
+    const { stats, nextTasksByProject } = computeProjectStatsAndNextTasks(state)
+    expect(stats).toEqual(computeProjectStats(state))
+    expect(nextTasksByProject).toEqual(computeProjectNextTasks(state))
   })
 
   test('toAgendaJson maps title to name and includes sphere ref', () => {
