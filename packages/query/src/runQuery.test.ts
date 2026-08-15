@@ -235,6 +235,35 @@ describe('projects', () => {
     const all = runQuery(state, { kind: 'projects', all: true }) as { projects: { name: string }[] }
     expect(all.projects.map(p => p.name)).toEqual(['Alpha', 'Beta'])
   })
+
+  test('omits nextTasks by default', () => {
+    const sphere = makeSphere()
+    const project = makeProject(sphere, { name: 'Website' })
+    const nextTask = makeTask({ projectId: project.id, isNext: true, title: 'Ship it' })
+    const state = buildState({ spheres: [sphere], projects: [project], tasks: [nextTask] })
+
+    const result = runQuery(state, { kind: 'projects' }) as { projects: Record<string, unknown>[] }
+    expect(result.projects[0]).not.toHaveProperty('nextTasks')
+  })
+
+  test('includeNextTasks includes each project\'s open next-action tasks, empty array when none', () => {
+    const sphere = makeSphere()
+    const withNext = makeProject(sphere, { name: 'Website' })
+    const withoutNext = makeProject(sphere, { name: 'Empty' })
+    const nextTask = makeTask({ projectId: withNext.id, isNext: true, title: 'Ship it' })
+    const notNextTask = makeTask({ projectId: withNext.id, title: 'Someday' })
+    const state = buildState({
+      spheres: [sphere], projects: [withNext, withoutNext], tasks: [nextTask, notNextTask],
+    })
+
+    const result = runQuery(state, { kind: 'projects', includeNextTasks: true }) as {
+      projects: { name: string; nextTasks: { title: string }[] }[]
+    }
+    const website = result.projects.find(p => p.name === 'Website')
+    const empty = result.projects.find(p => p.name === 'Empty')
+    expect(website?.nextTasks.map(t => t.title)).toEqual(['Ship it'])
+    expect(empty?.nextTasks).toEqual([])
+  })
 })
 
 describe('dashboard', () => {

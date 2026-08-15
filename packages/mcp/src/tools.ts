@@ -45,6 +45,7 @@ export interface ProjectsToolInput {
   sphere?: string | undefined
   archived?: boolean | undefined
   all?: boolean | undefined
+  includeNextTasks?: boolean | undefined
 }
 
 export interface SphereScopedToolInput {
@@ -139,6 +140,7 @@ export function handleProjects(store: TaskStore, input: ProjectsToolInput): Prom
     ...(input.sphere !== undefined && { sphere: input.sphere }),
     ...(input.archived === true && { archived: true }),
     ...(input.all === true && { all: true }),
+    ...(input.includeNextTasks === true && { includeNextTasks: true }),
   })
 }
 

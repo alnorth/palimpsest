@@ -43,6 +43,7 @@ export interface ProjectJson {
   createdAt: string
   updatedAt: string
   archivedAt: string | null
+  nextTasks?: TaskJson[]
 }
 
 export interface SphereJson {
@@ -142,7 +143,12 @@ export function computeProjectStats(state: ProjectionState): Map<ProjectId, Proj
   return stats
 }
 
-export function toProjectJson(state: ProjectionState, project: Project, stats: ProjectStats): ProjectJson {
+export function toProjectJson(
+  state: ProjectionState,
+  project: Project,
+  stats: ProjectStats,
+  nextTasks?: Task[],
+): ProjectJson {
   return {
     id: project.id,
     name: project.name,
@@ -154,7 +160,19 @@ export function toProjectJson(state: ProjectionState, project: Project, stats: P
     createdAt: project.createdAt,
     updatedAt: project.updatedAt,
     archivedAt: project.archivedAt ?? null,
+    ...(nextTasks !== undefined && { nextTasks: nextTasks.map(t => toTaskJson(state, t)) }),
   }
+}
+
+export function computeProjectNextTasks(state: ProjectionState): Map<ProjectId, Task[]> {
+  const map = new Map<ProjectId, Task[]>()
+  for (const task of state.tasks.values()) {
+    if (task.status !== 'open' || task.projectId === undefined || task.isNext !== true) continue
+    const existing = map.get(task.projectId)
+    if (existing !== undefined) existing.push(task)
+    else map.set(task.projectId, [task])
+  }
+  return map
 }
 
 export function toSphereJson(sphere: Sphere): SphereJson {
