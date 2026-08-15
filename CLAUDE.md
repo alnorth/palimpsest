@@ -49,12 +49,20 @@ different repo (e.g. `cockpit`) always requires an authenticated `.npmrc` pointi
 Internal `@alnorth/*` dependencies (e.g. `packages/query`'s dependency on `@alnorth/palimpsest`,
 `packages/hooks`'s on `@alnorth/palimpsest-query`/`@alnorth/palimpsest-todoist`) must use a real caret
 range (e.g. `"^0.3.3"`), never `"*"`. Inside the monorepo npm workspaces symlinks to local source
-regardless of range, but these `package.json` files are published verbatim to GitHub Packages with no
-rewrite step, so a `"*"` range gives external consumers (e.g. `cockpit`) no floor and no ceiling — a
-future breaking major release of the depended-on package could get pulled in silently. Whenever a
-depended-on package's version bumps in a way that changes its public surface, bump the dependent
-package's caret range to match in the same commit as the version bump, same as the release-tagging rule
-above.
+regardless of range, so a `"*"` range is harmless there — but these `package.json` files are published
+verbatim to GitHub Packages, and a `"*"` range gives external consumers (e.g. `cockpit`) no floor and no
+ceiling on the depended-on package, so a future breaking major release could get pulled in silently.
+
+This is enforced automatically rather than by manual discipline: `scripts/sync-internal-versions.mjs`
+rewrites every `@alnorth/*` range in every `packages/*/package.json` to `^<current version>` of that
+dependency (reading each dependency's own `version` field), and `publish-packages.yml` runs it (`npm run
+sync-internal-versions`) right before the `npm publish` steps, after typecheck/test/build have already
+run against whatever ranges were actually committed. So a version bump commit only needs to update the
+bumped package's own `version` field (per the release-tagging rule above) — dependency ranges elsewhere
+are corrected automatically at publish time and don't need a matching manual edit. This means the
+`package.json` actually published to GitHub Packages can differ from what's committed on `main`
+(committed ranges may be stale or `"*"` between bumps) — that divergence is expected and fine, since the
+published artifact is what external consumers see.
 
 Run `npm install` from the repo root before running typechecks or tests in a fresh environment — missing `node_modules` will cause spurious errors.
 
