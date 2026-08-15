@@ -16,7 +16,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@alnorth/palimpsest": "^0.3.3",
+    "@alnorth/palimpsest": "*",
     "minisearch": "^7.2.0"
   },
   "devDependencies": {

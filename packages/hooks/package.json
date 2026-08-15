@@ -16,9 +16,9 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@alnorth/palimpsest": "^0.3.3",
-    "@alnorth/palimpsest-query": "^0.3.3",
-    "@alnorth/palimpsest-todoist": "^0.3.3",
+    "@alnorth/palimpsest": "*",
+    "@alnorth/palimpsest-query": "*",
+    "@alnorth/palimpsest-todoist": "*",
     "react": "^19.0.0"
   },
   "devDependencies": {

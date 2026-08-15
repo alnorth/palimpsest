@@ -47,22 +47,18 @@ different repo (e.g. `cockpit`) always requires an authenticated `.npmrc` pointi
 `https://npm.pkg.github.com` — GitHub Packages requires auth even for public packages, unlike npmjs.
 
 Internal `@alnorth/*` dependencies (e.g. `packages/query`'s dependency on `@alnorth/palimpsest`,
-`packages/hooks`'s on `@alnorth/palimpsest-query`/`@alnorth/palimpsest-todoist`) must use a real caret
-range (e.g. `"^0.3.3"`), never `"*"`. Inside the monorepo npm workspaces symlinks to local source
-regardless of range, so a `"*"` range is harmless there — but these `package.json` files are published
-verbatim to GitHub Packages, and a `"*"` range gives external consumers (e.g. `cockpit`) no floor and no
-ceiling on the depended-on package, so a future breaking major release could get pulled in silently.
-
-This is enforced automatically rather than by manual discipline: `scripts/sync-internal-versions.mjs`
-rewrites every `@alnorth/*` range in every `packages/*/package.json` to `^<current version>` of that
-dependency (reading each dependency's own `version` field), and `publish-packages.yml` runs it (`npm run
-sync-internal-versions`) right before the `npm publish` steps, after typecheck/test/build have already
-run against whatever ranges were actually committed. So a version bump commit only needs to update the
-bumped package's own `version` field (per the release-tagging rule above) — dependency ranges elsewhere
-are corrected automatically at publish time and don't need a matching manual edit. This means the
-`package.json` actually published to GitHub Packages can differ from what's committed on `main`
-(committed ranges may be stale or `"*"` between bumps) — that divergence is expected and fine, since the
-published artifact is what external consumers see.
+`packages/hooks`'s on `@alnorth/palimpsest-query`/`@alnorth/palimpsest-todoist`) are committed as `"*"`
+in every `packages/*/package.json` — inside the monorepo npm workspaces symlinks to local source
+regardless of range, so `"*"` is harmless there and needs no manual bumping. These `package.json` files
+are published verbatim to GitHub Packages, though, and a `"*"` range would give external consumers (e.g.
+`cockpit`) no floor and no ceiling on the depended-on package — so `scripts/sync-internal-versions.mjs`
+rewrites every `@alnorth/*` range to `^<current version>` of that dependency (reading each dependency's
+own `version` field), and `publish-packages.yml` runs it (`npm run sync-internal-versions`) right before
+the `npm publish` steps, after typecheck/test/build have already run against the committed `"*"` ranges.
+This means the `package.json` actually published to GitHub Packages always differs from what's committed
+on `main` (published ranges are real caret ranges; committed ranges are `"*"`) — that divergence is
+expected and permanent, not just a between-bumps gap, since the published artifact is what external
+consumers see and the committed source is never meant to carry real ranges.
 
 Run `npm install` from the repo root before running typechecks or tests in a fresh environment — missing `node_modules` will cause spurious errors.
 

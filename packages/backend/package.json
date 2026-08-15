@@ -13,7 +13,7 @@
     "@aws-sdk/client-dynamodb": "^3.0.0",
     "@aws-sdk/client-secrets-manager": "^3.0.0",
     "@aws-sdk/lib-dynamodb": "^3.0.0",
-    "@alnorth/palimpsest": "^0.3.3"
+    "@alnorth/palimpsest": "*"
   },
   "devDependencies": {
     "@types/aws-lambda": "^8.10.0",
