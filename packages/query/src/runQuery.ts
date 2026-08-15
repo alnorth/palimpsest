@@ -2,7 +2,8 @@ import type { ProjectionState, Task, TaskFilter, TaskId, TaskStatus } from '@aln
 import { getTask, listTasks, listProjects, listAgendas, listContexts, listSpheres } from '@alnorth/palimpsest'
 import { resolveSphere, resolveProject, resolveAgenda, resolveContext } from './resolve'
 import {
-  toTaskJson, toProjectJson, toSphereJson, toAgendaJson, toContextJson, computeProjectStats,
+  toTaskJson, toProjectJson, toSphereJson, toAgendaJson, toContextJson,
+  computeProjectStats, computeProjectStatsAndNextTasks,
 } from './serialize'
 import { dashboardTasks, processingBuckets, waitingGroups, pickListGroups } from './views'
 import { searchAll } from './search'
@@ -43,6 +44,7 @@ export interface ProjectsCommand {
   sphere?: string
   archived?: boolean
   all?: boolean
+  includeNextTasks?: boolean
 }
 
 export interface SpheresCommand {
@@ -187,11 +189,16 @@ function runProjectsQuery(state: ProjectionState, command: ProjectsCommand): Rec
     ...(command.all !== true && { isArchived: command.archived === true }),
   }
   const projects = sortByName(listProjects(state, filter))
-  const stats = computeProjectStats(state)
+  const { stats, nextTasksByProject } = command.includeNextTasks === true
+    ? computeProjectStatsAndNextTasks(state)
+    : { stats: computeProjectStats(state), nextTasksByProject: undefined }
   const { count, total, truncated, items } = paginate(projects, undefined)
   return {
     count, total, truncated,
-    projects: items.map(p => toProjectJson(state, p, stats.get(p.id) ?? { openTaskCount: 0, hasNextAction: false })),
+    projects: items.map(p => toProjectJson(
+      state, p, stats.get(p.id) ?? { openTaskCount: 0, hasNextAction: false },
+      nextTasksByProject !== undefined ? sortTasks(nextTasksByProject.get(p.id) ?? [], 'open') : undefined,
+    )),
   }
 }
 

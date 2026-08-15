@@ -53,6 +53,7 @@ export function createMcpServer(store: TaskStore): McpServer {
       sphere: z.string().optional().describe('Filter by sphere name'),
       archived: z.boolean().optional().describe('Only archived projects'),
       all: z.boolean().optional().describe('Include both active and archived projects'),
+      includeNextTasks: z.boolean().optional().describe('Include each project\'s open next-action tasks'),
     },
   }, args => handleProjects(store, args))
 

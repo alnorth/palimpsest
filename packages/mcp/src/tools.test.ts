@@ -220,6 +220,30 @@ describe('handleProjects', () => {
     const parsed = parseOk<{ projects: { id: string; todoistUrl: string }[] }>(result)
     expect(parsed.projects[0]?.todoistUrl).toBe(`https://todoist.com/app/project/${project.id}`)
   })
+
+  test('omits nextTasks by default', async () => {
+    const sphere = makeSphere({ name: 'Work' })
+    const project = makeProject(sphere, { name: 'Launch' })
+    const task = makeTask({ projectId: project.id, isNext: true })
+    const store = fakeStore(buildState({ spheres: [sphere], projects: [project], tasks: [task] }))
+
+    const result = await handleProjects(store, { sphere: 'Work' })
+
+    const parsed = parseOk<{ projects: Record<string, unknown>[] }>(result)
+    expect(parsed.projects[0]).not.toHaveProperty('nextTasks')
+  })
+
+  test('includeNextTasks includes each project\'s open next-action tasks', async () => {
+    const sphere = makeSphere({ name: 'Work' })
+    const project = makeProject(sphere, { name: 'Launch' })
+    const task = makeTask({ projectId: project.id, isNext: true, title: 'Ship it' })
+    const store = fakeStore(buildState({ spheres: [sphere], projects: [project], tasks: [task] }))
+
+    const result = await handleProjects(store, { sphere: 'Work', includeNextTasks: true })
+
+    const parsed = parseOk<{ projects: { name: string; nextTasks: { title: string }[] }[] }>(result)
+    expect(parsed.projects[0]?.nextTasks.map(t => t.title)).toEqual(['Ship it'])
+  })
 })
 
 describe('handleSpheres', () => {
