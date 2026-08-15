@@ -18,6 +18,7 @@ export interface CreateProjectInput {
   sphereId: SphereId
   name: string
   description?: string
+  agendaId?: AgendaId
 }
 
 export function createProject(input: CreateProjectInput): PalimpsestEvent[] {
@@ -26,6 +27,7 @@ export function createProject(input: CreateProjectInput): PalimpsestEvent[] {
     sphereId: input.sphereId,
     name: input.name,
     ...(input.description !== undefined && { description: input.description }),
+    ...(input.agendaId    !== undefined && { agendaId:    input.agendaId }),
   })]
 }
 

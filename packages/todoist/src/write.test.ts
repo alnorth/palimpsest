@@ -12,7 +12,9 @@ import {
   TODOIST_PERSONAL_PROJECT_ID,
   TODOIST_RECURRING_ID,
   TODOIST_FUTURE_LOG_ID,
+  TODOIST_INBOX_ID,
 } from './mapping'
+import { AGENDA_PROJECT_MAP_TASK_TITLE } from './sharedStorage'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -515,6 +517,126 @@ describe('buildCommands — project lifecycle', () => {
     expect(commands).toHaveLength(1)
     expect(commands[0]?.args.name).toBe('New name')
     expect(commands[0]?.args.description).toBe('new goal')
+  })
+
+  it('agendaId patch with no ctx → no command (backwards compatible when ctx is omitted)', () => {
+    const { commands } = buildCommands(
+      {
+        type: 'project.updated', id: evId(), occurredAt: '',
+        projectId: projId(), patch: { agendaId: 'agenda-jim' as AgendaId },
+      },
+      baseState(),
+    )
+    expect(commands).toHaveLength(0)
+  })
+
+  it('agendaId patch with no existing map task → item_add creating the shared storage task in Inbox', () => {
+    const { commands } = buildCommands(
+      {
+        type: 'project.updated', id: evId(), occurredAt: '',
+        projectId: projId('1'), patch: { agendaId: 'agenda-jim' as AgendaId },
+      },
+      baseState(),
+      { rawAgendaMapping: {} },
+    )
+    expect(commands).toHaveLength(1)
+    expect(commands[0]?.type).toBe('item_add')
+    expect(commands[0]?.args.content).toBe(AGENDA_PROJECT_MAP_TASK_TITLE)
+    expect(commands[0]?.args.project_id).toBe(TODOIST_INBOX_ID)
+    expect(commands[0]?.args.description).toContain('"proj-1": "jim"')
+  })
+
+  it('agendaId patch with an existing map task → item_update targeting that task, preserving other entries', () => {
+    const { commands } = buildCommands(
+      {
+        type: 'project.updated', id: evId(), occurredAt: '',
+        projectId: projId('1'), patch: { agendaId: 'agenda-jim' as AgendaId },
+      },
+      baseState(),
+      { rawAgendaMapping: { 'proj-2': 'me' }, agendaMapTaskId: 'maptask1' },
+    )
+    expect(commands).toHaveLength(1)
+    expect(commands[0]?.type).toBe('item_update')
+    expect(commands[0]?.args.id).toBe('maptask1')
+    expect(commands[0]?.args.description).toContain('"proj-1": "jim"')
+    expect(commands[0]?.args.description).toContain('"proj-2": "me"')
+  })
+
+  it('agendaId CLEAR removes just that project\'s entry, keeping others intact', () => {
+    const { commands } = buildCommands(
+      {
+        type: 'project.updated', id: evId(), occurredAt: '',
+        projectId: projId('1'), patch: { agendaId: CLEAR },
+      },
+      baseState(),
+      { rawAgendaMapping: { 'proj-1': 'jim', 'proj-2': 'me' }, agendaMapTaskId: 'maptask1' },
+    )
+    expect(commands).toHaveLength(1)
+    const description = commands[0]?.args.description as string
+    expect(description).not.toContain('proj-1')
+    expect(description).toContain('"proj-2": "me"')
+  })
+
+  it('agendaId patch combined with name patch → both a project_update and the shared-storage command', () => {
+    const { commands } = buildCommands(
+      {
+        type: 'project.updated', id: evId(), occurredAt: '',
+        projectId: projId('1'), patch: { name: 'New name', agendaId: 'agenda-jim' as AgendaId },
+      },
+      baseState(),
+      { rawAgendaMapping: {} },
+    )
+    const types = commands.map(c => c.type)
+    expect(types).toContain('project_update')
+    expect(types).toContain('item_add')
+  })
+
+  it('returns agendaMappingAfter reflecting the applied change', () => {
+    const { agendaMappingAfter } = buildCommands(
+      {
+        type: 'project.updated', id: evId(), occurredAt: '',
+        projectId: projId('1'), patch: { agendaId: 'agenda-jim' as AgendaId },
+      },
+      baseState(),
+      { rawAgendaMapping: { 'proj-2': 'me' } },
+    )
+    expect(agendaMappingAfter).toEqual({ 'proj-1': 'jim', 'proj-2': 'me' })
+  })
+
+  it('returns agendaMapTaskTempId matching the item_add temp_id when creating the map task', () => {
+    const { commands, agendaMapTaskTempId } = buildCommands(
+      {
+        type: 'project.updated', id: evId(), occurredAt: '',
+        projectId: projId('1'), patch: { agendaId: 'agenda-jim' as AgendaId },
+      },
+      baseState(),
+      { rawAgendaMapping: {} },
+    )
+    expect(agendaMapTaskTempId).toBeDefined()
+    expect(commands[0]?.temp_id).toBe(agendaMapTaskTempId)
+  })
+
+  it('does not return agendaMapTaskTempId when updating an already-known map task', () => {
+    const { agendaMapTaskTempId } = buildCommands(
+      {
+        type: 'project.updated', id: evId(), occurredAt: '',
+        projectId: projId('1'), patch: { agendaId: 'agenda-jim' as AgendaId },
+      },
+      baseState(),
+      { rawAgendaMapping: {}, agendaMapTaskId: 'maptask1' },
+    )
+    expect(agendaMapTaskTempId).toBeUndefined()
+  })
+
+  it('agendaId for an agenda with no Todoist label throws', () => {
+    expect(() => buildCommands(
+      {
+        type: 'project.updated', id: evId(), occurredAt: '',
+        projectId: projId('1'), patch: { agendaId: 'agenda-ghost' as AgendaId },
+      },
+      baseState(),
+      { rawAgendaMapping: {} },
+    )).toThrow('No Todoist label mapped for agenda')
   })
 
   it('project.archived → project_archive', () => {

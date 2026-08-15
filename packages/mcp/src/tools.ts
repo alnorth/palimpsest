@@ -1,7 +1,8 @@
-import type { PalimpsestEvent, ProjectionState, SyncState, Task, TaskId } from '@alnorth/palimpsest'
-import { CLEAR, completeTask, deleteTask, getTask, updateTask } from '@alnorth/palimpsest'
+import type { AgendaId, PalimpsestEvent, Project, ProjectId, ProjectionState, SyncState, Task, TaskId } from '@alnorth/palimpsest'
+import { CLEAR, completeTask, deleteTask, getProject, getTask, updateProject, updateTask } from '@alnorth/palimpsest'
 import { runQuery } from '@alnorth/palimpsest-query'
 import type { ParsedCommand, StatusArg } from '@alnorth/palimpsest-query'
+import { computeProjectStats, toProjectJson } from '@alnorth/palimpsest-query'
 import { attachTodoistUrls } from '@alnorth/palimpsest-todoist'
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js'
 
@@ -45,6 +46,9 @@ export interface ProjectsToolInput {
   sphere?: string | undefined
   archived?: boolean | undefined
   all?: boolean | undefined
+  agenda?: string | undefined
+  hasAgenda?: boolean | undefined
+  withoutAgenda?: boolean | undefined
 }
 
 export interface SphereScopedToolInput {
@@ -80,6 +84,11 @@ export interface SetDueDateToolInput {
 
 export interface DeleteTaskToolInput {
   id: string
+}
+
+export interface SetProjectAgendaToolInput {
+  id: string
+  agendaId: string | null
 }
 
 // "today" is the only natural-language date form this tool resolves, mirroring the `tasks` tool's
@@ -139,6 +148,9 @@ export function handleProjects(store: TaskStore, input: ProjectsToolInput): Prom
     ...(input.sphere !== undefined && { sphere: input.sphere }),
     ...(input.archived === true && { archived: true }),
     ...(input.all === true && { all: true }),
+    ...(input.agenda !== undefined && { agenda: input.agenda }),
+    ...(input.hasAgenda === true && { hasAgenda: true }),
+    ...(input.withoutAgenda === true && { withoutAgenda: true }),
   })
 }
 
@@ -240,4 +252,45 @@ export function handleSetDueDate(store: TaskStore, input: SetDueDateToolInput): 
 
 export function handleDeleteTask(store: TaskStore, input: DeleteTaskToolInput): Promise<CallToolResult> {
   return runToolMutation(store, input.id, deleteTask)
+}
+
+// Sibling to runToolMutation, for the one write tool operating on a Project instead of a Task.
+// There's no singular `project` ParsedCommand kind to delegate to (only the plural `projects`
+// list), so this assembles the ProjectJson response directly from the same toProjectJson/
+// computeProjectStats @alnorth/palimpsest-query already exports for the projects tool, rather
+// than inventing a query-command kind whose only purpose would be to re-fetch one project.
+async function runProjectToolMutation(
+  store: TaskStore,
+  projectId: string,
+  buildEvents: (project: Project) => PalimpsestEvent[],
+): Promise<CallToolResult> {
+  try {
+    await store.sync()
+    const state = await store.getState()
+    const project = getProject(state, projectId as ProjectId)
+    if (project === undefined) throw new Error(`Project not found: ${projectId}`)
+    await store.appendEvents(buildEvents(project))
+    await store.sync()
+    const finalState = await store.getState()
+    const finalProject = getProject(finalState, projectId as ProjectId)
+    if (finalProject === undefined) throw new Error(`Project not found: ${projectId}`)
+    const stats = computeProjectStats(finalState)
+    const projectJson = toProjectJson(finalState, finalProject, stats.get(finalProject.id) ?? { openTaskCount: 0, hasNextAction: false })
+    const data = attachTodoistUrls({ project: projectJson })
+    const synced = store.syncState?.health !== 'error'
+    const response: Record<string, unknown> = { ok: true, synced, ...data }
+    if (!synced) {
+      response['warning'] =
+        `Change applied locally but not yet confirmed by the server (${store.syncState?.lastError ?? 'sync failed'}); it will retry automatically.`
+    }
+    return { content: [{ type: 'text', text: JSON.stringify(response, null, 2) }] }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    return { content: [{ type: 'text', text: message }], isError: true }
+  }
+}
+
+export function handleSetProjectAgenda(store: TaskStore, input: SetProjectAgendaToolInput): Promise<CallToolResult> {
+  return runProjectToolMutation(store, input.id, project =>
+    updateProject(project, { agendaId: input.agendaId === null ? CLEAR : input.agendaId as AgendaId }))
 }

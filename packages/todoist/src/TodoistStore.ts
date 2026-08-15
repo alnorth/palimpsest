@@ -4,10 +4,16 @@ import { sync } from './api'
 import type { SyncCommand } from './api'
 import { buildEvents, buildDeltaEvents } from './read'
 import { buildCommands } from './write'
+import { findAgendaMapTask, parseAgendaMapping } from './sharedStorage'
 
 export class TodoistStore extends PollingStore {
   private baseEvents: PalimpsestEvent[] = []
   private readonly configState: ProjectionState
+  // Last-known shared agenda-mapping storage task, captured from whatever sync response most
+  // recently included it (full syncs always include it if it exists; delta syncs only when it
+  // changed) — carried forward otherwise, mirroring how baseEvents itself accumulates.
+  private rawAgendaMapping: Record<string, string> = {}
+  private agendaMapTaskId: string | undefined = undefined
 
   constructor(
     private readonly token: string,
@@ -27,7 +33,7 @@ export class TodoistStore extends PollingStore {
 
     let allCommands: SyncCommand[]
     try {
-      allCommands = buildAllCommands(pending, this.baseEvents, this.configState)
+      allCommands = buildAllCommands(pending, this.baseEvents, this.configState, this.rawAgendaMapping, this.agendaMapTaskId)
     } catch (err) {
       // Without this catch, an event that fails to convert (e.g. a stale foreign-key
       // reference) throws here on every single sync attempt — poll and manual refresh alike —
@@ -57,6 +63,12 @@ export class TodoistStore extends PollingStore {
       await this.pendingStore.save([])
     }
 
+    const mapTask = findAgendaMapTask(res.items)
+    if (mapTask !== undefined) {
+      this.rawAgendaMapping = parseAgendaMapping(mapTask)
+      this.agendaMapTaskId = mapTask.id
+    }
+
     this.syncToken = res.sync_token
     if (res.full_sync) {
       this.baseEvents = buildEvents(res.projects, res.items)
@@ -78,6 +90,8 @@ function buildAllCommands(
   pending: PalimpsestEvent[],
   baseEvents: PalimpsestEvent[],
   configState: ProjectionState,
+  rawAgendaMapping: Record<string, string>,
+  agendaMapTaskId: string | undefined,
 ): SyncCommand[] {
   if (pending.length === 0) return []
 
@@ -88,9 +102,19 @@ function buildAllCommands(
   const nanoidToTempId = new Map<string, string>()
   const allCommands: SyncCommand[] = []
 
+  // Mutated as the batch is processed so multiple agenda-link changes in the same flush all land
+  // in the final blob, instead of each one building its command against the same stale
+  // start-of-flush snapshot. A brand-new map task created mid-batch is referenced by subsequent
+  // commands via its temp_id — the same substitution mechanism nanoidToTempId already relies on.
+  let runningAgendaMapping = rawAgendaMapping
+  let runningAgendaMapTaskId = agendaMapTaskId
+
   for (const raw of pending) {
     const event = applySourceIdSubs(raw, nanoidToTempId)
-    const { commands, tempId } = buildCommands(event, currentState)
+    const { commands, tempId, agendaMappingAfter, agendaMapTaskTempId } = buildCommands(event, currentState, {
+      rawAgendaMapping: runningAgendaMapping,
+      ...(runningAgendaMapTaskId !== undefined && { agendaMapTaskId: runningAgendaMapTaskId }),
+    })
     allCommands.push(...commands)
     if (tempId !== undefined) {
       const sourceId = event.type === 'task.created'    ? String(event.taskId)
@@ -100,6 +124,8 @@ function buildAllCommands(
         nanoidToTempId.set(sourceId, tempId)
       }
     }
+    if (agendaMappingAfter !== undefined) runningAgendaMapping = agendaMappingAfter
+    if (agendaMapTaskTempId !== undefined) runningAgendaMapTaskId = agendaMapTaskTempId
   }
 
   return allCommands

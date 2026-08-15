@@ -16,12 +16,14 @@ export interface ProjectCreatedEvent extends EventBase {
   sphereId: SphereId
   name: string
   description?: string
+  agendaId?: AgendaId
 }
 
 export type ProjectPatch = {
   name?: string
   description?: string | typeof CLEAR
   sphereId?: SphereId
+  agendaId?: AgendaId | typeof CLEAR
 }
 
 export interface ProjectUpdatedEvent extends EventBase {

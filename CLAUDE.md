@@ -111,8 +111,11 @@ commands.ts  →  events.ts  →  projection.ts  →  query.ts
 ### Domain model
 
 - **Sphere** — top-level grouping (e.g. "Work", "Personal"). Every project, agenda, and project-less task must belong to one.
-- **Project** — belongs to exactly one sphere.
-- **Agenda** — belongs to exactly one sphere; has only a `title` (no description). Tasks may optionally be linked to one agenda via `agendaId`.
+- **Project** — belongs to exactly one sphere. May optionally be linked to an agenda via `agendaId`
+  (making it a "shared project"), mirroring `Task.agendaId` exactly — including its looseness: no
+  cross-check enforces that the linked agenda belongs to the project's own sphere.
+- **Agenda** — belongs to exactly one sphere; has only a `title` (no description). Tasks and
+  projects may optionally be linked to one agenda via `agendaId`.
 - **Task** — belongs to a project (inheriting its sphere) OR carries a direct `sphereId`. Never both explicitly — if `projectId` is set, sphere is always derived at query time via `getTaskSphereId`.
 
 ### ID types
@@ -138,6 +141,8 @@ src/
 
 `ParsedCommand` kinds: `tasks`, `task`, `projects`, `spheres`, `agendas`, `contexts` (the original CLI-era surface, filters matching `core/query.ts`'s `TaskFilter` field-for-field, plus `dueOn`/`dueBefore`/`limit`), four aggregate views ported from the old interactive TUI's view model, with no equivalent anywhere else in the codebase, and `search`:
 
+`projects` additionally supports `agenda`/`hasAgenda`/`withoutAgenda`, mirroring `tasks`' own agenda vocabulary exactly (name resolved via `resolveAgenda`, `hasAgenda`/`withoutAgenda` mapping onto core's single `ProjectFilter.hasAgenda` tri-state) — this is how a "shared project" (a project linked to an agenda) is queried. `ProjectJson` denormalizes the link as `agenda: EntityRef | null`, same pattern as every other optional FK. There is no dedicated aggregate view for "shared projects" (e.g. grouped by agenda) — the extended `projects` command plus this `agenda` field is enough for a consumer to group client-side, and no second consumer needing that grouping exists in this codebase to justify centralizing it in `views.ts`.
+
 - **`dashboard`** — `{ kind: 'dashboard', sphere: string, limit?: number }`. **`sphere` is required** — there is no "across all spheres" mode. Open tasks in that sphere where `dueDate <= today OR isStarred`, overdue/due-today sorted ascending before non-date-qualifying starred tasks.
 - **`processing`** — `{ kind: 'processing' }`. **Takes no sphere at all** — always aggregates across every sphere. Returns three buckets: `actionableTasks` (actionable, not waiting, no due date/agenda/context), `projectsWithoutNext` (active projects with no open `isNext` task), `tasksWaitingOnArchivedProjects` (waiting tasks pointing at an archived or missing project).
 - **`waiting`** — `{ kind: 'waiting', sphere?: string }`. Sphere optional, unscoped (all spheres) when omitted. Open+waiting tasks grouped by `waitingFor.kind`, fixed order `review, agenda, project, trello`, empty groups omitted.
@@ -162,6 +167,48 @@ diffs every field against the existing task), `project.updated`'s delta patch ha
 `name`/`sphereId`/`description` are rebuilt unconditionally from whatever `deltaProjects` contains, on
 the assumption that Todoist's sync response only includes a project in the delta when something on it
 actually changed.
+
+**Project↔agenda links ("shared projects") round-trip through a shared JSON-blob storage task,
+not a native Todoist field — Todoist projects have no custom-field concept, and this reuses the
+exact same mechanism the sibling (non-integrated) `/home/user/dashboard` app already uses for the
+same purpose**, so the two apps stay interoperable on the same live Todoist data.
+`packages/todoist/src/sharedStorage.ts` defines: `AGENDA_PROJECT_MAP_TASK_TITLE` — the exact magic
+task content (`'* _AGENDA_PROJECT_MAPPING_'`) the dashboard's `useSharedProjectMapping.jsx` already
+creates in Inbox (`TODOIST_INBOX_ID`) if missing; `findAgendaMapTask`/`parseAgendaMapping`/
+`serializeAgendaMapping` — locate that task among raw Todoist items and parse/serialize its
+`description` as fenced JSON (`` ```\n{...}\n``` ``, matching the dashboard's `useTodoistStorage.jsx`
+format byte-for-byte); `resolveProjectAgendaIds`/`labelForAgenda` — translate the blob's
+`{ [todoistProjectId]: label }` dictionary to/from real `AgendaId`s via the **already-existing**
+`LABEL_TO_AGENDA_ID`/`AGENDA_ID_TO_LABEL` maps in `mapping.ts` (the same vocabulary already used for
+task-level agenda labels). `SELF_AGENDA_LABEL` (`'me'`) is the dashboard's sentinel for "not shared
+— just mine," a deliberate, permanently-unmapped label (not a person, so it never gets an
+`AgendaId`) — `resolveProjectAgendaIds` excludes it explicitly rather than letting it fall through
+the generic unrecognized-label path, since the two cases mean different things even though they
+currently behave the same (no `agendaId` set).
+
+`read.ts`'s `buildEvents`/`buildDeltaEvents` compute the resolved mapping once per sync and fold it
+into `project.created`/`project.updated` events the same way `description`/`sphereId` already are;
+the map task itself is explicitly excluded from ever becoming a spurious palimpsest task. Because
+the mapping can change without the linked project itself appearing in a given delta (someone only
+edited the shared storage task), `buildDeltaEvents` also diffs every current project's `agendaId`
+against a freshly-parsed mapping when the map task itself is in `deltaItems`, emitting
+`project.updated` patches for whichever projects changed. `write.ts`'s `project.updated` case takes
+an optional `BuildCommandsContext` (`{ rawAgendaMapping, agendaMapTaskId? }`) to read-modify-write
+just one entry in the current mapping — `item_add` (creating the task in Inbox) if no map task is
+known yet, `item_update` otherwise — and returns the resulting mapping/temp-id back to the caller
+(`agendaMappingAfter`/`agendaMapTaskTempId`) so `TodoistStore`'s `buildAllCommands` can thread it
+forward within one flush: multiple agenda-link changes queued before a single sync all land
+correctly in the final blob, rather than each one overwriting the others based on the same
+start-of-flush snapshot (a brand-new map task created mid-batch is referenced by later commands via
+its `temp_id`, the same substitution mechanism already used for cross-referencing a project created
+earlier in the same batch). `TodoistStore` itself caches the last-known `rawAgendaMapping`/
+`agendaMapTaskId`, refreshed from whatever sync response most recently included the map task (full
+syncs always include it if present; delta syncs only when it changed) and carried forward
+otherwise — mirroring how `baseEvents` itself accumulates. This still leaves a known,
+accepted-not-fixed race: two independent writers (two palimpsest instances, or palimpsest and the
+dashboard app, or two open dashboard tabs) doing a concurrent read-modify-write on the same shared
+blob can clobber each other's change — the same weakness `useTodoistStorage.jsx` already has with
+itself, not a new risk this integration introduces.
 
 `mapping.ts`'s `todoistTaskUrl(taskId)` mirrors the existing `todoistProjectUrl(projectId)` — both are
 pure `id → https://todoist.com/app/{task,project}/{id}` builders, valid because `TodoistStore` never
@@ -226,15 +273,17 @@ found.
 
 ### packages/mcp
 
-A local MCP server over the stdio transport, for use by MCP clients (e.g. Claude Desktop, Claude Code). Exposes eleven read-only tools mirroring `@alnorth/palimpsest-query`'s `ParsedCommand` kinds one-for-one (`tasks`, `task`, `projects`, `spheres`, `agendas`, `contexts`, `dashboard`, `processing`, `waiting`, `pick_list`, `search`) plus three write tools — `complete_task`, `set_due_date`, `delete_task` — a small but growing set alongside the read ones.
+A local MCP server over the stdio transport, for use by MCP clients (e.g. Claude Desktop, Claude Code). Exposes eleven read-only tools mirroring `@alnorth/palimpsest-query`'s `ParsedCommand` kinds one-for-one (`tasks`, `task`, `projects`, `spheres`, `agendas`, `contexts`, `dashboard`, `processing`, `waiting`, `pick_list`, `search`) plus four write tools — `complete_task`, `set_due_date`, `delete_task`, `set_project_agenda` — a small but growing set alongside the read ones.
 
 ```
 src/
   index.ts        — entry point: builds the store, connects McpServer over StdioServerTransport
-  server.ts       — createMcpServer(store): registers the 14 tools with zod input schemas
+  server.ts       — createMcpServer(store): registers the 15 tools with zod input schemas
   tools.ts        — pure per-tool handlers: read handlers map args → ParsedCommand and call runQuery;
-                    write handlers (handleCompleteTask/handleSetDueDate/handleDeleteTask) map args →
-                    a core command → store.appendEvents, via the shared runToolMutation scaffolding
+                    task write handlers (handleCompleteTask/handleSetDueDate/handleDeleteTask) map
+                    args → a core command → store.appendEvents, via the shared runToolMutation
+                    scaffolding; the one project write handler (handleSetProjectAgenda) uses the
+                    structurally-identical runProjectToolMutation sibling instead (see below)
   store.ts        — createStore(env): builds a TodoistStore from PALIMPSEST_TODOIST_TOKEN
 ```
 
@@ -242,9 +291,11 @@ Only supports the Todoist store for now, so the only credential needed is the To
 
 The store is built once at startup; each read tool call runs `store.sync()` (an incremental Todoist sync) before `store.getState()`, so results stay fresh without re-authenticating per call. Each read handler in `tools.ts` maps its zod-validated input onto a `ParsedCommand` from `@alnorth/palimpsest-query` and calls the shared `runQuery`. Success returns `{ content: [{ type: 'text', text: JSON.stringify({ ok: true, ...data }) }] }`; a thrown domain error (unresolved name, unknown task id) or a failed sync is caught and returned as `{ content: [...], isError: true }` with the error message as the text — never a thrown protocol error. `dashboard` and `pick_list` require `sphere` in their input schema (no `.optional()`); `processing` takes an empty schema; `search` requires `query`.
 
-`search` is the tool this server exists to make unnecessary to work around: without it, finding a specific task or project meant listing everything into context (via `tasks`/`projects`) and scanning client-side. `handleSearch`/`search` map straight onto `@alnorth/palimpsest-query`'s `search` command kind (see packages/query section above) — full-text, prefix- and typo-tolerant, ranked by relevance, tasks and projects combined in one result list.
+`search` is the tool this server exists to make unnecessary to work around: without it, finding a specific task or project meant listing everything into context (via `tasks`/`projects`) and scanning client-side. `handleSearch`/`search` map straight onto `@alnorth/palimpsest-query`'s `search` command kind (see packages/query section above) — full-text, prefix- and typo-tolerant, ranked by relevance, tasks and projects combined in one result list. `projects` additionally accepts `agenda`/`hasAgenda`/`withoutAgenda`, the same filter `@alnorth/palimpsest-query`'s `projects` command exposes (see packages/query section above), for finding "shared projects."
 
-All three write handlers take a plain task `id` — no name resolution, unlike the collection filters, since a wrong fuzzy match on a *write* is a much worse failure mode than on a read. They share `runToolMutation(store, taskId, buildEvents)`: sync → look up the task via core's `getTask` (throws `Task not found: ...` if missing) → `buildEvents(task)` to get the event(s) to append (`completeTask` → `task.completed`, or `task.recurred` if the task carries a `dueDateExpression`; `updateTask(task, { dueDate })` → `task.updated`; `deleteTask` → `task.deleted`) → `appendEvents` → a second `store.sync()` to flush the pending event through immediately rather than leaving it for `PollingStore`'s debounced sync → re-read state → `runQuery(..., { kind: 'task', id })`. `TodoistStore.sync()` swallows network failures internally (sets `syncState.health` to `'error'` instead of rejecting), so a failed flush looks identical to a successful one from the handler's `await` alone — `runToolMutation` checks `store.syncState` afterwards and reports `synced: false` plus a `warning` string when the flush didn't actually confirm, rather than silently claiming confirmation that didn't happen. The write itself already succeeded at that point (`appendEvents` resolved), so this is reported as an unsynced success (`ok: true, synced: false`), not a tool error.
+All four write handlers take a plain `id` (task or project) — no name resolution, unlike the collection filters, since a wrong fuzzy match on a *write* is a much worse failure mode than on a read; this applies equally to `set_project_agenda`'s `agendaId` argument (a raw id, not a name — an MCP client resolves it via the `agendas` tool first, the same way it already must for the target `id` itself). The three task write handlers share `runToolMutation(store, taskId, buildEvents)`: sync → look up the task via core's `getTask` (throws `Task not found: ...` if missing) → `buildEvents(task)` to get the event(s) to append (`completeTask` → `task.completed`, or `task.recurred` if the task carries a `dueDateExpression`; `updateTask(task, { dueDate })` → `task.updated`; `deleteTask` → `task.deleted`) → `appendEvents` → a second `store.sync()` to flush the pending event through immediately rather than leaving it for `PollingStore`'s debounced sync → re-read state → `runQuery(..., { kind: 'task', id })`. `TodoistStore.sync()` swallows network failures internally (sets `syncState.health` to `'error'` instead of rejecting), so a failed flush looks identical to a successful one from the handler's `await` alone — `runToolMutation` checks `store.syncState` afterwards and reports `synced: false` plus a `warning` string when the flush didn't actually confirm, rather than silently claiming confirmation that didn't happen. The write itself already succeeded at that point (`appendEvents` resolved), so this is reported as an unsynced success (`ok: true, synced: false`), not a tool error.
+
+`set_project_agenda` (`{ id, agendaId: string | null }`, `null` clearing via `CLEAR`) is the one write tool operating on a `Project` instead of a `Task` — there's no singular `project` `ParsedCommand` kind to re-fetch through (only the plural `projects` list), so its `runProjectToolMutation` sibling assembles the response directly from `@alnorth/palimpsest-query`'s already-exported `toProjectJson`/`computeProjectStats` rather than inventing a query-command kind whose only purpose would be re-fetching one project. Otherwise it's structurally identical to `runToolMutation`: sync → `getProject` (throws `Project not found: ...`) → `updateProject(project, { agendaId })` → `appendEvents` → flush sync → re-read → same `synced`/`warning` reporting.
 
 `set_due_date`'s `dueDate` input is `string | null` — a string (`"today"` or an ISO `YYYY-MM-DD`, resolved by a local `resolveDueDate` helper mirroring `@alnorth/palimpsest-query`'s `resolveDateArg`) to set it, or `null` to clear it via core's `CLEAR` sentinel. There is no dedicated core command for this — it goes through the generic `updateTask(task, { dueDate })` patch, same as `postponeTask` does internally. `delete_task` and `set_due_date` both fail (via `updateTask`/`deleteTask`'s own guards) if the task isn't in a valid state for the change — e.g. `set_due_date` on a completed/deleted task, or `delete_task` on an already-deleted one — surfaced the same way as `complete_task`'s "already completed" guard.
 
@@ -268,6 +319,7 @@ src/
   internal/useMutation.ts       — shared store.appendEvents(...) wrapper every write hook uses, exposing
                                   { mutate, isPending, error }; the write-side sibling of useRunQuery
   internal/requireTask.ts       — shared getTask(projState, id) + "Task not found" guard every write hook uses
+  internal/requireProject.ts    — same shape as requireTask.ts, for the project-side write hook (getProject + "Project not found")
   use*.ts                       — one hook per read/write capability (see below)
   presentation/                 — opt-in display/formatting helpers operating on TaskJson (not ProjectionState)
 ```
@@ -276,9 +328,9 @@ Read hooks: `useSpheres`, `useAgendas`, `useContexts`, `useProjects`, `useTasks`
 
 `useSearch(query, filter?)` is the one read hook whose first argument is a plain string rather than a filter object, since it's built for find-as-you-type: pass the raw text-input value straight through on every keystroke, no debouncing needed. This is cheap specifically because of how `@alnorth/palimpsest-query`'s `search` command is cached (see `search.ts`'s `WeakMap` in the packages/query section above): `PalimpsestProvider`'s `projState` keeps the same object reference across every re-render until the store actually notifies of a change, so typing a query only ever re-runs a cheap `.search()` against an index built once at the start of that session, not a full MiniSearch rebuild per keystroke. `internal/useRunQuery.ts`'s existing `JSON.stringify(command)`-keyed memoization additionally skips recomputation entirely when the query string hasn't actually changed between renders. A blank/whitespace-only `query` passes `command: undefined` to `useRunQuery` (same as any other read hook with nothing to query yet) and returns an empty-but-valid `ListResult` (`{ data: [], isLoading: false, error: undefined, total: 0, truncated: false }`) — a fresh search box starts empty, not loading. `filter` is `{ sphere?, includeArchived?, limit? }`, mirroring the `search` command's own optional fields.
 
-Write hooks: `useCompleteTask()`, `useSetDueDate()`, `useDeleteTask()` (more — `useCreateTask()`, etc. — are a planned later phase). Every write hook returns `MutationResult<TArgs, TResult>` (`{ mutate, isPending, error }`) from the shared `internal/useMutation.ts` primitive. `useCompleteTask()` and `useDeleteTask()` take no arguments and return `{ mutate: (taskId: string) => Promise<void>, isPending, error }` — the id varies per call rather than per hook instance, so one hook instance can complete/delete whichever row was just clicked in a list. `useSetDueDate()` returns `{ mutate: (args: SetDueDateArgs) => Promise<void>, isPending, error }` where `SetDueDateArgs` is `{ taskId: string; dueDate: string | null }` (`null` clears the due date via core's `CLEAR` sentinel — there's no dedicated core command for this, it's the same generic `updateTask(task, { dueDate })` patch the MCP `set_due_date` tool uses). Every `mutate` looks the task up fresh from the *current* `projState` (not a value captured at render time) via the shared `internal/requireTask.ts` helper (`getTask` plus the "Task not found" guard every write hook needs), then calls the matching core command (`completeTask`/`updateTask`/`deleteTask`) and `store.appendEvents(...)`. No hand-rolled optimistic local state is needed: `PollingStore`-based stores already fold pending (unsynced) events into every `getState()` projection, so the Provider's existing `subscribe`→`getState()`→re-render loop reflects the write as soon as `appendEvents` resolves, well before the debounced network sync completes.
+Write hooks: `useCompleteTask()`, `useSetDueDate()`, `useDeleteTask()`, `useSetProjectAgenda()` (more — `useCreateTask()`, etc. — are a planned later phase). Every write hook returns `MutationResult<TArgs, TResult>` (`{ mutate, isPending, error }`) from the shared `internal/useMutation.ts` primitive. `useCompleteTask()` and `useDeleteTask()` take no arguments and return `{ mutate: (taskId: string) => Promise<void>, isPending, error }` — the id varies per call rather than per hook instance, so one hook instance can complete/delete whichever row was just clicked in a list. `useSetDueDate()` returns `{ mutate: (args: SetDueDateArgs) => Promise<void>, isPending, error }` where `SetDueDateArgs` is `{ taskId: string; dueDate: string | null }` (`null` clears the due date via core's `CLEAR` sentinel — there's no dedicated core command for this, it's the same generic `updateTask(task, { dueDate })` patch the MCP `set_due_date` tool uses). `useSetProjectAgenda()` is the project-side equivalent: `{ mutate: (args: SetProjectAgendaArgs) => Promise<void>, isPending, error }`, `SetProjectAgendaArgs` = `{ projectId: string; agendaId: string | null }` (`null` clears via `CLEAR`, same `updateProject(project, { agendaId })` patch the MCP `set_project_agenda` tool uses; `agendaId` is a raw id, no name resolution, for the same reason the MCP tool takes a raw id). Every `mutate` looks the task/project up fresh from the *current* `projState` (not a value captured at render time) via the shared `internal/requireTask.ts`/`internal/requireProject.ts` helpers (`getTask`/`getProject` plus the "not found" guard every write hook needs), then calls the matching core command (`completeTask`/`updateTask`/`deleteTask`/`updateProject`) and `store.appendEvents(...)`. No hand-rolled optimistic local state is needed: `PollingStore`-based stores already fold pending (unsynced) events into every `getState()` projection, so the Provider's existing `subscribe`→`getState()`→re-render loop reflects the write as soon as `appendEvents` resolves, well before the debounced network sync completes.
 
-`useMutation`'s `mutate` is wrapped in `useCallback([store, projState, fn])`, so each write hook's `fn` must be a stable reference (module-level, not an inline closure defined inside the hook body) or the memoization is defeated and `mutate` gets a new identity every render regardless of whether `store`/`projState` actually changed. `useCompleteTask`, `useSetDueDate`, and `useDeleteTask` all follow this by defining their mutation logic as a top-level `runCompleteTask`/`runSetDueDate`/`runDeleteTask` function and passing that reference to `useMutation`, rather than an inline arrow function — later write hooks should do the same.
+`useMutation`'s `mutate` is wrapped in `useCallback([store, projState, fn])`, so each write hook's `fn` must be a stable reference (module-level, not an inline closure defined inside the hook body) or the memoization is defeated and `mutate` gets a new identity every render regardless of whether `store`/`projState` actually changed. `useCompleteTask`, `useSetDueDate`, `useDeleteTask`, and `useSetProjectAgenda` all follow this by defining their mutation logic as a top-level `runCompleteTask`/`runSetDueDate`/`runDeleteTask`/`runSetProjectAgenda` function and passing that reference to `useMutation`, rather than an inline arrow function — later write hooks should do the same.
 
 Filter param shapes mirror `@alnorth/palimpsest-query`'s `ParsedCommand` fields exactly (same sphere/project/agenda/context/status/etc. vocabulary as the MCP tools), with one exception: **sphere-scoping for the four aggregate hooks is split by hook family**. `useTasks`/`useProjects`/`useAgendas`/`useContexts` stay fully parameterized — an omitted `sphere` never falls back to context state. `useWaiting` mirrors its MCP tool (`sphere` optional, unscoped when omitted). `useDashboard`/`usePickList` mirror their MCP tools' required-`sphere` constraint, but satisfy it at the hook layer by falling back to the Context's `currentSphereId` when their own argument is omitted — if neither resolves, they return an empty-but-valid result (`{ data: [], isLoading: false, error: undefined, ... }`), never an error. `useProcessing` takes no sphere argument at all, matching its MCP tool's always-global scope.
 

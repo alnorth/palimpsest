@@ -143,6 +143,7 @@ describe('project/sphere/agenda/context serialization', () => {
       name: 'Website',
       description: null,
       sphere: { id: sphere.id, name: 'Work' },
+      agenda: null,
       isArchived: false,
       openTaskCount: 1,
       hasNextAction: true,
@@ -150,6 +151,23 @@ describe('project/sphere/agenda/context serialization', () => {
       updatedAt: project.updatedAt,
       archivedAt: null,
     })
+  })
+
+  test('toProjectJson resolves agenda ref when the project is linked to an agenda', () => {
+    const sphere = makeSphere({ name: 'Work' })
+    const agenda = makeAgenda(sphere, { title: 'Jim' })
+    const project = makeProject(sphere, { agendaId: agenda.id })
+    const state = buildState({ spheres: [sphere], agendas: [agenda], projects: [project] })
+    const stats = computeProjectStats(state)
+    expect(toProjectJson(state, project, stats.get(project.id)!).agenda).toEqual({ id: agenda.id, name: 'Jim' })
+  })
+
+  test('toProjectJson: dangling agendaId (agenda not in state) resolves to null rather than throwing', () => {
+    const sphere = makeSphere()
+    const project = makeProject(sphere, { agendaId: 'missing' as AgendaId })
+    const state = buildState({ spheres: [sphere], projects: [project] })
+    const stats = computeProjectStats(state)
+    expect(toProjectJson(state, project, stats.get(project.id)!).agenda).toBeNull()
   })
 
   test('computeProjectStats: project with only non-next open tasks has hasNextAction false', () => {

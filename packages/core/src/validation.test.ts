@@ -1,13 +1,22 @@
 import { describe, it, expect } from 'vitest'
 import { createEmptyState, project } from './projection'
 import { buildStateFromConfig } from './config'
-import { createProject, createTask, updateTask } from './commands'
+import { createProject, createTask, updateTask, updateProject } from './commands'
 import { validateBatch } from './validation'
 import type { PalimpsestEvent } from './events'
-import type { SphereId, ProjectId, TaskId, EventId } from './ids'
+import type { SphereId, ProjectId, TaskId, EventId, AgendaId } from './ids'
 
 const sphereId = 'sph1' as SphereId
-const baseState = { ...createEmptyState(), ...buildStateFromConfig([{ id: sphereId, name: 'Work', agendas: [], contexts: [] }]) }
+const agendaId = 'ag1' as AgendaId
+const baseState = {
+  ...createEmptyState(),
+  ...buildStateFromConfig([{
+    id: sphereId,
+    name: 'Work',
+    agendas: [{ id: agendaId, title: 'Weekly Review' }],
+    contexts: [],
+  }]),
+}
 
 describe('validateBatch', () => {
   it('accepts an empty batch', () => {
@@ -65,5 +74,33 @@ describe('validateBatch', () => {
       patch: { title: 'x' },
     }
     expect(() => validateBatch(baseState, [badEvent])).toThrow('Task not found')
+  })
+
+  it('accepts a project.created event with a valid agendaId', () => {
+    const evts = createProject({ name: 'Shared project', sphereId, agendaId })
+    expect(() => validateBatch(baseState, evts)).not.toThrow()
+  })
+
+  it('throws when a project.created event references a non-existent agenda', () => {
+    const evts = createProject({ name: 'Shared project', sphereId, agendaId: 'ghost-agenda' as AgendaId })
+    expect(() => validateBatch(baseState, evts)).toThrow('Agenda not found')
+  })
+
+  it('throws when a project.updated patch references a non-existent agenda', () => {
+    const projEvts = createProject({ name: 'Proj', sphereId })
+    const s1 = project(projEvts, baseState)
+    const projectId = (projEvts[0] as any).projectId as ProjectId
+    const proj = s1.projects.get(projectId)!
+    const updateEvts = updateProject(proj, { agendaId: 'ghost-agenda' as AgendaId })
+    expect(() => validateBatch(s1, updateEvts)).toThrow('Agenda not found')
+  })
+
+  it('accepts a project.updated patch clearing agendaId', () => {
+    const projEvts = createProject({ name: 'Proj', sphereId, agendaId })
+    const s1 = project(projEvts, baseState)
+    const projectId = (projEvts[0] as any).projectId as ProjectId
+    const proj = s1.projects.get(projectId)!
+    const clearEvts = updateProject(proj, { agendaId: null })
+    expect(() => validateBatch(s1, clearEvts)).not.toThrow()
   })
 })

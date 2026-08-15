@@ -37,6 +37,7 @@ export interface ProjectJson {
   name: string
   description: string | null
   sphere: EntityRef | null
+  agenda: EntityRef | null
   isArchived: boolean
   openTaskCount: number
   hasNextAction: boolean
@@ -148,6 +149,7 @@ export function toProjectJson(state: ProjectionState, project: Project, stats: P
     name: project.name,
     description: project.description ?? null,
     sphere: refFromSphere(state.spheres.get(project.sphereId)),
+    agenda: project.agendaId !== undefined ? refFromAgenda(state.agendas.get(project.agendaId)) : null,
     isArchived: project.isArchived === true,
     openTaskCount: stats.openTaskCount,
     hasNextAction: stats.hasNextAction,

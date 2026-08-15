@@ -26,6 +26,7 @@ export function applyEvent(state: ProjectionState, event: PalimpsestEvent): Proj
         createdAt: event.occurredAt,
         updatedAt: event.occurredAt,
         ...(event.description !== undefined && { description: event.description }),
+        ...(event.agendaId    !== undefined && { agendaId:    event.agendaId }),
       }
       state.projects.set(project.id, project)
       return state
@@ -40,6 +41,10 @@ export function applyEvent(state: ProjectionState, event: PalimpsestEvent): Proj
       if (patch.description !== undefined) {
         if (patch.description === CLEAR) delete project.description
         else project.description = patch.description
+      }
+      if (patch.agendaId !== undefined) {
+        if (patch.agendaId === CLEAR) delete project.agendaId
+        else project.agendaId = patch.agendaId
       }
       project.updatedAt = event.occurredAt
       return state

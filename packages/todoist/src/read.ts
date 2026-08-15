@@ -1,4 +1,4 @@
-import type { ProjectionState, Task, Project, SphereId, ProjectId, TaskId, PalimpsestEvent, TaskPatch } from '@alnorth/palimpsest'
+import type { ProjectionState, Task, Project, SphereId, ProjectId, TaskId, AgendaId, PalimpsestEvent, TaskPatch } from '@alnorth/palimpsest'
 import { CLEAR, newEventId } from '@alnorth/palimpsest'
 import type { SyncItem, SyncProject } from './api'
 import {
@@ -13,6 +13,12 @@ import {
   LABEL_TO_CONTEXT_ID,
   extractProjectIdFromUrl,
 } from './mapping'
+import {
+  AGENDA_PROJECT_MAP_TASK_TITLE,
+  findAgendaMapTask,
+  parseAgendaMapping,
+  resolveProjectAgendaIds,
+} from './sharedStorage'
 
 // ── Project helpers ───────────────────────────────────────────────────────────
 
@@ -34,6 +40,7 @@ function resolveSphereId(project: SyncProject, byId: Map<string, SyncProject>): 
 function buildPalimpsestProjects(
   raw: SyncProject[],
   byId: Map<string, SyncProject>,
+  agendaIds: Record<string, AgendaId> = {},
 ): Map<ProjectId, Project> {
   const projects = new Map<ProjectId, Project>()
   for (const p of raw) {
@@ -49,6 +56,7 @@ function buildPalimpsestProjects(
       createdAt: p.created_at,
       updatedAt: p.updated_at,
       ...(p.description !== '' && { description: p.description }),
+      ...(agendaIds[p.id] !== undefined && { agendaId: agendaIds[p.id] }),
       ...(p.is_archived && { isArchived: true, archivedAt: p.updated_at }),
     })
   }
@@ -196,14 +204,16 @@ export function buildEvents(
   rawItems: SyncItem[],
 ): PalimpsestEvent[] {
   const byId = buildProjectMap(rawProjects)
+  const agendaIds = resolveProjectAgendaIds(parseAgendaMapping(findAgendaMapTask(rawItems)))
   const events: PalimpsestEvent[] = []
 
-  for (const p of buildPalimpsestProjects(rawProjects, byId).values()) {
+  for (const p of buildPalimpsestProjects(rawProjects, byId, agendaIds).values()) {
     events.push({
       id: newEventId(), type: 'project.created',
       projectId: p.id, sphereId: p.sphereId, name: p.name,
       occurredAt: p.createdAt,
       ...(p.description !== undefined && { description: p.description }),
+      ...(p.agendaId     !== undefined && { agendaId:     p.agendaId }),
     })
     if (p.isArchived === true) {
       events.push({
@@ -215,6 +225,7 @@ export function buildEvents(
 
   for (const t of rawItems) {
     if (t.is_deleted) continue
+    if (t.content === AGENDA_PROJECT_MAP_TASK_TITLE) continue
     const task = buildPalimpsestTask(t, byId)
     if (task === undefined) continue
 
@@ -253,6 +264,15 @@ export function buildDeltaEvents(
   const byId = new Map(allProjects.map(p => [p.id, p]))
   for (const p of deltaProjects) byId.set(p.id, p)
 
+  // The shared agenda-mapping storage task only shows up in deltaItems when it (or a project's
+  // link) actually changed — when absent, fall back to each project's already-known agendaId
+  // rather than treating "not in this delta" as "cleared".
+  const agendaMapTask = findAgendaMapTask(deltaItems)
+  const agendaIds = agendaMapTask !== undefined
+    ? resolveProjectAgendaIds(parseAgendaMapping(agendaMapTask))
+    : undefined
+  const projectIdsHandledByDelta = new Set<ProjectId>()
+
   for (const p of deltaProjects) {
     if (p.is_deleted) {
       if (current.projects.has(p.id as ProjectId)) {
@@ -262,6 +282,7 @@ export function buildDeltaEvents(
     }
     if (EXCLUDED_PROJECT_IDS.has(p.id)) continue
     const projectId = p.id as ProjectId
+    projectIdsHandledByDelta.add(projectId)
 
     // Todoist sets parent_id=null when archiving, so sphere resolution fails for archived projects.
     // Handle archive/unarchive for existing projects before the sphere resolution guard.
@@ -273,9 +294,15 @@ export function buildDeltaEvents(
       }
       const sphereId = resolveSphereId(p, byId)
       if (sphereId === undefined) continue
+      const newAgendaId = agendaIds !== undefined ? agendaIds[projectId] : existing?.agendaId
       events.push({
         id: newEventId(), type: 'project.updated',
-        projectId, patch: { name: p.name, sphereId, description: p.description !== '' ? p.description : CLEAR },
+        projectId,
+        patch: {
+          name: p.name, sphereId,
+          description: p.description !== '' ? p.description : CLEAR,
+          agendaId: newAgendaId ?? CLEAR,
+        },
         occurredAt: p.updated_at,
       })
       if (!p.is_archived && existing?.isArchived === true) {
@@ -286,17 +313,35 @@ export function buildDeltaEvents(
 
     const sphereId = resolveSphereId(p, byId)
     if (sphereId === undefined) continue
+    const newAgendaId = agendaIds?.[projectId]
     events.push({
       id: newEventId(), type: 'project.created',
       projectId, sphereId, name: p.name, occurredAt: p.created_at,
       ...(p.description !== '' && { description: p.description }),
+      ...(newAgendaId    !== undefined && { agendaId:    newAgendaId }),
     })
     if (p.is_archived) {
       events.push({ id: newEventId(), type: 'project.archived', projectId, occurredAt: p.updated_at })
     }
   }
 
+  // The mapping changed but a linked project didn't otherwise appear in this delta.
+  if (agendaMapTask !== undefined && agendaIds !== undefined) {
+    for (const [projectId, existing] of current.projects) {
+      if (projectIdsHandledByDelta.has(projectId)) continue
+      const newAgendaId = agendaIds[projectId]
+      if (newAgendaId !== existing.agendaId) {
+        events.push({
+          id: newEventId(), type: 'project.updated',
+          projectId, occurredAt: agendaMapTask.updated_at,
+          patch: { agendaId: newAgendaId ?? CLEAR },
+        })
+      }
+    }
+  }
+
   for (const t of deltaItems) {
+    if (t.content === AGENDA_PROJECT_MAP_TASK_TITLE) continue
     const taskId = t.id as TaskId
     if (t.is_deleted) {
       if (current.tasks.has(taskId)) {
