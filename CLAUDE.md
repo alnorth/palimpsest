@@ -46,6 +46,16 @@ via `.github/workflows/publish-packages.yml`, triggered on push of a `v*` tag. `
 different repo (e.g. `cockpit`) always requires an authenticated `.npmrc` pointing `@alnorth` at
 `https://npm.pkg.github.com` — GitHub Packages requires auth even for public packages, unlike npmjs.
 
+Internal `@alnorth/*` dependencies (e.g. `packages/query`'s dependency on `@alnorth/palimpsest`,
+`packages/hooks`'s on `@alnorth/palimpsest-query`/`@alnorth/palimpsest-todoist`) must use a real caret
+range (e.g. `"^0.3.3"`), never `"*"`. Inside the monorepo npm workspaces symlinks to local source
+regardless of range, but these `package.json` files are published verbatim to GitHub Packages with no
+rewrite step, so a `"*"` range gives external consumers (e.g. `cockpit`) no floor and no ceiling — a
+future breaking major release of the depended-on package could get pulled in silently. Whenever a
+depended-on package's version bumps in a way that changes its public surface, bump the dependent
+package's caret range to match in the same commit as the version bump, same as the release-tagging rule
+above.
+
 Run `npm install` from the repo root before running typechecks or tests in a fresh environment — missing `node_modules` will cause spurious errors.
 
 Run commands from the repo root, or `cd` into a package directory:

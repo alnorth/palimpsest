@@ -15,7 +15,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@alnorth/palimpsest": "*"
+    "@alnorth/palimpsest": "^0.3.3"
   },
   "devDependencies": {
     "tsup": "^8.0.0",
