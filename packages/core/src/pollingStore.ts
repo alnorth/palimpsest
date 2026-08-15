@@ -1,11 +1,15 @@
 import { PalimpsestStore } from './store'
-import { MemoryPendingEventStore } from './pendingEventStore'
+import { MemoryPendingEventStore, updatePending } from './pendingEventStore'
 import type { PendingEventStore } from './pendingEventStore'
 import type { PalimpsestEvent } from './events'
 import type { ProjectionState } from './projection'
 
 function getDoc(): { addEventListener: Function; removeEventListener: Function; visibilityState: string } | undefined {
   return typeof (globalThis as any).document !== 'undefined' ? (globalThis as any).document : undefined
+}
+
+function getWin(): { addEventListener: Function; removeEventListener: Function } | undefined {
+  return typeof (globalThis as any).window !== 'undefined' ? (globalThis as any).window : undefined
 }
 
 export type SyncHealth = 'idle' | 'error' | 'conflict'
@@ -79,8 +83,7 @@ export abstract class PollingStore extends PalimpsestStore {
   }
 
   protected override async doAppend(events: PalimpsestEvent[]): Promise<void> {
-    const pending = await this.pendingStore.load()
-    await this.pendingStore.save([...pending, ...events])
+    await updatePending(this.pendingStore, current => [...current, ...events])
     this.notify()
     this.scheduleSync()
   }
@@ -93,15 +96,24 @@ export abstract class PollingStore extends PalimpsestStore {
   override start(): void {
     this.pollTimer = setInterval(() => { void this.refresh() }, this.syncIntervalMs)
     getDoc()?.addEventListener('visibilitychange', this.onVisibilityChange)
+    getWin()?.addEventListener('storage', this.onStorageEvent)
   }
 
   override stop(): void {
     if (this.pollTimer !== undefined) clearInterval(this.pollTimer)
     if (this.debounceTimer !== undefined) clearTimeout(this.debounceTimer)
     getDoc()?.removeEventListener('visibilitychange', this.onVisibilityChange)
+    getWin()?.removeEventListener('storage', this.onStorageEvent)
   }
 
   private readonly onVisibilityChange = (): void => {
     if (getDoc()?.visibilityState === 'visible') void this.refresh()
+  }
+
+  // Another same-origin tab wrote to localStorage (e.g. appended a pending event via
+  // LocalStoragePendingEventStore). Re-project from the now-updated pendingStore instead
+  // of waiting for the next poll tick or visibility change.
+  private readonly onStorageEvent = (): void => {
+    this.notify()
   }
 }

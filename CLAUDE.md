@@ -102,6 +102,10 @@ commands.ts  →  events.ts  →  projection.ts  →  query.ts
 
 **`store.ts`** — The only file that touches the filesystem. Thin wrapper: `readAllEvents()`, `appendEvents()`, `getState()`. No caching — callers maintain state in memory and call `applyEvent()` for each event they append.
 
+**`pendingEventStore.ts`** — `PendingEventStore` is the interface `PollingStore`-based stores use to persist not-yet-synced events. Its `save()` contract requires implementations that can detect a concurrent writer (e.g. `packages/hooks`' `LocalStoragePendingEventStore`, shared across browser tabs via `localStorage`) to throw `ConcurrentModificationError` rather than silently clobbering the other writer's data — a blind `load()`-then-`save()` has no atomicity across two separate JS realms. `updatePending(store, compute)` is the read-modify-write helper every caller (`PollingStore.doAppend`, `ClientPalimpsestStore.sync()`, `TodoistStore.sync()`) uses instead of calling `save()` directly after `load()`: it retries `compute()` against a fresh `load()` whenever `save()` reports a conflict, up to a small retry cap. `MemoryPendingEventStore` never throws (single JS realm, no concurrent writer possible), so `updatePending` is a no-op wrapper for it.
+
+**`pollingStore.ts`** — `PollingStore.doAppend` goes through `updatePending` (see above) rather than a raw load+save, so two tabs appending around the same moment both survive instead of one clobbering the other. `start()`/`stop()` also register/unregister a `window` `'storage'` event listener (browser-only, a no-op elsewhere) that calls `notify()` — this is how a tab picks up another same-origin tab's local writes immediately rather than waiting for the next poll tick or a visibility change.
+
 **`query.ts`** — Stateless read functions over `ProjectionState`. `getTaskSphereId(state, task)` is the key derived helper: tasks may belong to a sphere directly (`task.sphereId`) or inherit it from their project (`task.projectId → project.sphereId`).
 
 **`dateParser.ts`** — Two sections with a shared two-phase structure (parse input → discriminated union, then compute):
@@ -183,7 +187,10 @@ also be a non-Todoist `PalimpsestStore` (e.g. `ClientPalimpsestStore`).
 `PalimpsestEvent` type → one or more commands each, e.g. `task.completed` → `item_close`,
 `task.recurred` → `item_update_date_complete` with `is_forward: 1` so a recurring task's next
 occurrence advances in Todoist too rather than closing it), POSTs them alongside the stored
-`syncToken`, and on success clears `pending` and folds the response into `baseEvents`. On failure it
+`syncToken`, and on success removes exactly the sent events by id (via `updatePending`, not a blind
+`save([])`) and folds the response into `baseEvents` — an event another tab appended to the shared
+`pendingStore` while this network round trip was in flight was never part of `pending` and must
+survive to be picked up by the next sync, not get wiped out along with it. On failure it
 sets `syncState.health = 'error'` and `syncState.lastError` instead of rejecting — callers awaiting
 `sync()`/`refresh()` see a normal return, not a thrown error, and check `syncState` if they need to know
 whether it actually flushed (see `packages/mcp`'s `handleCompleteTask` below).
@@ -263,7 +270,9 @@ src/
   useStore.ts                   — lower-level subscribe/poll hook over an already-known ProjectionState
   ClientPalimpsestStore.ts       — PalimpsestStore synced against a custom backend's POST /sync endpoint
                                   (SyncFn injected by the caller); alternative to @alnorth/palimpsest-todoist's TodoistStore
-  LocalStoragePendingEventStore.ts — PendingEventStore backed by browser localStorage, pairs with the above
+  LocalStoragePendingEventStore.ts — PendingEventStore backed by browser localStorage, pairs with the above;
+                                  detects a concurrent writer (another tab) and throws
+                                  ConcurrentModificationError rather than clobbering it
   internal/useRunQuery.ts       — shared memoized runQuery(projState, command) wrapper every read hook uses
   internal/useMutation.ts       — shared store.appendEvents(...) wrapper every write hook uses, exposing
                                   { mutate, isPending, error }; the write-side sibling of useRunQuery
@@ -285,6 +294,18 @@ Filter param shapes mirror `@alnorth/palimpsest-query`'s `ParsedCommand` fields 
 `presentation/taskDisplay.ts` (`getDueStatus`, `hasDescription`, `getTaskBadges`, `getTaskDetailFields`) operates on `TaskJson` rather than raw `Task`+`ProjectionState`, and badges carry a `kind` discriminant (`'description'|'waiting'|'project'|'agenda'|'context'|'dueDate'|'recurrence'|'completedAt'`) rather than a pre-rendered prefix glyph, so different renderers (web, React Native) can style each kind however they like. A dangling `waitingFor` reference (the waited-on agenda or project has been deleted/archived) denormalizes to `name: null` in `@alnorth/palimpsest-query`'s `WaitingForJson` rather than throwing or silently showing a blank name; `taskDisplay.ts` renders this as a `?` placeholder (`w/ ?` badge, `?` detail-field value) so it's visibly distinct from a resolved name. `presentation/previews.ts` carries `getDueDatePreview`/`getRecurrencePreview` (due-date/recurrence input preview helpers, unused today but salvaged for the future write-support phase) alongside `formatDateWithDay`.
 
 The Context exposes `store: PalimpsestStore` directly (not hidden), which is what lets `internal/useMutation.ts` call `store.appendEvents(...)` and rely on the same `subscribe`→`getState` refresh loop already wired into the Provider, without needing a breaking Context-shape change for write support.
+
+**Multiple tabs open against the same `LocalStoragePendingEventStore` key used to race.** `localStorage`
+has no atomic read-modify-write primitive, and each tab holds its own `ClientPalimpsestStore` instance —
+only the `localStorage` key itself is shared. Two tabs appending an event within the same debounce
+window could both `load()` the same pending array before either wrote back, and whichever tab's `save()`
+ran last silently overwrote the other tab's event with no error. `LocalStoragePendingEventStore.save()`
+now tracks the raw string it last saw (from its own `load()`/`save()`) and throws
+`ConcurrentModificationError` if `localStorage` has changed since — every caller that does a
+load-then-save (`PollingStore.doAppend`, `ClientPalimpsestStore.sync()`'s post-sync cleanup) goes through
+core's `updatePending` helper, which retries against a fresh `load()` on that error instead of clobbering.
+A `'storage'` event listener in `PollingStore` also means a backgrounded tab notices another tab's writes
+immediately rather than only at its next poll tick.
 
 ### packages/backend
 

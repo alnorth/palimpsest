@@ -1,4 +1,4 @@
-import { PollingStore } from '@alnorth/palimpsest'
+import { PollingStore, updatePending } from '@alnorth/palimpsest'
 import type { PalimpsestEvent, ProjectionState, PendingEventStore } from '@alnorth/palimpsest'
 
 export type SyncStatus = 'ok' | 'conflict' | 'rerun'
@@ -49,7 +49,11 @@ export class ClientPalimpsestStore extends PollingStore {
       this.baseSeq = response.serverSeq
       if (hadUnsynced) {
         this.baseEvents = [...this.baseEvents, ...unsyncedEvents]
-        await this.pendingStore.save([])
+        // Remove only the events this sync actually sent, by id — not a blind save([]) —
+        // so an event another tab appended while this network round trip was in flight
+        // survives to be picked up by the next sync instead of being silently dropped.
+        const sentIds = new Set(unsyncedEvents.map(e => e.id))
+        await updatePending(this.pendingStore, current => current.filter(e => !sentIds.has(e.id)))
       }
       this.health = 'idle'
       this.conflicts = []

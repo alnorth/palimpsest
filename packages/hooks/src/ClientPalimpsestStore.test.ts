@@ -215,6 +215,23 @@ describe('ClientPalimpsestStore', () => {
       expect(pending.saved!).toHaveLength(0)
     })
 
+    it('only removes the events it actually sent, not ones another tab appended mid-flight', async () => {
+      const initialEv = makeTaskEvent()
+      const pending = new SpyPendingStore([initialEv])
+      const concurrentEv = makeTaskEvent()
+      const syncFn = vi.fn(async (_clientSeq: number, events: PalimpsestEvent[]) => {
+        // Simulate a second tab appending a new local event while this tab's network
+        // round trip is in flight — i.e. after this sync already read `events` to send.
+        await pending.save([...(await pending.load()), concurrentEv])
+        return { status: 'ok' as const, serverSeq: events.length, missedEvents: [] }
+      })
+      const store = new ClientPalimpsestStore(syncFn, { pendingStore: pending, initialState: testInitialState })
+      await store.sync()
+
+      const stillPending = await pending.load()
+      expect(stillPending.map(e => e.id)).toEqual([concurrentEv.id])
+    })
+
     it('always syncs from seq 0 on restart regardless of prior baseSeq', async () => {
       const ev = makeTaskEvent()
       const pending = new SpyPendingStore([ev])

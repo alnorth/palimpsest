@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach } from 'vitest'
 import { LocalStoragePendingEventStore } from './LocalStoragePendingEventStore'
+import { ConcurrentModificationError, updatePending } from '@alnorth/palimpsest'
 import type { PalimpsestEvent, TaskId, SphereId, EventId } from '@alnorth/palimpsest'
 
 function makeEvent(id: string): PalimpsestEvent {
@@ -61,5 +62,51 @@ describe('LocalStoragePendingEventStore', () => {
     await store.save([makeEvent('evt1')])
     await store.save([])
     expect(await store.load()).toEqual([])
+  })
+
+  describe('concurrent tabs sharing the same key', () => {
+    it('throws ConcurrentModificationError when another instance wrote since our last load()', async () => {
+      const tabA = new LocalStoragePendingEventStore()
+      const tabB = new LocalStoragePendingEventStore()
+      await tabA.load()
+      await tabB.load()
+
+      await tabA.save([makeEvent('fromA')])
+      await expect(tabB.save([makeEvent('fromB')])).rejects.toThrow(ConcurrentModificationError)
+
+      // Tab A's write must not have been clobbered.
+      expect(await tabA.load()).toEqual([makeEvent('fromA')])
+    })
+
+    it('lets a fresh load() clear the conflict so a subsequent save() succeeds', async () => {
+      const tabA = new LocalStoragePendingEventStore()
+      const tabB = new LocalStoragePendingEventStore()
+      await tabA.load()
+      await tabB.load()
+
+      await tabA.save([makeEvent('fromA')])
+      await tabB.load() // re-sync tab B's view
+      await tabB.save([makeEvent('fromB')])
+
+      expect(await tabB.load()).toEqual([makeEvent('fromB')])
+    })
+
+    it('both tabs appending via updatePending end up merged with no lost writes', async () => {
+      const tabA = new LocalStoragePendingEventStore()
+      const tabB = new LocalStoragePendingEventStore()
+      const evA = makeEvent('fromA')
+      const evB = makeEvent('fromB')
+
+      // Simulate the interleaving that broke this before: both tabs load() the same
+      // (empty) starting point before either has saved.
+      await tabA.load()
+      await tabB.load()
+
+      await updatePending(tabA, current => [...current, evA])
+      await updatePending(tabB, current => [...current, evB])
+
+      const finalState = await tabA.load()
+      expect(finalState.map(e => e.id).sort()).toEqual(['fromA', 'fromB'])
+    })
   })
 })

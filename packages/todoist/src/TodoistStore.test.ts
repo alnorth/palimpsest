@@ -2,8 +2,17 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { TodoistStore } from './TodoistStore'
 import * as api from './api'
 import { createEmptyState, buildStateFromConfig } from '@alnorth/palimpsest'
-import type { PalimpsestEvent, SphereId, TaskId, EventId } from '@alnorth/palimpsest'
+import type { PalimpsestEvent, SphereId, TaskId, EventId, PendingEventStore } from '@alnorth/palimpsest'
 import type { SyncResponse } from './api'
+
+class SpyPendingStore implements PendingEventStore {
+  saved: PalimpsestEvent[] | undefined
+  private current: PalimpsestEvent[]
+  constructor(initial: PalimpsestEvent[] = []) { this.current = initial }
+  get size(): number { return this.current.length }
+  async load(): Promise<PalimpsestEvent[]> { return this.current }
+  async save(events: PalimpsestEvent[]): Promise<void> { this.saved = events; this.current = events }
+}
 
 vi.mock('./api.js')
 
@@ -137,6 +146,25 @@ describe('syncState', () => {
       expect(store.syncState.health).toBe('idle')
       expect(store.syncState.unsyncedCount).toBe(0)
       expect(vi.mocked(api.sync)).toHaveBeenCalledTimes(2)
+    })
+  })
+
+  describe('pending event store concurrency', () => {
+    it('only removes the events it actually sent, not ones another tab appended mid-flight', async () => {
+      const initialEv = makeTaskEvent()
+      const pending = new SpyPendingStore([initialEv])
+      const concurrentEv = makeTaskEvent()
+      vi.mocked(api.sync).mockImplementation(async () => {
+        // Simulate a second tab appending a new local event while this tab's network
+        // round trip is in flight — i.e. after this sync already read the pending list to send.
+        await pending.save([...(await pending.load()), concurrentEv])
+        return { ...EMPTY_SYNC }
+      })
+      const store = new TodoistStore('fake-token', { initialState: baseState, pendingStore: pending })
+      await store.refresh()
+
+      const stillPending = await pending.load()
+      expect(stillPending.map(e => e.id)).toEqual([concurrentEv.id])
     })
   })
 

@@ -1,4 +1,4 @@
-import { PollingStore, project, createEmptyState } from '@alnorth/palimpsest'
+import { PollingStore, project, createEmptyState, updatePending } from '@alnorth/palimpsest'
 import type { PalimpsestEvent, ProjectionState, ProjectId, PendingEventStore } from '@alnorth/palimpsest'
 import { sync } from './api'
 import type { SyncCommand } from './api'
@@ -54,7 +54,11 @@ export class TodoistStore extends PollingStore {
     }
 
     if (pending.length > 0) {
-      await this.pendingStore.save([])
+      // Remove only the events this sync actually sent, by id — not a blind save([]) —
+      // so an event another tab appended while this network round trip was in flight
+      // survives to be picked up by the next sync instead of being silently dropped.
+      const sentIds = new Set(pending.map(e => e.id))
+      await updatePending(this.pendingStore, current => current.filter(e => !sentIds.has(e.id)))
     }
 
     this.syncToken = res.sync_token
