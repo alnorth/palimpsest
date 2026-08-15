@@ -222,6 +222,27 @@ describe('project/sphere/agenda/context serialization', () => {
     expect(computeProjectNextTasks(state).get(project.id)).toBeUndefined()
   })
 
+  test('computeProjectNextTasks: a project with multiple next tasks includes all of them', () => {
+    const sphere = makeSphere()
+    const project = makeProject(sphere)
+    const first = makeTask({ projectId: project.id, isNext: true, title: 'First next' })
+    const second = makeTask({ projectId: project.id, isNext: true, title: 'Second next' })
+    const state = buildState({ spheres: [sphere], projects: [project], tasks: [first, second] })
+
+    expect(computeProjectNextTasks(state).get(project.id)).toEqual([first, second])
+  })
+
+  test('computeProjectNextTasks: a next task that is waiting is still included', () => {
+    const sphere = makeSphere()
+    const project = makeProject(sphere)
+    const waitingNext = makeTask({
+      projectId: project.id, isNext: true, title: 'Waiting next', waitingFor: { kind: 'review' },
+    })
+    const state = buildState({ spheres: [sphere], projects: [project], tasks: [waitingNext] })
+
+    expect(computeProjectNextTasks(state).get(project.id)).toEqual([waitingNext])
+  })
+
   test('toAgendaJson maps title to name and includes sphere ref', () => {
     const sphere = makeSphere({ name: 'Work' })
     const agenda = makeAgenda(sphere, { title: 'Weekly sync' })

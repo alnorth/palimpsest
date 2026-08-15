@@ -264,6 +264,35 @@ describe('projects', () => {
     expect(website?.nextTasks.map(t => t.title)).toEqual(['Ship it'])
     expect(empty?.nextTasks).toEqual([])
   })
+
+  test('includeNextTasks includes every next task when a project has more than one', () => {
+    const sphere = makeSphere()
+    const project = makeProject(sphere, { name: 'Website' })
+    const first = makeTask({ projectId: project.id, isNext: true, title: 'First next' })
+    const second = makeTask({ projectId: project.id, isNext: true, title: 'Second next' })
+    const state = buildState({ spheres: [sphere], projects: [project], tasks: [first, second] })
+
+    const result = runQuery(state, { kind: 'projects', includeNextTasks: true }) as {
+      projects: { nextTasks: { title: string }[] }[]
+    }
+    expect(result.projects[0]?.nextTasks.map(t => t.title).sort()).toEqual(['First next', 'Second next'])
+  })
+
+  test('includeNextTasks includes a next task that is waiting, with its waitingFor serialized', () => {
+    const sphere = makeSphere()
+    const project = makeProject(sphere, { name: 'Website' })
+    const waitingNext = makeTask({
+      projectId: project.id, isNext: true, title: 'Waiting next', waitingFor: { kind: 'review' },
+    })
+    const state = buildState({ spheres: [sphere], projects: [project], tasks: [waitingNext] })
+
+    const result = runQuery(state, { kind: 'projects', includeNextTasks: true }) as {
+      projects: { nextTasks: { title: string; waitingFor: unknown }[] }[]
+    }
+    expect(result.projects[0]?.nextTasks).toEqual([
+      expect.objectContaining({ title: 'Waiting next', waitingFor: { kind: 'review' } }),
+    ])
+  })
 })
 
 describe('dashboard', () => {
