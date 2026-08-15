@@ -23,6 +23,17 @@ describe('searchAll', () => {
     expect(results.map(r => r.kind === 'task' ? r.task.title : undefined)).toEqual(['Buy groceries'])
   })
 
+  test('matches regardless of case, in either direction', () => {
+    const task = makeTask({ title: 'Buy Groceries' })
+    const state = buildState({ tasks: [task] })
+
+    const upperQuery = searchAll(state, 'GROCERIES')
+    const lowerQuery = searchAll(state, 'groceries')
+
+    expect(upperQuery.map(r => r.kind === 'task' ? r.task.title : undefined)).toEqual(['Buy Groceries'])
+    expect(lowerQuery.map(r => r.kind === 'task' ? r.task.title : undefined)).toEqual(['Buy Groceries'])
+  })
+
   test('is typo-tolerant (fuzzy matching)', () => {
     const task = makeTask({ title: 'Buy groceries' })
     const state = buildState({ tasks: [task] })
