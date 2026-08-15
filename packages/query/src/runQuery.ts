@@ -5,6 +5,7 @@ import {
   toTaskJson, toProjectJson, toSphereJson, toAgendaJson, toContextJson, computeProjectStats,
 } from './serialize'
 import { dashboardTasks, processingBuckets, waitingGroups, pickListGroups } from './views'
+import { searchAll } from './search'
 
 export type StatusArg = 'open' | 'completed' | 'deleted' | 'any'
 
@@ -78,9 +79,17 @@ export interface PickListCommand {
   sphere: string
 }
 
+export interface SearchCommand {
+  kind: 'search'
+  query: string
+  sphere?: string
+  includeArchived?: boolean
+  limit?: number
+}
+
 export type ParsedCommand =
   | TasksCommand | TaskCommand | ProjectsCommand | SpheresCommand | AgendasCommand | ContextsCommand
-  | DashboardCommand | ProcessingCommand | WaitingCommand | PickListCommand
+  | DashboardCommand | ProcessingCommand | WaitingCommand | PickListCommand | SearchCommand
 
 export interface RunQueryOptions {
   today?: string
@@ -242,6 +251,16 @@ function runPickListQuery(state: ProjectionState, command: PickListCommand): Rec
   return { groups }
 }
 
+function runSearchQuery(state: ProjectionState, command: SearchCommand): Record<string, unknown> {
+  const sphereId = command.sphere !== undefined ? resolveSphere(state, command.sphere) : undefined
+  const results = searchAll(state, command.query, {
+    ...(sphereId !== undefined && { sphereId }),
+    ...(command.includeArchived === true && { includeArchived: true }),
+  })
+  const { count, total, truncated, items } = paginate(results, command.limit)
+  return { count, total, truncated, results: items }
+}
+
 export function runQuery(state: ProjectionState, command: ParsedCommand, opts: RunQueryOptions = {}): Record<string, unknown> {
   const today = opts.today ?? defaultToday()
   switch (command.kind) {
@@ -255,5 +274,6 @@ export function runQuery(state: ProjectionState, command: ParsedCommand, opts: R
     case 'processing': return runProcessingQuery(state)
     case 'waiting': return runWaitingQuery(state, command)
     case 'pick_list': return runPickListQuery(state, command)
+    case 'search': return runSearchQuery(state, command)
   }
 }

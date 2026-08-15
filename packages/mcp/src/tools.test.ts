@@ -6,7 +6,7 @@ import { makeSphere, makeProject, makeAgenda, makeContext, makeTask, buildState 
 import type { TaskStore } from './tools'
 import {
   handleTasks, handleTask, handleProjects, handleSpheres, handleAgendas, handleContexts,
-  handleDashboard, handleProcessing, handleWaiting, handlePickList,
+  handleDashboard, handleProcessing, handleWaiting, handlePickList, handleSearch,
   handleCompleteTask, handleSetDueDate, handleDeleteTask,
 } from './tools'
 
@@ -567,5 +567,46 @@ describe('handlePickList', () => {
     const store = fakeStore(buildState({}))
     const result = await handlePickList(store, { sphere: 'Nope' })
     expect(result.isError).toBe(true)
+  })
+})
+
+describe('handleSearch', () => {
+  test('returns matching tasks and projects without loading the whole list', async () => {
+    const sphere = makeSphere({ name: 'Work' })
+    const task = makeTask({ sphereId: sphere.id, title: 'Buy milk' })
+    const other = makeTask({ sphereId: sphere.id, title: 'Call dentist' })
+    const store = fakeStore(buildState({ spheres: [sphere], tasks: [task, other] }))
+
+    const result = await handleSearch(store, { query: 'milk' })
+
+    const parsed = parseOk<{ results: { kind: string; task?: { title: string } }[] }>(result)
+    expect(parsed.results.map(r => r.task?.title)).toEqual(['Buy milk'])
+  })
+
+  test('matches a partial word (find-as-you-type)', async () => {
+    const task = makeTask({ title: 'Buy groceries' })
+    const store = fakeStore(buildState({ tasks: [task] }))
+
+    const result = await handleSearch(store, { query: 'groc' })
+
+    const parsed = parseOk<{ results: { task?: { title: string } }[] }>(result)
+    expect(parsed.results.map(r => r.task?.title)).toEqual(['Buy groceries'])
+  })
+
+  test('attaches a todoistUrl to matched tasks', async () => {
+    const task = makeTask({ title: 'Buy milk' })
+    const store = fakeStore(buildState({ tasks: [task] }))
+
+    const result = await handleSearch(store, { query: 'milk' })
+
+    const parsed = parseOk<{ results: { task?: { id: string; todoistUrl: string } }[] }>(result)
+    expect(parsed.results[0]?.task?.todoistUrl).toBe(`https://todoist.com/app/task/${task.id}`)
+  })
+
+  test('surfaces an unresolved sphere name as isError', async () => {
+    const store = fakeStore(buildState({}))
+    const result = await handleSearch(store, { query: 'milk', sphere: 'Nope' })
+    expect(result.isError).toBe(true)
+    expect(resultText(result)).toMatch(/No sphere matching "Nope"/)
   })
 })

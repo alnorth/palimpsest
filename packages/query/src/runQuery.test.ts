@@ -328,3 +328,44 @@ describe('spheres, agendas, contexts', () => {
     expect(result.contexts.map(c => c.name)).toEqual(['Email', 'Phone'])
   })
 })
+
+describe('search', () => {
+  test('returns matching tasks and projects ranked by relevance', () => {
+    const sphere = makeSphere()
+    const task = makeTask({ sphereId: sphere.id, title: 'Buy milk' })
+    const state = buildState({ spheres: [sphere], tasks: [task] })
+
+    const result = runQuery(state, { kind: 'search', query: 'milk' }) as { results: { kind: string; task?: { title: string } }[] }
+    expect(result.results.map(r => r.task?.title)).toEqual(['Buy milk'])
+  })
+
+  test('resolves sphere name to scope results', () => {
+    const sphere = makeSphere({ name: 'Work' })
+    const otherSphere = makeSphere({ name: 'Personal' })
+    const inSphere = makeTask({ sphereId: sphere.id, title: 'Work milk task' })
+    const outOfSphere = makeTask({ sphereId: otherSphere.id, title: 'Personal milk task' })
+    const state = buildState({ spheres: [sphere, otherSphere], tasks: [inSphere, outOfSphere] })
+
+    const result = runQuery(state, { kind: 'search', query: 'milk', sphere: 'Work' }) as { results: { task?: { title: string } }[] }
+    expect(result.results.map(r => r.task?.title)).toEqual(['Work milk task'])
+  })
+
+  test('unresolved sphere throws', () => {
+    const state = buildState({})
+    expect(() => runQuery(state, { kind: 'search', query: 'milk', sphere: 'Nope' })).toThrowError(/No sphere matching "Nope"/)
+  })
+
+  test('limit truncates and reports total/truncated', () => {
+    const tasks = ['Milk one', 'Milk two', 'Milk three'].map(title => makeTask({ title }))
+    const state = buildState({ tasks })
+
+    const result = runQuery(state, { kind: 'search', query: 'milk', limit: 2 }) as { count: number; total: number; truncated: boolean }
+    expect(result).toMatchObject({ count: 2, total: 3, truncated: true })
+  })
+
+  test('blank query returns an empty result, not an error', () => {
+    const state = buildState({ tasks: [makeTask({ title: 'Anything' })] })
+    const result = runQuery(state, { kind: 'search', query: '' }) as { count: number; total: number; truncated: boolean; results: unknown[] }
+    expect(result).toEqual({ count: 0, total: 0, truncated: false, results: [] })
+  })
+})

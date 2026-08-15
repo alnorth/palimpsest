@@ -62,6 +62,13 @@ export interface PickListToolInput {
   sphere: string
 }
 
+export interface SearchToolInput {
+  query: string
+  sphere?: string | undefined
+  includeArchived?: boolean | undefined
+  limit?: number | undefined
+}
+
 export interface CompleteTaskToolInput {
   id: string
 }
@@ -174,6 +181,16 @@ export function handleWaiting(store: TaskStore, input: SphereScopedToolInput): P
 
 export function handlePickList(store: TaskStore, input: PickListToolInput): Promise<CallToolResult> {
   return runToolQuery(store, { kind: 'pick_list', sphere: input.sphere })
+}
+
+export function handleSearch(store: TaskStore, input: SearchToolInput): Promise<CallToolResult> {
+  return runToolQuery(store, {
+    kind: 'search',
+    query: input.query,
+    ...(input.sphere !== undefined && { sphere: input.sphere }),
+    ...(input.includeArchived === true && { includeArchived: true }),
+    ...(input.limit !== undefined && { limit: input.limit }),
+  })
 }
 
 // Shared scaffolding for every write tool: sync → look up the task → append the event(s) the

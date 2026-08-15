@@ -10,6 +10,7 @@ export type {
   ProcessingCommand,
   WaitingCommand,
   PickListCommand,
+  SearchCommand,
   StatusArg,
   RunQueryOptions,
 } from './runQuery'
@@ -30,3 +31,5 @@ export {
 } from './serialize'
 export type { ProcessingBuckets, WaitingGroup, PickListGroup } from './views'
 export { dashboardTasks, processingBuckets, waitingGroups, pickListGroups } from './views'
+export type { SearchOptions, SearchResultJson } from './search'
+export { searchAll } from './search'

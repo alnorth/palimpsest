@@ -45,12 +45,12 @@ describe('createMcpServer', () => {
     client = await connectedClient(fakeStore(buildState({ spheres: [sphere], tasks: [task] })))
   })
 
-  test('registers all thirteen tools', async () => {
+  test('registers all fourteen tools', async () => {
     const { tools } = await client.listTools()
     expect(tools.map(t => t.name).sort()).toEqual(
       [
         'agendas', 'contexts', 'projects', 'spheres', 'task', 'tasks',
-        'dashboard', 'processing', 'waiting', 'pick_list',
+        'dashboard', 'processing', 'waiting', 'pick_list', 'search',
         'complete_task', 'set_due_date', 'delete_task',
       ].sort(),
     )
@@ -95,6 +95,20 @@ describe('createMcpServer', () => {
 
     const parsed = JSON.parse(firstText(result)) as { tasks: { title: string }[] }
     expect(parsed.tasks.map(t => t.title)).toEqual(['HasContext'])
+  })
+
+  test('search tool matches a task by a partial word and returns the JSON envelope', async () => {
+    const result = await client.callTool({ name: 'search', arguments: { query: 'Ship' } })
+    expect(result.isError).toBeUndefined()
+    const parsed = JSON.parse(firstText(result)) as { ok: boolean; results: { kind: string; task?: { title: string } }[] }
+    expect(parsed.ok).toBe(true)
+    expect(parsed.results.map(r => r.task?.title)).toEqual(['Ship it'])
+  })
+
+  test('search tool requires a query argument', async () => {
+    const result = await client.callTool({ name: 'search', arguments: {} })
+    expect(result.isError).toBe(true)
+    expect(firstText(result)).toMatch(/Invalid arguments/)
   })
 
   test('dashboard tool requires a sphere argument', async () => {
