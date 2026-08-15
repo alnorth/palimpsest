@@ -46,6 +46,20 @@ via `.github/workflows/publish-packages.yml`, triggered on push of a `v*` tag. `
 different repo (e.g. `cockpit`) always requires an authenticated `.npmrc` pointing `@alnorth` at
 `https://npm.pkg.github.com` — GitHub Packages requires auth even for public packages, unlike npmjs.
 
+Internal `@alnorth/*` dependencies (e.g. `packages/query`'s dependency on `@alnorth/palimpsest`,
+`packages/hooks`'s on `@alnorth/palimpsest-query`/`@alnorth/palimpsest-todoist`) are committed as `"*"`
+in every `packages/*/package.json` — inside the monorepo npm workspaces symlinks to local source
+regardless of range, so `"*"` is harmless there and needs no manual bumping. These `package.json` files
+are published verbatim to GitHub Packages, though, and a `"*"` range would give external consumers (e.g.
+`cockpit`) no floor and no ceiling on the depended-on package — so `scripts/sync-internal-versions.mjs`
+rewrites every `@alnorth/*` range to `^<current version>` of that dependency (reading each dependency's
+own `version` field), and `publish-packages.yml` runs it (`npm run sync-internal-versions`) right before
+the `npm publish` steps, after typecheck/test/build have already run against the committed `"*"` ranges.
+This means the `package.json` actually published to GitHub Packages always differs from what's committed
+on `main` (published ranges are real caret ranges; committed ranges are `"*"`) — that divergence is
+expected and permanent, not just a between-bumps gap, since the published artifact is what external
+consumers see and the committed source is never meant to carry real ranges.
+
 Run `npm install` from the repo root before running typechecks or tests in a fresh environment — missing `node_modules` will cause spurious errors.
 
 Run commands from the repo root, or `cd` into a package directory:
