@@ -1,5 +1,6 @@
 import type { ProjectionState, Task, Project, Context, WaitingFor, SphereId } from '@alnorth/palimpsest'
 import { listTasks, listProjects, listContexts } from '@alnorth/palimpsest'
+import { computeProjectNextTasks } from './serialize'
 
 export function dashboardTasks(state: ProjectionState, sphereId: SphereId, today: string): Task[] {
   const allOpen = listTasks(state, { status: 'open', sphereId })
@@ -26,11 +27,8 @@ export function processingBuckets(state: ProjectionState): ProcessingBuckets {
     isActionable: true, isWaiting: false, hasDueDate: false, hasAgenda: false, hasContext: false,
   })
 
-  const hasNext = new Set<Project['id']>()
-  for (const task of state.tasks.values()) {
-    if (task.projectId !== undefined && task.status === 'open' && task.isNext === true) hasNext.add(task.projectId)
-  }
-  const projectsWithoutNext = listProjects(state, { isArchived: false }).filter(p => !hasNext.has(p.id))
+  const nextTasksByProject = computeProjectNextTasks(state)
+  const projectsWithoutNext = listProjects(state, { isArchived: false }).filter(p => !nextTasksByProject.has(p.id))
 
   const tasksWaitingOnArchivedProjects = listTasks(state, { status: 'open', isWaiting: true }).filter(t => {
     if (t.waitingFor?.kind !== 'project') return false

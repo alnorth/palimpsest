@@ -3,7 +3,7 @@ import type { ProjectId, AgendaId } from '@alnorth/palimpsest'
 import { makeSphere, makeProject, makeAgenda, makeContext, makeTask, buildState } from './fixtures'
 import {
   toTaskJson, toProjectJson, toSphereJson, toAgendaJson, toContextJson,
-  computeProjectStats, computeProjectNextTasks,
+  computeProjectStats, computeProjectNextTasks, computeProjectStatsAndNextTasks,
 } from './serialize'
 
 describe('toTaskJson', () => {
@@ -241,6 +241,21 @@ describe('project/sphere/agenda/context serialization', () => {
     const state = buildState({ spheres: [sphere], projects: [project], tasks: [waitingNext] })
 
     expect(computeProjectNextTasks(state).get(project.id)).toEqual([waitingNext])
+  })
+
+  test('computeProjectStatsAndNextTasks: matches computeProjectStats and computeProjectNextTasks in one pass', () => {
+    const sphere = makeSphere()
+    const projectA = makeProject(sphere, { name: 'A' })
+    const projectB = makeProject(sphere, { name: 'B' })
+    const nextA = makeTask({ projectId: projectA.id, isNext: true, title: 'Next A' })
+    const notNextA = makeTask({ projectId: projectA.id, title: 'Not next A' })
+    const state = buildState({
+      spheres: [sphere], projects: [projectA, projectB], tasks: [nextA, notNextA],
+    })
+
+    const { stats, nextTasksByProject } = computeProjectStatsAndNextTasks(state)
+    expect(stats).toEqual(computeProjectStats(state))
+    expect(nextTasksByProject).toEqual(computeProjectNextTasks(state))
   })
 
   test('toAgendaJson maps title to name and includes sphere ref', () => {

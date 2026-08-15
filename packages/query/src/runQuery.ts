@@ -3,7 +3,7 @@ import { getTask, listTasks, listProjects, listAgendas, listContexts, listSphere
 import { resolveSphere, resolveProject, resolveAgenda, resolveContext } from './resolve'
 import {
   toTaskJson, toProjectJson, toSphereJson, toAgendaJson, toContextJson,
-  computeProjectStats, computeProjectNextTasks,
+  computeProjectStats, computeProjectStatsAndNextTasks,
 } from './serialize'
 import { dashboardTasks, processingBuckets, waitingGroups, pickListGroups } from './views'
 import { searchAll } from './search'
@@ -189,8 +189,9 @@ function runProjectsQuery(state: ProjectionState, command: ProjectsCommand): Rec
     ...(command.all !== true && { isArchived: command.archived === true }),
   }
   const projects = sortByName(listProjects(state, filter))
-  const stats = computeProjectStats(state)
-  const nextTasksByProject = command.includeNextTasks === true ? computeProjectNextTasks(state) : undefined
+  const { stats, nextTasksByProject } = command.includeNextTasks === true
+    ? computeProjectStatsAndNextTasks(state)
+    : { stats: computeProjectStats(state), nextTasksByProject: undefined }
   const { count, total, truncated, items } = paginate(projects, undefined)
   return {
     count, total, truncated,
