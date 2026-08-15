@@ -1,4 +1,5 @@
-import { describe, test, expect } from 'vitest'
+import { describe, test, expect, vi } from 'vitest'
+import MiniSearch from 'minisearch'
 import { makeSphere, makeProject, makeTask, buildState } from './fixtures'
 import { searchAll } from './search'
 
@@ -120,5 +121,56 @@ describe('searchAll', () => {
   test('returns an empty array when there is nothing to search', () => {
     const state = buildState({})
     expect(searchAll(state, 'anything')).toEqual([])
+  })
+})
+
+describe('searchAll index caching', () => {
+  test('reuses the built index across repeated calls against the same, unchanged state', () => {
+    const addAllSpy = vi.spyOn(MiniSearch.prototype, 'addAll')
+    try {
+      const task = makeTask({ title: 'Buy milk' })
+      const state = buildState({ tasks: [task] })
+
+      searchAll(state, 'milk')
+      searchAll(state, 'mil')
+      searchAll(state, 'm')
+
+      expect(addAllSpy).toHaveBeenCalledTimes(1)
+    } finally {
+      addAllSpy.mockRestore()
+    }
+  })
+
+  test('builds a separate cached index per distinct sphere/includeArchived scope on the same state', () => {
+    const addAllSpy = vi.spyOn(MiniSearch.prototype, 'addAll')
+    try {
+      const sphere = makeSphere()
+      const task = makeTask({ sphereId: sphere.id, title: 'Buy milk' })
+      const state = buildState({ spheres: [sphere], tasks: [task] })
+
+      searchAll(state, 'milk')
+      searchAll(state, 'milk')
+      searchAll(state, 'milk', { sphereId: sphere.id })
+      searchAll(state, 'milk', { sphereId: sphere.id })
+
+      expect(addAllSpy).toHaveBeenCalledTimes(2)
+    } finally {
+      addAllSpy.mockRestore()
+    }
+  })
+
+  test('rebuilds the index for a different state object (e.g. after a real store update)', () => {
+    const addAllSpy = vi.spyOn(MiniSearch.prototype, 'addAll')
+    try {
+      const state = buildState({ tasks: [makeTask({ title: 'Buy milk' })] })
+      const updatedState = buildState({ tasks: [makeTask({ title: 'Buy bread' })] })
+
+      searchAll(state, 'milk')
+      searchAll(updatedState, 'bread')
+
+      expect(addAllSpy).toHaveBeenCalledTimes(2)
+    } finally {
+      addAllSpy.mockRestore()
+    }
   })
 })

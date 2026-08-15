@@ -21,13 +21,31 @@ interface SearchDoc {
   description: string
 }
 
-// A fresh MiniSearch index is built on every call rather than cached — mirroring the rest of this
-// package (and core/query.ts underneath it), which is entirely stateless and recomputes from
-// ProjectionState each time. Task/project counts here are small (a personal task manager, not a
-// search engine corpus), so the rebuild cost is negligible next to the win of never going stale.
-export function searchAll(state: ProjectionState, query: string, opts: SearchOptions = {}): SearchResultJson[] {
-  const trimmed = query.trim()
-  if (trimmed === '') return []
+// Building the MiniSearch index (tokenizing every task/project title+description) is the one
+// genuinely expensive step here — unlike the rest of this stateless package, it's worth caching.
+// `store.getState()` (see core/store.ts's PalimpsestStore) always re-projects the whole event log
+// into a brand-new ProjectionState object, so a WeakMap keyed on that object never hits across
+// separate store reads (e.g. two different MCP tool calls) — no harm, just no help there. But
+// packages/hooks' PalimpsestProvider only calls getState() again when the store actually notifies
+// of a change; the same ProjectionState reference is reused across every re-render in between
+// (e.g. every keystroke of a find-as-you-type search box), so caching by that reference is exactly
+// the "only rebuild when the store changes" behaviour callers want. The nested map also keys on
+// sphere/includeArchived, since those change which docs get indexed.
+const indexCache = new WeakMap<ProjectionState, Map<string, MiniSearch<SearchDoc> | null>>()
+
+function scopeKey(opts: SearchOptions): string {
+  return `${opts.sphereId ?? ''}|${opts.includeArchived === true}`
+}
+
+function getOrBuildIndex(state: ProjectionState, opts: SearchOptions): MiniSearch<SearchDoc> | undefined {
+  let scoped = indexCache.get(state)
+  if (scoped === undefined) {
+    scoped = new Map()
+    indexCache.set(state, scoped)
+  }
+
+  const key = scopeKey(opts)
+  if (scoped.has(key)) return scoped.get(key) ?? undefined
 
   const tasks = listTasks(state, {
     status: 'open',
@@ -38,7 +56,11 @@ export function searchAll(state: ProjectionState, query: string, opts: SearchOpt
     ...(opts.sphereId !== undefined && { sphereId: opts.sphereId }),
     ...(opts.includeArchived !== true && { isArchived: false }),
   })
-  if (tasks.length === 0 && projects.length === 0) return []
+
+  if (tasks.length === 0 && projects.length === 0) {
+    scoped.set(key, null)
+    return undefined
+  }
 
   const docs: SearchDoc[] = [
     ...tasks.map((t): SearchDoc => ({ id: `task:${t.id}`, entityKind: 'task', entityId: t.id, title: t.title, description: t.description })),
@@ -52,9 +74,17 @@ export function searchAll(state: ProjectionState, query: string, opts: SearchOpt
     searchOptions: { prefix: true, fuzzy: 0.2, boost: { title: 2 } },
   })
   miniSearch.addAll(docs)
+  scoped.set(key, miniSearch)
+  return miniSearch
+}
 
-  const tasksById = new Map(tasks.map(t => [t.id, t]))
-  const projectsById = new Map(projects.map(p => [p.id, p]))
+export function searchAll(state: ProjectionState, query: string, opts: SearchOptions = {}): SearchResultJson[] {
+  const trimmed = query.trim()
+  if (trimmed === '') return []
+
+  const miniSearch = getOrBuildIndex(state, opts)
+  if (miniSearch === undefined) return []
+
   const stats = computeProjectStats(state)
 
   const results: SearchResultJson[] = []
@@ -62,11 +92,11 @@ export function searchAll(state: ProjectionState, query: string, opts: SearchOpt
     const entityKind = hit['entityKind'] as 'task' | 'project'
     const entityId = hit['entityId'] as string
     if (entityKind === 'task') {
-      const task = tasksById.get(entityId as TaskId)
+      const task = state.tasks.get(entityId as TaskId)
       if (task === undefined) continue
       results.push({ kind: 'task', score: hit.score, task: toTaskJson(state, task) })
     } else {
-      const project = projectsById.get(entityId as ProjectId)
+      const project = state.projects.get(entityId as ProjectId)
       if (project === undefined) continue
       results.push({
         kind: 'project',
