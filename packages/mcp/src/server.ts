@@ -2,7 +2,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { z } from 'zod'
 import {
   handleTasks, handleTask, handleProjects, handleSpheres, handleAgendas, handleContexts,
-  handleDashboard, handleProcessing, handleWaiting, handlePickList,
+  handleDashboard, handleProcessing, handleWaiting, handlePickList, handleSearch,
   handleCompleteTask, handleSetDueDate, handleDeleteTask,
 } from './tools'
 import type { TaskStore } from './tools'
@@ -101,6 +101,16 @@ export function createMcpServer(store: TaskStore): McpServer {
       sphere: z.string().describe('Sphere name (required)'),
     },
   }, args => handlePickList(store, args))
+
+  server.registerTool('search', {
+    description: 'Full-text search over task titles/descriptions and project names/descriptions. Matches whole words, partial words at the end (e.g. "groc" matches "groceries"), and tolerates small typos. Use this instead of listing tasks/projects when looking for something specific by name or keyword. Results combine tasks and projects, ranked by relevance.',
+    inputSchema: {
+      query: z.string().describe('Search text'),
+      sphere: z.string().optional().describe('Filter by sphere name'),
+      includeArchived: z.boolean().optional().describe('Include tasks in archived projects and archived projects themselves'),
+      limit: z.number().int().positive().optional().describe('Limit the number of results'),
+    },
+  }, args => handleSearch(store, args))
 
   server.registerTool('complete_task', {
     description: 'Mark a task complete. Recurring tasks (with a recurrence expression) advance to their next due date instead of closing; non-recurring tasks are closed. Fails if the task is already completed or deleted. The response includes `synced: false` and a `warning` if the change could not be immediately confirmed by the remote store (it is still applied and will retry automatically).',

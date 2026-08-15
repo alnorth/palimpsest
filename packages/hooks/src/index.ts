@@ -33,5 +33,7 @@ export type { SyncStatus } from './useSyncStatus'
 export { useSyncStatus } from './useSyncStatus'
 export type { CurrentSphere } from './useCurrentSphere'
 export { useCurrentSphere } from './useCurrentSphere'
+export type { SearchFilter } from './useSearch'
+export { useSearch } from './useSearch'
 
 export * from './presentation/index'
