@@ -28,11 +28,16 @@ export function syncInternalDeps(pkgJson, versionsByName) {
   return changed;
 }
 
-function main() {
+// Scans packagesDir for immediate subdirectories with a package.json, then
+// rewrites each one's internal @alnorth/* ranges in place (see
+// syncInternalDeps above). Two passes are required: every package's version
+// must be collected first, since a dependency's range has to resolve against
+// its dependency's own freshly-read version, not a version read mid-loop.
+export function main(packagesDir = PACKAGES_DIR) {
   const packageDirs = fs
-    .readdirSync(PACKAGES_DIR, { withFileTypes: true })
+    .readdirSync(packagesDir, { withFileTypes: true })
     .filter((entry) => entry.isDirectory())
-    .map((entry) => path.join(PACKAGES_DIR, entry.name));
+    .map((entry) => path.join(packagesDir, entry.name));
 
   const packageJsonsByPath = new Map();
   const versionsByName = {};
