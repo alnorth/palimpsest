@@ -175,6 +175,31 @@ export function computeProjectNextTasks(state: ProjectionState): Map<ProjectId, 
   return map
 }
 
+export function computeProjectStatsAndNextTasks(state: ProjectionState): {
+  stats: Map<ProjectId, ProjectStats>
+  nextTasksByProject: Map<ProjectId, Task[]>
+} {
+  const stats = new Map<ProjectId, ProjectStats>()
+  const nextTasksByProject = new Map<ProjectId, Task[]>()
+  for (const project of state.projects.values()) {
+    stats.set(project.id, { openTaskCount: 0, hasNextAction: false })
+  }
+  for (const task of state.tasks.values()) {
+    if (task.status !== 'open' || task.projectId === undefined) continue
+    const projectStats = stats.get(task.projectId)
+    if (projectStats !== undefined) {
+      projectStats.openTaskCount += 1
+      if (task.isNext === true) projectStats.hasNextAction = true
+    }
+    if (task.isNext === true) {
+      const existing = nextTasksByProject.get(task.projectId)
+      if (existing !== undefined) existing.push(task)
+      else nextTasksByProject.set(task.projectId, [task])
+    }
+  }
+  return { stats, nextTasksByProject }
+}
+
 export function toSphereJson(sphere: Sphere): SphereJson {
   return {
     id: sphere.id,
