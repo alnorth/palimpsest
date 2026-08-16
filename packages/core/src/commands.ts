@@ -1,6 +1,6 @@
 import type { Task, Project } from './types'
 import type { PalimpsestEvent, TaskPatch, ProjectPatch } from './events'
-import { CLEAR } from './events'
+import { resolvePatched } from './events'
 import type { ProjectId, SphereId, AgendaId, ContextId } from './ids'
 import { newTaskId, newProjectId, newEventId } from './ids'
 import { nextDueDate, isValidExpression } from './dateParser'
@@ -33,9 +33,7 @@ export function createProject(input: CreateProjectInput): PalimpsestEvent[] {
 }
 
 export function updateProject(project: Project, patch: ProjectPatch): PalimpsestEvent[] {
-  const effectiveAgendaId = patch.agendaId !== undefined
-    ? (patch.agendaId === CLEAR ? undefined : patch.agendaId)
-    : project.agendaId
+  const effectiveAgendaId = resolvePatched(project.agendaId, patch.agendaId)
   const effectiveIsSelfOnly = patch.isSelfOnly !== undefined ? patch.isSelfOnly : project.isSelfOnly === true
   if (effectiveAgendaId !== undefined && effectiveIsSelfOnly) {
     throw new Error('A project cannot have both agendaId and isSelfOnly set')

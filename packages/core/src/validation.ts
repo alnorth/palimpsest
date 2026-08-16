@@ -1,6 +1,6 @@
 import type { ProjectionState } from './projection'
 import type { PalimpsestEvent } from './events'
-import { CLEAR } from './events'
+import { resolvePatched } from './events'
 import { applyEvent, cloneState } from './projection'
 
 function validateEvent(state: ProjectionState, event: PalimpsestEvent): void {
@@ -26,9 +26,7 @@ function validateEvent(state: ProjectionState, event: PalimpsestEvent): void {
         throw new Error(`Agenda not found: ${event.patch.agendaId}`)
       }
       const effectiveSphereId = event.patch.sphereId ?? project.sphereId
-      const effectiveAgendaId = event.patch.agendaId !== undefined
-        ? (event.patch.agendaId === CLEAR ? undefined : event.patch.agendaId)
-        : project.agendaId
+      const effectiveAgendaId = resolvePatched(project.agendaId, event.patch.agendaId)
       if (effectiveAgendaId !== undefined) {
         const agenda = state.agendas.get(effectiveAgendaId)
         if (agenda !== undefined && agenda.sphereId !== effectiveSphereId) {

@@ -14,9 +14,6 @@ export interface SetProjectAgendaArgs {
 // useCallback([store, projState, fn]) only recomputes `mutate` when store/projState actually
 // change, instead of on every render.
 async function runSetProjectAgenda(store: PalimpsestStore, projState: ProjectionState, args: SetProjectAgendaArgs): Promise<void> {
-  if (args.agendaId !== undefined && args.agendaId !== null && args.selfOnly === true) {
-    throw new Error('Cannot set both agendaId and selfOnly=true in the same call')
-  }
   const project = requireProject(projState, args.projectId)
   await store.appendEvents(updateProject(project, {
     ...(args.agendaId !== undefined && { agendaId: args.agendaId === null ? CLEAR : args.agendaId as AgendaId }),

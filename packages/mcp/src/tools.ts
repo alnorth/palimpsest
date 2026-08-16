@@ -301,12 +301,6 @@ function runProjectToolMutation(
 }
 
 export function handleSetProjectAgenda(store: TaskStore, input: SetProjectAgendaToolInput): Promise<CallToolResult> {
-  if (input.agendaId !== undefined && input.agendaId !== null && input.selfOnly === true) {
-    return Promise.resolve({
-      content: [{ type: 'text', text: 'Cannot set both agendaId and selfOnly=true in the same call' }],
-      isError: true,
-    })
-  }
   return runProjectToolMutation(store, input.id, project => updateProject(project, {
     ...(input.agendaId !== undefined && { agendaId: input.agendaId === null ? CLEAR : input.agendaId as AgendaId }),
     ...(input.selfOnly !== undefined && { isSelfOnly: input.selfOnly }),
