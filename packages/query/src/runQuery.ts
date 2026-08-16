@@ -47,6 +47,7 @@ export interface ProjectsCommand {
   agenda?: string
   hasAgenda?: boolean
   withoutAgenda?: boolean
+  isSelfOnly?: boolean
   includeNextTasks?: boolean
 }
 
@@ -194,6 +195,7 @@ function runProjectsQuery(state: ProjectionState, command: ProjectsCommand): Rec
     ...(agendaId !== undefined && { agendaId }),
     ...(command.hasAgenda === true && { hasAgenda: true }),
     ...(command.withoutAgenda === true && { hasAgenda: false }),
+    ...(command.isSelfOnly !== undefined && { isSelfOnly: command.isSelfOnly }),
   }
   const projects = sortByName(listProjects(state, filter))
   const { stats, nextTasksByProject } = command.includeNextTasks === true

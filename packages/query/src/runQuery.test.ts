@@ -266,6 +266,19 @@ describe('projects', () => {
     expect(withoutAgenda.projects.map(p => p.name)).toEqual(['Solo'])
   })
 
+  test('isSelfOnly filter', () => {
+    const sphere = makeSphere()
+    const selfOnly = makeProject(sphere, { name: 'Personal', isSelfOnly: true })
+    const notSelfOnly = makeProject(sphere, { name: 'Other' })
+    const state = buildState({ spheres: [sphere], projects: [selfOnly, notSelfOnly] })
+
+    const filtered = runQuery(state, { kind: 'projects', isSelfOnly: true }) as { projects: { name: string }[] }
+    expect(filtered.projects.map(p => p.name)).toEqual(['Personal'])
+
+    const excluded = runQuery(state, { kind: 'projects', isSelfOnly: false }) as { projects: { name: string }[] }
+    expect(excluded.projects.map(p => p.name)).toEqual(['Other'])
+  })
+
   test('omits nextTasks by default', () => {
     const sphere = makeSphere()
     const project = makeProject(sphere, { name: 'Website' })

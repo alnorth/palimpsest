@@ -8,14 +8,14 @@ import type { SphereId, ProjectId, TaskId, EventId, AgendaId } from './ids'
 
 const sphereId = 'sph1' as SphereId
 const agendaId = 'ag1' as AgendaId
+const otherSphereId = 'sph2' as SphereId
+const otherAgendaId = 'ag2' as AgendaId
 const baseState = {
   ...createEmptyState(),
-  ...buildStateFromConfig([{
-    id: sphereId,
-    name: 'Work',
-    agendas: [{ id: agendaId, title: 'Weekly Review' }],
-    contexts: [],
-  }]),
+  ...buildStateFromConfig([
+    { id: sphereId, name: 'Work', agendas: [{ id: agendaId, title: 'Weekly Review' }], contexts: [] },
+    { id: otherSphereId, name: 'Personal', agendas: [{ id: otherAgendaId, title: 'Family' }], contexts: [] },
+  ]),
 }
 
 describe('validateBatch', () => {
@@ -102,5 +102,38 @@ describe('validateBatch', () => {
     const proj = s1.projects.get(projectId)!
     const clearEvts = updateProject(proj, { agendaId: null })
     expect(() => validateBatch(s1, clearEvts)).not.toThrow()
+  })
+
+  it('throws when a project.created event links an agenda from a different sphere', () => {
+    const evts = createProject({ name: 'Cross-sphere', sphereId, agendaId: otherAgendaId })
+    expect(() => validateBatch(baseState, evts)).toThrow('different sphere')
+  })
+
+  it('throws when a project.updated patch links an agenda from a different sphere', () => {
+    const projEvts = createProject({ name: 'Proj', sphereId })
+    const s1 = project(projEvts, baseState)
+    const projectId = (projEvts[0] as any).projectId as ProjectId
+    const proj = s1.projects.get(projectId)!
+    const updateEvts = updateProject(proj, { agendaId: otherAgendaId })
+    expect(() => validateBatch(s1, updateEvts)).toThrow('different sphere')
+  })
+
+  it('throws when moving a project to a different sphere invalidates its existing agenda link', () => {
+    const projEvts = createProject({ name: 'Proj', sphereId, agendaId })
+    const s1 = project(projEvts, baseState)
+    const projectId = (projEvts[0] as any).projectId as ProjectId
+    const proj = s1.projects.get(projectId)!
+    // Only sphereId is patched — the existing agendaId is unchanged but now cross-sphere.
+    const moveEvts = updateProject(proj, { sphereId: otherSphereId })
+    expect(() => validateBatch(s1, moveEvts)).toThrow('different sphere')
+  })
+
+  it('accepts moving a project and its agenda link to the same new sphere in one batch', () => {
+    const projEvts = createProject({ name: 'Proj', sphereId, agendaId })
+    const s1 = project(projEvts, baseState)
+    const projectId = (projEvts[0] as any).projectId as ProjectId
+    const proj = s1.projects.get(projectId)!
+    const moveEvts = updateProject(proj, { sphereId: otherSphereId, agendaId: otherAgendaId })
+    expect(() => validateBatch(s1, moveEvts)).not.toThrow()
   })
 })

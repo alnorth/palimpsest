@@ -38,6 +38,7 @@ export interface ProjectJson {
   description: string | null
   sphere: EntityRef | null
   agenda: EntityRef | null
+  isSelfOnly: boolean
   isArchived: boolean
   openTaskCount: number
   hasNextAction: boolean
@@ -156,6 +157,7 @@ export function toProjectJson(
     description: project.description ?? null,
     sphere: refFromSphere(state.spheres.get(project.sphereId)),
     agenda: project.agendaId !== undefined ? refFromAgenda(state.agendas.get(project.agendaId)) : null,
+    isSelfOnly: project.isSelfOnly === true,
     isArchived: project.isArchived === true,
     openTaskCount: stats.openTaskCount,
     hasNextAction: stats.hasNextAction,

@@ -5,7 +5,7 @@ import { createEmptyState, buildStateFromConfig, project as projectState } from 
 import type { PalimpsestEvent, SphereId, ProjectId, TaskId, AgendaId, EventId } from '@alnorth/palimpsest'
 import type { SyncItem, SyncResponse } from './api'
 import { AGENDA_PROJECT_MAP_TASK_TITLE, serializeAgendaMapping } from './sharedStorage'
-import { TODOIST_INBOX_ID, TODOIST_WORK_PROJECT_ID } from './mapping'
+import { TODOIST_INBOX_ID, TODOIST_WORK_PROJECT_ID, WORK_SPHERE_ID as MAPPING_WORK_SPHERE_ID } from './mapping'
 
 vi.mock('./api.js')
 
@@ -40,7 +40,10 @@ function makeStore(initialState = baseState) {
 
 // ── Shared agenda-mapping fixtures ────────────────────────────────────────────
 
-const AGENDA_SPHERE_ID = 'sph2' as SphereId
+// Projects synced in via makeSyncProject default to parent_id: TODOIST_WORK_PROJECT_ID, which
+// read.ts resolves to WORK_SPHERE_ID — so the fixture agendas must live in that same sphere too,
+// now that core enforces a same-sphere invariant between a project and its linked agenda.
+const AGENDA_SPHERE_ID = MAPPING_WORK_SPHERE_ID
 const stateWithAgendas = {
   ...createEmptyState(),
   ...buildStateFromConfig([{

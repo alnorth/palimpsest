@@ -1,11 +1,12 @@
 import { describe, it, expect } from 'vitest'
 import {
   AGENDA_PROJECT_MAP_TASK_TITLE,
+  DASHBOARD_STORAGE_TASK_TITLES,
   SELF_AGENDA_LABEL,
   findAgendaMapTask,
   parseAgendaMapping,
   serializeAgendaMapping,
-  resolveProjectAgendaIds,
+  resolveProjectSharing,
   labelForAgenda,
 } from './sharedStorage'
 import type { SyncItem } from './api'
@@ -85,30 +86,52 @@ describe('serializeAgendaMapping', () => {
   })
 })
 
-describe('resolveProjectAgendaIds', () => {
-  it('translates recognized labels to AgendaIds', () => {
-    const resolved = resolveProjectAgendaIds({ proj1: 'jim' })
-    expect(resolved).toEqual({ proj1: 'agenda-jim' as AgendaId })
+describe('resolveProjectSharing', () => {
+  it('translates a recognized label into agendaIds, not selfOnlyProjectIds', () => {
+    const { agendaIds, selfOnlyProjectIds } = resolveProjectSharing({ proj1: 'jim' })
+    expect(agendaIds).toEqual({ proj1: 'agenda-jim' as AgendaId })
+    expect(selfOnlyProjectIds.size).toBe(0)
   })
 
-  it('excludes SELF_AGENDA_LABEL ("me") deliberately', () => {
-    const resolved = resolveProjectAgendaIds({ proj1: SELF_AGENDA_LABEL })
-    expect(resolved).toEqual({})
+  it('SELF_AGENDA_LABEL ("me") lands in selfOnlyProjectIds, not agendaIds', () => {
+    const { agendaIds, selfOnlyProjectIds } = resolveProjectSharing({ proj1: SELF_AGENDA_LABEL })
+    expect(agendaIds).toEqual({})
+    expect(selfOnlyProjectIds.has('proj1')).toBe(true)
   })
 
-  it('drops a genuinely unrecognized/typo label', () => {
-    const resolved = resolveProjectAgendaIds({ proj1: 'not-a-real-label' })
-    expect(resolved).toEqual({})
+  it('drops a genuinely unrecognized/typo label from both outcomes', () => {
+    const { agendaIds, selfOnlyProjectIds } = resolveProjectSharing({ proj1: 'not-a-real-label' })
+    expect(agendaIds).toEqual({})
+    expect(selfOnlyProjectIds.size).toBe(0)
   })
 
   it('resolves multiple entries, mixing recognized, self, and unrecognized labels', () => {
-    const resolved = resolveProjectAgendaIds({
+    const { agendaIds, selfOnlyProjectIds } = resolveProjectSharing({
       proj1: 'jim',
       proj2: SELF_AGENDA_LABEL,
       proj3: 'han',
       proj4: 'bogus',
     })
-    expect(resolved).toEqual({ proj1: 'agenda-jim' as AgendaId, proj3: 'agenda-han' as AgendaId })
+    expect(agendaIds).toEqual({ proj1: 'agenda-jim' as AgendaId, proj3: 'agenda-han' as AgendaId })
+    expect(selfOnlyProjectIds).toEqual(new Set(['proj2']))
+  })
+})
+
+describe('DASHBOARD_STORAGE_TASK_TITLES', () => {
+  it('includes the agenda-mapping task title', () => {
+    expect(DASHBOARD_STORAGE_TASK_TITLES.has(AGENDA_PROJECT_MAP_TASK_TITLE)).toBe(true)
+  })
+
+  it('includes every other known dashboard storage-task title', () => {
+    expect(DASHBOARD_STORAGE_TASK_TITLES.has('* _GITHUB_PR_DATA_')).toBe(true)
+    expect(DASHBOARD_STORAGE_TASK_TITLES.has('* _STARRED_ITEMS_')).toBe(true)
+    expect(DASHBOARD_STORAGE_TASK_TITLES.has('* _PROJECT_OVERVIEW_MAPPING_')).toBe(true)
+    expect(DASHBOARD_STORAGE_TASK_TITLES.has('* _DAILY_BASICS_DATA_')).toBe(true)
+    expect(DASHBOARD_STORAGE_TASK_TITLES.has('* _DAILY_CHECKLIST_DATA_')).toBe(true)
+  })
+
+  it('does not match an ordinary task title', () => {
+    expect(DASHBOARD_STORAGE_TASK_TITLES.has('Buy milk')).toBe(false)
   })
 })
 

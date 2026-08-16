@@ -9,6 +9,7 @@ export interface ProjectsFilter {
   agenda?: string
   hasAgenda?: boolean
   withoutAgenda?: boolean
+  isSelfOnly?: boolean
   includeNextTasks?: boolean
 }
 
@@ -21,6 +22,7 @@ export function useProjects(filter: ProjectsFilter = {}): ListResult<ProjectJson
     ...(filter.agenda !== undefined && { agenda: filter.agenda }),
     ...(filter.hasAgenda !== undefined && { hasAgenda: filter.hasAgenda }),
     ...(filter.withoutAgenda !== undefined && { withoutAgenda: filter.withoutAgenda }),
+    ...(filter.isSelfOnly !== undefined && { isSelfOnly: filter.isSelfOnly }),
     ...(filter.includeNextTasks !== undefined && { includeNextTasks: filter.includeNextTasks }),
   })
   return {

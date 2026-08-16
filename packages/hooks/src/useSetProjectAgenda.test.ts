@@ -66,6 +66,45 @@ describe('useSetProjectAgenda', () => {
     expect(store.appended).toEqual([])
   })
 
+  test('selfOnly: true marks a project self-only with no agendaId argument', async () => {
+    const sphere = makeSphere()
+    const project = makeProject(sphere, { name: 'Launch' })
+    const store = new RecordingStore(buildState({ spheres: [sphere], projects: [project] }))
+
+    const { result } = renderHook(() => ({
+      setProjectAgenda: useSetProjectAgenda(),
+      projects: useProjects(),
+    }), { wrapper: makeWrapper(store) })
+    await waitFor(() => expect(result.current.projects.isLoading).toBe(false))
+
+    await act(async () => { await result.current.setProjectAgenda.mutate({ projectId: project.id, selfOnly: true }) })
+
+    expect(store.appended).toEqual([[expect.objectContaining({
+      type: 'project.updated', projectId: project.id, patch: { isSelfOnly: true },
+    })]])
+    await waitFor(() => expect(result.current.projects.data?.[0]?.isSelfOnly).toBe(true))
+  })
+
+  test('rejects a call with both agendaId and selfOnly:true, without appending', async () => {
+    const sphere = makeSphere()
+    const agenda = makeAgenda(sphere, { title: 'Jim' })
+    const project = makeProject(sphere)
+    const store = new RecordingStore(buildState({ spheres: [sphere], agendas: [agenda], projects: [project] }))
+
+    const { result } = renderHook(() => ({
+      setProjectAgenda: useSetProjectAgenda(),
+      projects: useProjects(),
+    }), { wrapper: makeWrapper(store) })
+    await waitFor(() => expect(result.current.projects.isLoading).toBe(false))
+
+    await act(async () => {
+      await expect(result.current.setProjectAgenda.mutate({ projectId: project.id, agendaId: agenda.id, selfOnly: true }))
+        .rejects.toThrow(/agendaId.*selfOnly/i)
+    })
+
+    expect(store.appended).toEqual([])
+  })
+
   test('mutate keeps a stable identity across re-renders when store and projState are unchanged', async () => {
     const store = new RecordingStore(buildState({}))
 

@@ -17,6 +17,7 @@ export interface ProjectCreatedEvent extends EventBase {
   name: string
   description?: string
   agendaId?: AgendaId
+  isSelfOnly?: true
 }
 
 export type ProjectPatch = {
@@ -24,6 +25,7 @@ export type ProjectPatch = {
   description?: string | typeof CLEAR
   sphereId?: SphereId
   agendaId?: AgendaId | typeof CLEAR
+  isSelfOnly?: boolean
 }
 
 export interface ProjectUpdatedEvent extends EventBase {

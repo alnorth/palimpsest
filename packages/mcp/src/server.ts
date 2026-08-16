@@ -56,6 +56,7 @@ export function createMcpServer(store: TaskStore): McpServer {
       agenda: z.string().optional().describe('Filter by agenda name'),
       hasAgenda: z.boolean().optional().describe('Only projects linked to an agenda ("shared projects")'),
       withoutAgenda: z.boolean().optional().describe('Only projects not linked to an agenda'),
+      isSelfOnly: z.boolean().optional().describe('Only projects explicitly marked "just mine" (true), or only projects not so marked (false)'),
       includeNextTasks: z.boolean().optional().describe('Include each project\'s open next-action tasks'),
     },
   }, args => handleProjects(store, args))
@@ -139,10 +140,11 @@ export function createMcpServer(store: TaskStore): McpServer {
   }, args => handleDeleteTask(store, args))
 
   server.registerTool('set_project_agenda', {
-    description: 'Link a project to an agenda (making it a "shared project"), or unlink it. Pass an agenda id to link, or null to unlink. Use the agendas tool to look up an agenda id by name first.',
+    description: 'Link a project to an agenda (making it a "shared project"), unlink it, or mark it explicitly self-only ("just mine"). Pass agendaId to link (or null to unlink); pass selfOnly: true to mark the project as explicitly personal, or selfOnly: false to clear that mark. agendaId and selfOnly: true cannot both be set in the same call. Use the agendas tool to look up an agenda id by name first.',
     inputSchema: {
       id: z.string().describe('Project id'),
-      agendaId: z.string().nullable().describe('Agenda id to link, or null to unlink'),
+      agendaId: z.string().nullable().optional().describe('Agenda id to link, or null to unlink'),
+      selfOnly: z.boolean().optional().describe('true to mark the project explicitly self-only ("just mine"); false to clear that mark'),
     },
   }, args => handleSetProjectAgenda(store, args))
 

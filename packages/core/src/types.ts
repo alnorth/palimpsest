@@ -40,6 +40,7 @@ export interface Project {
   name: string
   description?: string
   agendaId?: AgendaId
+  isSelfOnly?: true
   isArchived?: boolean
   createdAt: string
   updatedAt: string
