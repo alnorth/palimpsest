@@ -6,6 +6,10 @@ export interface ProjectsFilter {
   sphere?: string
   archived?: boolean
   all?: boolean
+  agenda?: string
+  hasAgenda?: boolean
+  withoutAgenda?: boolean
+  includeNextTasks?: boolean
 }
 
 export function useProjects(filter: ProjectsFilter = {}): ListResult<ProjectJson> {
@@ -14,6 +18,10 @@ export function useProjects(filter: ProjectsFilter = {}): ListResult<ProjectJson
     ...(filter.sphere !== undefined && { sphere: filter.sphere }),
     ...(filter.archived !== undefined && { archived: filter.archived }),
     ...(filter.all !== undefined && { all: filter.all }),
+    ...(filter.agenda !== undefined && { agenda: filter.agenda }),
+    ...(filter.hasAgenda !== undefined && { hasAgenda: filter.hasAgenda }),
+    ...(filter.withoutAgenda !== undefined && { withoutAgenda: filter.withoutAgenda }),
+    ...(filter.includeNextTasks !== undefined && { includeNextTasks: filter.includeNextTasks }),
   })
   return {
     data: raw !== undefined ? raw.projects as ProjectJson[] : undefined,

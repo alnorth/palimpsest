@@ -7,10 +7,12 @@
   "scripts": {
     "build": "npm run build --workspaces",
     "test": "npm run test --workspaces --if-present",
+    "test:scripts": "vitest run scripts",
     "typecheck": "npm run typecheck --workspaces",
     "dev": "npm run dev --workspace=packages/mcp",
     "deploy": "npm run build --workspace=packages/backend && npm run deploy --workspace=packages/cdk",
-    "deploy:ci": "npm run build --workspace=packages/backend && npm run deploy:ci --workspace=packages/cdk"
+    "deploy:ci": "npm run build --workspace=packages/backend && npm run deploy:ci --workspace=packages/cdk",
+    "sync-internal-versions": "node scripts/sync-internal-versions.mjs"
   },
   "optionalDependencies": {
     "@rollup/rollup-linux-x64-gnu": "4.62.2"

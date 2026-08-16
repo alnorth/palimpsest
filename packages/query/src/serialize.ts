@@ -37,12 +37,14 @@ export interface ProjectJson {
   name: string
   description: string | null
   sphere: EntityRef | null
+  agenda: EntityRef | null
   isArchived: boolean
   openTaskCount: number
   hasNextAction: boolean
   createdAt: string
   updatedAt: string
   archivedAt: string | null
+  nextTasks?: TaskJson[]
 }
 
 export interface SphereJson {
@@ -142,19 +144,62 @@ export function computeProjectStats(state: ProjectionState): Map<ProjectId, Proj
   return stats
 }
 
-export function toProjectJson(state: ProjectionState, project: Project, stats: ProjectStats): ProjectJson {
+export function toProjectJson(
+  state: ProjectionState,
+  project: Project,
+  stats: ProjectStats,
+  nextTasks?: Task[],
+): ProjectJson {
   return {
     id: project.id,
     name: project.name,
     description: project.description ?? null,
     sphere: refFromSphere(state.spheres.get(project.sphereId)),
+    agenda: project.agendaId !== undefined ? refFromAgenda(state.agendas.get(project.agendaId)) : null,
     isArchived: project.isArchived === true,
     openTaskCount: stats.openTaskCount,
     hasNextAction: stats.hasNextAction,
     createdAt: project.createdAt,
     updatedAt: project.updatedAt,
     archivedAt: project.archivedAt ?? null,
+    ...(nextTasks !== undefined && { nextTasks: nextTasks.map(t => toTaskJson(state, t)) }),
   }
+}
+
+export function computeProjectNextTasks(state: ProjectionState): Map<ProjectId, Task[]> {
+  const map = new Map<ProjectId, Task[]>()
+  for (const task of state.tasks.values()) {
+    if (task.status !== 'open' || task.projectId === undefined || task.isNext !== true) continue
+    const existing = map.get(task.projectId)
+    if (existing !== undefined) existing.push(task)
+    else map.set(task.projectId, [task])
+  }
+  return map
+}
+
+export function computeProjectStatsAndNextTasks(state: ProjectionState): {
+  stats: Map<ProjectId, ProjectStats>
+  nextTasksByProject: Map<ProjectId, Task[]>
+} {
+  const stats = new Map<ProjectId, ProjectStats>()
+  const nextTasksByProject = new Map<ProjectId, Task[]>()
+  for (const project of state.projects.values()) {
+    stats.set(project.id, { openTaskCount: 0, hasNextAction: false })
+  }
+  for (const task of state.tasks.values()) {
+    if (task.status !== 'open' || task.projectId === undefined) continue
+    const projectStats = stats.get(task.projectId)
+    if (projectStats !== undefined) {
+      projectStats.openTaskCount += 1
+      if (task.isNext === true) projectStats.hasNextAction = true
+    }
+    if (task.isNext === true) {
+      const existing = nextTasksByProject.get(task.projectId)
+      if (existing !== undefined) existing.push(task)
+      else nextTasksByProject.set(task.projectId, [task])
+    }
+  }
+  return { stats, nextTasksByProject }
 }
 
 export function toSphereJson(sphere: Sphere): SphereJson {

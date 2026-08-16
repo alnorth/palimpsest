@@ -11,6 +11,7 @@ import {
   WORK_SPHERE_ID,
   PERSONAL_SPHERE_ID,
 } from './mapping'
+import { AGENDA_PROJECT_MAP_TASK_TITLE, serializeAgendaMapping } from './sharedStorage'
 import { buildStateFromConfig, createEmptyState, PALIMPSEST_CONFIG, project, CLEAR } from '@alnorth/palimpsest'
 import type { ProjectId, TaskId } from '@alnorth/palimpsest'
 
@@ -61,6 +62,16 @@ const CONTAINERS: SyncProject[] = [
 
 function makeBase(rawProjects = CONTAINERS, rawItems: SyncItem[] = []) {
   return project(buildEvents(rawProjects, rawItems), CONFIG_STATE)
+}
+
+function makeMapTask(mapping: Record<string, string>, overrides: Partial<SyncItem> = {}): SyncItem {
+  return makeItem({
+    id: 'maptask1',
+    content: AGENDA_PROJECT_MAP_TASK_TITLE,
+    project_id: TODOIST_INBOX_ID,
+    description: serializeAgendaMapping(mapping),
+    ...overrides,
+  })
 }
 
 // ── buildEvents ───────────────────────────────────────────────────────────────
@@ -136,6 +147,38 @@ describe('buildEvents — projects', () => {
     expect(created).not.toHaveProperty('description')
   })
 
+  it('emits agendaId in project.created when the shared storage task maps it', () => {
+    const projects = [
+      ...CONTAINERS,
+      makeProject({ id: 'proj1', name: 'Widgets', parent_id: TODOIST_WORK_PROJECT_ID }),
+    ]
+    const items = [makeMapTask({ proj1: 'jim' })]
+    const events = buildEvents(projects, items)
+    const created = events.find(e => e.type === 'project.created' && e.projectId === 'proj1')
+    expect(created).toMatchObject({ agendaId: 'agenda-jim' })
+  })
+
+  it('omits agendaId from project.created when the project is mapped to "me"', () => {
+    const projects = [
+      ...CONTAINERS,
+      makeProject({ id: 'proj1', name: 'Widgets', parent_id: TODOIST_WORK_PROJECT_ID }),
+    ]
+    const items = [makeMapTask({ proj1: 'me' })]
+    const events = buildEvents(projects, items)
+    const created = events.find(e => e.type === 'project.created' && e.projectId === 'proj1')
+    expect(created).not.toHaveProperty('agendaId')
+  })
+
+  it('omits agendaId from project.created when there is no shared storage task', () => {
+    const projects = [
+      ...CONTAINERS,
+      makeProject({ id: 'proj1', name: 'Widgets', parent_id: TODOIST_WORK_PROJECT_ID }),
+    ]
+    const events = buildEvents(projects, [])
+    const created = events.find(e => e.type === 'project.created' && e.projectId === 'proj1')
+    expect(created).not.toHaveProperty('agendaId')
+  })
+
   it('projects the correct state for multiple projects', () => {
     const projects = [
       ...CONTAINERS,
@@ -196,6 +239,12 @@ describe('buildEvents — tasks', () => {
   it('emits no events for a deleted task', () => {
     const events = buildEvents(CONTAINERS, [makeItem({ id: 't1', is_deleted: true })])
     expect(events.some(e => 'taskId' in e && e.taskId === 't1')).toBe(false)
+  })
+
+  it('never emits a task.created event for the shared agenda-mapping storage task itself', () => {
+    const events = buildEvents(CONTAINERS, [makeMapTask({ proj1: 'jim' }), makeItem({ id: 't1' })])
+    expect(events.some(e => e.type === 'task.created' && e.taskId === 'maptask1')).toBe(false)
+    expect(events.some(e => e.type === 'task.created' && e.taskId === 't1')).toBe(true)
   })
 
   it('does not set waitingFor for a task with only the waiting label', () => {
@@ -315,6 +364,65 @@ describe('buildDeltaEvents — projects', () => {
       makeProject({ id: 'pUnarch', parent_id: TODOIST_WORK_PROJECT_ID, is_archived: false }),
     ], [])
     expect(events.some(e => e.type === 'project.unarchived' && e.projectId === 'pUnarch')).toBe(true)
+  })
+})
+
+describe('buildDeltaEvents — shared project/agenda mapping', () => {
+  it('folds agendaId into the patch when the project itself also changed in this delta', () => {
+    const projects = [...CONTAINERS, makeProject({ id: 'p1', name: 'Old', parent_id: TODOIST_WORK_PROJECT_ID })]
+    const items = [makeMapTask({ p1: 'jim' })]
+    const base = makeBase(projects, items)
+    const events = buildDeltaEvents(base, [
+      makeProject({ id: 'p1', name: 'New', parent_id: TODOIST_WORK_PROJECT_ID }),
+    ], items)
+    const updated = events.find(e => e.type === 'project.updated' && e.projectId === 'p1')
+    expect(updated).toMatchObject({ patch: { name: 'New', agendaId: 'agenda-jim' } })
+  })
+
+  it('emits project.updated with agendaId CLEAR when the mapping entry is removed but the project itself did not change', () => {
+    const projects = [...CONTAINERS, makeProject({ id: 'p1', parent_id: TODOIST_WORK_PROJECT_ID })]
+    const items = [makeMapTask({ p1: 'jim' })]
+    const base = makeBase(projects, items)
+    const updatedMapTask = makeMapTask({})
+    const events = buildDeltaEvents(base, [], [updatedMapTask])
+    const updated = events.find(e => e.type === 'project.updated' && e.projectId === 'p1')
+    expect(updated).toMatchObject({ patch: { agendaId: CLEAR } })
+  })
+
+  it('emits project.updated with the new agendaId when only the mapping (not the project) changes', () => {
+    const projects = [...CONTAINERS, makeProject({ id: 'p1', parent_id: TODOIST_WORK_PROJECT_ID })]
+    const items = [makeMapTask({ p1: 'jim' })]
+    const base = makeBase(projects, items)
+    const updatedMapTask = makeMapTask({ p1: 'han' })
+    const events = buildDeltaEvents(base, [], [updatedMapTask])
+    const updated = events.find(e => e.type === 'project.updated' && e.projectId === 'p1')
+    expect(updated).toMatchObject({ patch: { agendaId: 'agenda-han' } })
+  })
+
+  it('emits no project.updated when the mapping is unchanged', () => {
+    const projects = [...CONTAINERS, makeProject({ id: 'p1', parent_id: TODOIST_WORK_PROJECT_ID })]
+    const items = [makeMapTask({ p1: 'jim' })]
+    const base = makeBase(projects, items)
+    const sameMapTask = makeMapTask({ p1: 'jim' })
+    const events = buildDeltaEvents(base, [], [sameMapTask])
+    expect(events.some(e => e.type === 'project.updated' && e.projectId === 'p1')).toBe(false)
+  })
+
+  it('does not emit a spurious project.updated for a project deleted in the same delta as its mapping entry removal', () => {
+    const projects = [...CONTAINERS, makeProject({ id: 'p1', parent_id: TODOIST_WORK_PROJECT_ID })]
+    const items = [makeMapTask({ p1: 'jim' })]
+    const base = makeBase(projects, items)
+    const events = buildDeltaEvents(base, [
+      makeProject({ id: 'p1', parent_id: TODOIST_WORK_PROJECT_ID, is_deleted: true }),
+    ], [makeMapTask({})])
+    expect(events.filter(e => e.type === 'project.updated' && e.projectId === 'p1')).toHaveLength(0)
+    expect(events.some(e => e.type === 'project.archived' && e.projectId === 'p1')).toBe(true)
+  })
+
+  it('never emits task events for the shared storage task appearing in a delta', () => {
+    const base = makeBase()
+    const events = buildDeltaEvents(base, [], [makeMapTask({ proj1: 'jim' })])
+    expect(events.some(e => 'taskId' in e && e.taskId === 'maptask1')).toBe(false)
   })
 })
 

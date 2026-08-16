@@ -3,7 +3,7 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js'
 import type { PalimpsestEvent, ProjectionState } from '@alnorth/palimpsest'
 import { applyEvent } from '@alnorth/palimpsest'
-import { makeSphere, makeContext, makeTask, buildState } from './testFixtures'
+import { makeSphere, makeAgenda, makeProject, makeContext, makeTask, buildState } from './testFixtures'
 import type { TaskStore } from './tools'
 import { createMcpServer } from './server'
 
@@ -45,13 +45,13 @@ describe('createMcpServer', () => {
     client = await connectedClient(fakeStore(buildState({ spheres: [sphere], tasks: [task] })))
   })
 
-  test('registers all fourteen tools', async () => {
+  test('registers all fifteen tools', async () => {
     const { tools } = await client.listTools()
     expect(tools.map(t => t.name).sort()).toEqual(
       [
         'agendas', 'contexts', 'projects', 'spheres', 'task', 'tasks',
         'dashboard', 'processing', 'waiting', 'pick_list', 'search',
-        'complete_task', 'set_due_date', 'delete_task',
+        'complete_task', 'set_due_date', 'delete_task', 'set_project_agenda',
       ].sort(),
     )
   })
@@ -207,5 +207,60 @@ describe('createMcpServer', () => {
     const result = await client.callTool({ name: 'delete_task', arguments: { id: 'missing' } })
     expect(result.isError).toBe(true)
     expect(firstText(result)).toMatch(/Task not found: missing/)
+  })
+
+  test('projects tool accepts agenda/hasAgenda/withoutAgenda filters', async () => {
+    const sphere = makeSphere({ name: 'Errands' })
+    const agenda = makeAgenda(sphere, { title: 'Jim' })
+    const linked = makeProject(sphere, { name: 'Shared', agendaId: agenda.id })
+    const unlinked = makeProject(sphere, { name: 'Solo' })
+    const scopedClient = await connectedClient(fakeStore(buildState({
+      spheres: [sphere], agendas: [agenda], projects: [linked, unlinked],
+    })))
+
+    const result = await scopedClient.callTool({ name: 'projects', arguments: { agenda: 'Jim' } })
+
+    const parsed = JSON.parse(firstText(result)) as { projects: { name: string }[] }
+    expect(parsed.projects.map(p => p.name)).toEqual(['Shared'])
+  })
+
+  test('set_project_agenda tool links a project to an agenda and returns the updated project', async () => {
+    const sphere = makeSphere({ name: 'Errands' })
+    const agenda = makeAgenda(sphere, { title: 'Jim' })
+    const project = makeProject(sphere, { name: 'Website' })
+    const scopedClient = await connectedClient(fakeStore(buildState({
+      spheres: [sphere], agendas: [agenda], projects: [project],
+    })))
+
+    const result = await scopedClient.callTool({
+      name: 'set_project_agenda', arguments: { id: project.id, agendaId: agenda.id },
+    })
+
+    expect(result.isError).toBeUndefined()
+    const parsed = JSON.parse(firstText(result)) as { project: { name: string; agenda: { name: string } | null } }
+    expect(parsed.project).toEqual(expect.objectContaining({ name: 'Website', agenda: { id: agenda.id, name: 'Jim' } }))
+  })
+
+  test('set_project_agenda tool clears the agenda link when agendaId is null', async () => {
+    const sphere = makeSphere({ name: 'Errands' })
+    const agenda = makeAgenda(sphere)
+    const project = makeProject(sphere, { agendaId: agenda.id })
+    const scopedClient = await connectedClient(fakeStore(buildState({
+      spheres: [sphere], agendas: [agenda], projects: [project],
+    })))
+
+    const result = await scopedClient.callTool({
+      name: 'set_project_agenda', arguments: { id: project.id, agendaId: null },
+    })
+
+    expect(result.isError).toBeUndefined()
+    const parsed = JSON.parse(firstText(result)) as { project: { agenda: unknown } }
+    expect(parsed.project.agenda).toBeNull()
+  })
+
+  test('set_project_agenda tool surfaces an unknown id as a tool error, not a protocol error', async () => {
+    const result = await client.callTool({ name: 'set_project_agenda', arguments: { id: 'missing', agendaId: null } })
+    expect(result.isError).toBe(true)
+    expect(firstText(result)).toMatch(/Project not found: missing/)
   })
 })

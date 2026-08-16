@@ -23,6 +23,7 @@ jobs:
       - run: npm run typecheck --workspaces
       - run: npm test
       - run: npm run build --workspaces --if-present
+      - run: npm run sync-internal-versions
       - run: npm publish --workspace=packages/core
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
