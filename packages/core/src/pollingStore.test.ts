@@ -102,5 +102,35 @@ describe('PollingStore', () => {
       store.stop()
       expect(listeners.storage).toHaveLength(0)
     })
+
+    it('ignores storage events for unrelated localStorage keys', () => {
+      const listeners: Record<string, Array<(event: any) => void>> = {}
+      const fakeWindow = {
+        addEventListener: (type: string, fn: (event: any) => void) => { (listeners[type] ??= []).push(fn) },
+        removeEventListener: (type: string, fn: (event: any) => void) => {
+          listeners[type] = (listeners[type] ?? []).filter(f => f !== fn)
+        },
+      };
+      (globalThis as any).window = fakeWindow
+
+      const pendingStore: PendingEventStore = {
+        key: 'palimpsest_pending',
+        size: 0,
+        load: vi.fn(async () => []),
+        save: vi.fn(async () => {}),
+      }
+      const store = makeStore({ pendingStore })
+      const listener = vi.fn()
+      store.subscribe(listener)
+      store.start()
+
+      listeners.storage?.forEach(fn => fn({ key: 'some_other_key' }))
+      expect(listener).not.toHaveBeenCalled()
+
+      listeners.storage?.forEach(fn => fn({ key: 'palimpsest_pending' }))
+      expect(listener).toHaveBeenCalled()
+
+      store.stop()
+    })
   })
 })

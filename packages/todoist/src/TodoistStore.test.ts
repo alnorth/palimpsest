@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { TodoistStore } from './TodoistStore'
 import * as api from './api'
-import { createEmptyState, buildStateFromConfig } from '@alnorth/palimpsest'
+import { createEmptyState, buildStateFromConfig, ConcurrentModificationError } from '@alnorth/palimpsest'
 import type { PalimpsestEvent, SphereId, TaskId, EventId, PendingEventStore } from '@alnorth/palimpsest'
 import type { SyncResponse } from './api'
 
@@ -12,6 +12,15 @@ class SpyPendingStore implements PendingEventStore {
   get size(): number { return this.current.length }
   async load(): Promise<PalimpsestEvent[]> { return this.current }
   async save(events: PalimpsestEvent[]): Promise<void> { this.saved = events; this.current = events }
+}
+
+// Simulates a pendingStore whose cleanup save() always conflicts (e.g. another tab keeps
+// writing), so updatePending's retries are always exhausted.
+class AlwaysConflictingPendingStore implements PendingEventStore {
+  constructor(private current: PalimpsestEvent[]) {}
+  get size(): number { return this.current.length }
+  async load(): Promise<PalimpsestEvent[]> { return this.current }
+  async save(): Promise<void> { throw new ConcurrentModificationError() }
 }
 
 vi.mock('./api.js')
@@ -165,6 +174,17 @@ describe('syncState', () => {
 
       const stillPending = await pending.load()
       expect(stillPending.map(e => e.id)).toEqual([concurrentEv.id])
+    })
+
+    it('surfaces post-sync cleanup exhausting its retries as a sync error instead of throwing out of refresh()', async () => {
+      vi.mocked(api.sync).mockResolvedValue({ ...EMPTY_SYNC })
+      const pending = new AlwaysConflictingPendingStore([makeTaskEvent()])
+      const store = new TodoistStore('fake-token', { initialState: baseState, pendingStore: pending })
+
+      await expect(store.refresh()).resolves.toBeUndefined()
+
+      expect(store.syncState.health).toBe('error')
+      expect(store.syncState.lastError).toBeDefined()
     })
   })
 

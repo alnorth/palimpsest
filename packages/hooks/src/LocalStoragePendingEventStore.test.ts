@@ -109,4 +109,27 @@ describe('LocalStoragePendingEventStore', () => {
       expect(finalState.map(e => e.id).sort()).toEqual(['fromA', 'fromB'])
     })
   })
+
+  describe('concurrent calls on the same instance', () => {
+    it('does not lose an event when two updatePending calls race without awaiting each other', async () => {
+      const store = new LocalStoragePendingEventStore()
+      const evA = makeEvent('fromA')
+      const evB = makeEvent('fromB')
+
+      // Fire both without awaiting the first — the single-tab equivalent of two tabs racing:
+      // both read the same starting point before either has saved.
+      await Promise.all([
+        updatePending(store, current => [...current, evA]),
+        updatePending(store, current => [...current, evB]),
+      ])
+
+      const finalState = await store.load()
+      expect(finalState.map(e => e.id).sort()).toEqual(['fromA', 'fromB'])
+    })
+  })
+
+  it('exposes the localStorage key it was constructed with', () => {
+    expect(new LocalStoragePendingEventStore().key).toBe('palimpsest_pending')
+    expect(new LocalStoragePendingEventStore('custom_key').key).toBe('custom_key')
+  })
 })

@@ -1,4 +1,4 @@
-import { PollingStore, updatePending } from '@alnorth/palimpsest'
+import { PollingStore, removeSentEvents } from '@alnorth/palimpsest'
 import type { PalimpsestEvent, ProjectionState, PendingEventStore } from '@alnorth/palimpsest'
 
 export type SyncStatus = 'ok' | 'conflict' | 'rerun'
@@ -48,12 +48,20 @@ export class ClientPalimpsestStore extends PollingStore {
     if (response.status === 'ok') {
       this.baseSeq = response.serverSeq
       if (hadUnsynced) {
+        try {
+          await removeSentEvents(this.pendingStore, unsyncedEvents)
+        } catch (err) {
+          // Retries against a concurrent writer (e.g. another tab appending nonstop) were
+          // exhausted. The server already accepted these events, but we can't safely confirm
+          // what got cleared locally, so report this the same way as a network failure rather
+          // than throwing out of sync() — and leave baseEvents untouched, since the still-present
+          // pendingStore entries already account for them in readAllEvents() until the next
+          // successful cleanup folds them in here.
+          this.health = 'error'
+          this.syncError = err instanceof Error ? err.message : String(err)
+          return
+        }
         this.baseEvents = [...this.baseEvents, ...unsyncedEvents]
-        // Remove only the events this sync actually sent, by id — not a blind save([]) —
-        // so an event another tab appended while this network round trip was in flight
-        // survives to be picked up by the next sync instead of being silently dropped.
-        const sentIds = new Set(unsyncedEvents.map(e => e.id))
-        await updatePending(this.pendingStore, current => current.filter(e => !sentIds.has(e.id)))
       }
       this.health = 'idle'
       this.conflicts = []

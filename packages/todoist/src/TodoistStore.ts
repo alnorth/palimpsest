@@ -1,4 +1,4 @@
-import { PollingStore, project, createEmptyState, updatePending } from '@alnorth/palimpsest'
+import { PollingStore, project, createEmptyState, removeSentEvents } from '@alnorth/palimpsest'
 import type { PalimpsestEvent, ProjectionState, ProjectId, PendingEventStore } from '@alnorth/palimpsest'
 import { sync } from './api'
 import type { SyncCommand } from './api'
@@ -53,12 +53,16 @@ export class TodoistStore extends PollingStore {
       return
     }
 
-    if (pending.length > 0) {
-      // Remove only the events this sync actually sent, by id — not a blind save([]) —
-      // so an event another tab appended while this network round trip was in flight
-      // survives to be picked up by the next sync instead of being silently dropped.
-      const sentIds = new Set(pending.map(e => e.id))
-      await updatePending(this.pendingStore, current => current.filter(e => !sentIds.has(e.id)))
+    try {
+      await removeSentEvents(this.pendingStore, pending)
+    } catch (err) {
+      // Retries against a concurrent writer (e.g. another tab appending nonstop) were
+      // exhausted. The POST above already succeeded, but we can't safely confirm what got
+      // cleared locally, so report this the same way as a network failure rather than
+      // throwing out of sync() — the still-present pending events get resent next attempt.
+      this.health = 'error'
+      this.syncError = err instanceof Error ? err.message : String(err)
+      return
     }
 
     this.syncToken = res.sync_token

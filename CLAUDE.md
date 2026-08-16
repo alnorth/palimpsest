@@ -302,10 +302,36 @@ window could both `load()` the same pending array before either wrote back, and 
 ran last silently overwrote the other tab's event with no error. `LocalStoragePendingEventStore.save()`
 now tracks the raw string it last saw (from its own `load()`/`save()`) and throws
 `ConcurrentModificationError` if `localStorage` has changed since — every caller that does a
-load-then-save (`PollingStore.doAppend`, `ClientPalimpsestStore.sync()`'s post-sync cleanup) goes through
-core's `updatePending` helper, which retries against a fresh `load()` on that error instead of clobbering.
+load-then-save (`PollingStore.doAppend`, `ClientPalimpsestStore.sync()`'s post-sync cleanup,
+`TodoistStore.sync()`'s post-sync cleanup) goes through core's `updatePending` helper, which retries
+against a fresh `load()` on that error instead of clobbering.
+
+`updatePending` also queues concurrent calls against the *same* `PendingEventStore` instance (a
+per-instance `WeakMap<PendingEventStore, Promise<void>>` chain), not just across separate instances/tabs.
+This matters because `LocalStoragePendingEventStore`'s conflict check compares against a single
+"last observed" field on the instance itself — two overlapping `updatePending()` cycles on that one
+instance (e.g. two `appendEvents()` calls fired without awaiting each other, within one tab) would
+otherwise each pass their check against the *other* call's write and silently clobber it, reproducing
+the exact same-tab-scoped version of the cross-tab bug this store exists to prevent. Serializing at the
+`updatePending` level fixes it for every `PendingEventStore` implementation, not just this one.
+
+`removeSentEvents(store, sent)` (core) is the shared helper both `ClientPalimpsestStore.sync()` and
+`TodoistStore.sync()` use for post-sync cleanup: it removes only the events actually sent, by id, via
+`updatePending` — not a blind `save([])` — so an event another tab appended while the network round trip
+was in flight survives to be picked up by the next sync. Both callers wrap it in its own try/catch,
+separate from the network call's: if `updatePending`'s retries are exhausted (sustained concurrent
+writes), the throw is caught and reported as `health: 'error'` + `lastError`, same as a network failure,
+rather than propagating uncaught out of `sync()`/`refresh()` — `ClientPalimpsestStore` additionally only
+folds the sent events into `baseEvents` *after* `removeSentEvents` succeeds, so a failed cleanup attempt
+doesn't double-count them in projected state on the next retry (they're still accounted for once, via
+the pendingStore entries `readAllEvents()` also reads).
+
 A `'storage'` event listener in `PollingStore` also means a backgrounded tab notices another tab's writes
-immediately rather than only at its next poll tick.
+immediately rather than only at its next poll tick. It only reacts when the event's `key` matches the
+`PendingEventStore`'s own `key` (an optional field on the `PendingEventStore` interface, exposed by
+`LocalStoragePendingEventStore`) — an unrelated same-origin `localStorage` write (another key, another
+library) doesn't trigger a needless re-projection. A store with no `key` notion (e.g.
+`MemoryPendingEventStore`) is treated as "always relevant" so existing non-browser behavior is unaffected.
 
 ### packages/backend
 

@@ -8,7 +8,7 @@ export class LocalStoragePendingEventStore implements PendingEventStore {
   // undefined means "never observed" (skip the concurrency check on the next save()).
   private lastRaw: string | null | undefined = undefined
 
-  constructor(private readonly key = 'palimpsest_pending') {}
+  constructor(readonly key = 'palimpsest_pending') {}
 
   get size(): number { return this.cache?.length ?? 0 }
 

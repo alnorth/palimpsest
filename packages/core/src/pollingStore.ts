@@ -112,8 +112,15 @@ export abstract class PollingStore extends PalimpsestStore {
 
   // Another same-origin tab wrote to localStorage (e.g. appended a pending event via
   // LocalStoragePendingEventStore). Re-project from the now-updated pendingStore instead
-  // of waiting for the next poll tick or visibility change.
-  private readonly onStorageEvent = (): void => {
+  // of waiting for the next poll tick or visibility change. Only reacts to a change on our
+  // own pendingStore's key (when it exposes one) — otherwise an unrelated same-origin write
+  // (another library's key, a different store's key) would trigger a needless re-projection.
+  private readonly onStorageEvent = (event?: { key?: string | null }): void => {
+    const pendingKey = this.pendingStore.key
+    const eventKey = event?.key
+    if (pendingKey !== undefined && eventKey !== undefined && eventKey !== null && eventKey !== pendingKey) {
+      return
+    }
     this.notify()
   }
 }
