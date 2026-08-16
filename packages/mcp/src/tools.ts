@@ -210,29 +210,31 @@ export function handleSearch(store: TaskStore, input: SearchToolInput): Promise<
   })
 }
 
-// Shared scaffolding for every write tool: sync → look up the task → append the event(s) the
+// Shared scaffolding for every write tool: sync → look up the entity → append the event(s) the
 // caller's command produces → flush immediately (rather than leaving it for the pending-queue's
 // debounced sync) → re-read state so the response reflects what the remote store actually
-// confirmed (e.g. a recurring task's server-normalized next due date). TodoistStore.sync()
-// swallows network failures internally (sets syncState.health to 'error' instead of rejecting),
-// so a failed flush would otherwise look identical to a confirmed one here — check syncState
-// afterwards rather than assuming the flush succeeded just because it didn't throw. The write
-// itself already happened (appendEvents succeeded), so this is reported as an unsynced success,
-// not an error.
-async function runToolMutation(
+// confirmed (e.g. a recurring task's server-normalized next due date) → assemble the response via
+// the caller-supplied buildResponseData. TodoistStore.sync() swallows network failures internally
+// (sets syncState.health to 'error' instead of rejecting), so a failed flush would otherwise look
+// identical to a confirmed one here — check syncState afterwards rather than assuming the flush
+// succeeded just because it didn't throw. The write itself already happened (appendEvents
+// succeeded), so this is reported as an unsynced success, not an error.
+async function runMutation<TEntity>(
   store: TaskStore,
-  taskId: string,
-  buildEvents: (task: Task) => PalimpsestEvent[],
+  lookup: (state: ProjectionState) => TEntity | undefined,
+  notFoundMessage: string,
+  buildEvents: (entity: TEntity) => PalimpsestEvent[],
+  buildResponseData: (finalState: ProjectionState) => Record<string, unknown>,
 ): Promise<CallToolResult> {
   try {
     await store.sync()
     const state = await store.getState()
-    const task = getTask(state, taskId as TaskId)
-    if (task === undefined) throw new Error(`Task not found: ${taskId}`)
-    await store.appendEvents(buildEvents(task))
+    const entity = lookup(state)
+    if (entity === undefined) throw new Error(notFoundMessage)
+    await store.appendEvents(buildEvents(entity))
     await store.sync()
     const finalState = await store.getState()
-    const data = attachTodoistUrls(runQuery(finalState, { kind: 'task', id: taskId }))
+    const data = attachTodoistUrls(buildResponseData(finalState))
     const synced = store.syncState?.health !== 'error'
     const response: Record<string, unknown> = { ok: true, synced, ...data }
     if (!synced) {
@@ -244,6 +246,20 @@ async function runToolMutation(
     const message = error instanceof Error ? error.message : String(error)
     return { content: [{ type: 'text', text: message }], isError: true }
   }
+}
+
+function runToolMutation(
+  store: TaskStore,
+  taskId: string,
+  buildEvents: (task: Task) => PalimpsestEvent[],
+): Promise<CallToolResult> {
+  return runMutation(
+    store,
+    state => getTask(state, taskId as TaskId),
+    `Task not found: ${taskId}`,
+    buildEvents,
+    finalState => runQuery(finalState, { kind: 'task', id: taskId }),
+  )
 }
 
 export function handleCompleteTask(store: TaskStore, input: CompleteTaskToolInput): Promise<CallToolResult> {
@@ -264,35 +280,24 @@ export function handleDeleteTask(store: TaskStore, input: DeleteTaskToolInput): 
 // list), so this assembles the ProjectJson response directly from the same toProjectJson/
 // computeProjectStats @alnorth/palimpsest-query already exports for the projects tool, rather
 // than inventing a query-command kind whose only purpose would be to re-fetch one project.
-async function runProjectToolMutation(
+function runProjectToolMutation(
   store: TaskStore,
   projectId: string,
   buildEvents: (project: Project) => PalimpsestEvent[],
 ): Promise<CallToolResult> {
-  try {
-    await store.sync()
-    const state = await store.getState()
-    const project = getProject(state, projectId as ProjectId)
-    if (project === undefined) throw new Error(`Project not found: ${projectId}`)
-    await store.appendEvents(buildEvents(project))
-    await store.sync()
-    const finalState = await store.getState()
-    const finalProject = getProject(finalState, projectId as ProjectId)
-    if (finalProject === undefined) throw new Error(`Project not found: ${projectId}`)
-    const stats = computeProjectStats(finalState)
-    const projectJson = toProjectJson(finalState, finalProject, stats.get(finalProject.id) ?? { openTaskCount: 0, hasNextAction: false })
-    const data = attachTodoistUrls({ project: projectJson })
-    const synced = store.syncState?.health !== 'error'
-    const response: Record<string, unknown> = { ok: true, synced, ...data }
-    if (!synced) {
-      response['warning'] =
-        `Change applied locally but not yet confirmed by the server (${store.syncState?.lastError ?? 'sync failed'}); it will retry automatically.`
-    }
-    return { content: [{ type: 'text', text: JSON.stringify(response, null, 2) }] }
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error)
-    return { content: [{ type: 'text', text: message }], isError: true }
-  }
+  return runMutation(
+    store,
+    state => getProject(state, projectId as ProjectId),
+    `Project not found: ${projectId}`,
+    buildEvents,
+    finalState => {
+      const finalProject = getProject(finalState, projectId as ProjectId)
+      if (finalProject === undefined) throw new Error(`Project not found: ${projectId}`)
+      const stats = computeProjectStats(finalState)
+      const projectJson = toProjectJson(finalState, finalProject, stats.get(finalProject.id) ?? { openTaskCount: 0, hasNextAction: false })
+      return { project: projectJson }
+    },
+  )
 }
 
 export function handleSetProjectAgenda(store: TaskStore, input: SetProjectAgendaToolInput): Promise<CallToolResult> {

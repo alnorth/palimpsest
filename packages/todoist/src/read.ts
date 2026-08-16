@@ -278,6 +278,7 @@ export function buildDeltaEvents(
 
   for (const p of deltaProjects) {
     if (p.is_deleted) {
+      projectIdsHandledByDelta.add(p.id as ProjectId)
       if (current.projects.has(p.id as ProjectId)) {
         events.push({ id: newEventId(), type: 'project.archived', projectId: p.id as ProjectId, occurredAt: p.updated_at })
       }

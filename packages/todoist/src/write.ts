@@ -271,6 +271,11 @@ export function buildCommands(
         if (patch.isSelfOnly === true) newMapping[key] = SELF_AGENDA_LABEL
         else if (patch.agendaId !== undefined && patch.agendaId !== CLEAR) newMapping[key] = labelForAgenda(patch.agendaId)
         else if (patch.agendaId === CLEAR || patch.isSelfOnly === false) delete newMapping[key]
+
+        if (JSON.stringify(newMapping) === JSON.stringify(ctx.rawAgendaMapping)) {
+          return { commands, agendaMappingAfter: newMapping }
+        }
+
         const description = serializeAgendaMapping(newMapping)
 
         let agendaMapTaskTempId: string | undefined
