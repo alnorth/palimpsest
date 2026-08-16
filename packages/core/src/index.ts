@@ -37,4 +37,4 @@ export { parseDueDate, addDays, nextWeekday, isValidExpression, nextDueDate } fr
 export { buildStateFromConfig, PALIMPSEST_CONFIG } from './config'
 export { validateBatch } from './validation'
 export type { PendingEventStore } from './pendingEventStore'
-export { MemoryPendingEventStore } from './pendingEventStore'
+export { MemoryPendingEventStore, ConcurrentModificationError, updatePending, removeSentEvents } from './pendingEventStore'

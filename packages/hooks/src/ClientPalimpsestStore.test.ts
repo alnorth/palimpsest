@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { ClientPalimpsestStore } from './ClientPalimpsestStore'
 import type { PendingEventStore } from '@alnorth/palimpsest'
-import { createEmptyState, buildStateFromConfig } from '@alnorth/palimpsest'
+import { createEmptyState, buildStateFromConfig, ConcurrentModificationError } from '@alnorth/palimpsest'
 import type { PalimpsestEvent, TaskId, SphereId, EventId } from '@alnorth/palimpsest'
 
 const SPHERE_ID = 'sph1' as SphereId
@@ -14,6 +14,15 @@ class SpyPendingStore implements PendingEventStore {
   get size(): number { return this.current.length }
   async load(): Promise<PalimpsestEvent[]> { return this.current }
   async save(events: PalimpsestEvent[]): Promise<void> { this.saved = events; this.current = events }
+}
+
+// Simulates a pendingStore whose cleanup save() always conflicts (e.g. another tab keeps
+// writing), so updatePending's retries are always exhausted.
+class AlwaysConflictingPendingStore implements PendingEventStore {
+  constructor(private current: PalimpsestEvent[]) {}
+  get size(): number { return this.current.length }
+  async load(): Promise<PalimpsestEvent[]> { return this.current }
+  async save(): Promise<void> { throw new ConcurrentModificationError() }
 }
 
 let eventCounter = 0
@@ -213,6 +222,39 @@ describe('ClientPalimpsestStore', () => {
       await store.appendEvents([makeTaskEvent()])
       await store.sync()
       expect(pending.saved!).toHaveLength(0)
+    })
+
+    it('only removes the events it actually sent, not ones another tab appended mid-flight', async () => {
+      const initialEv = makeTaskEvent()
+      const pending = new SpyPendingStore([initialEv])
+      const concurrentEv = makeTaskEvent()
+      const syncFn = vi.fn(async (_clientSeq: number, events: PalimpsestEvent[]) => {
+        // Simulate a second tab appending a new local event while this tab's network
+        // round trip is in flight — i.e. after this sync already read `events` to send.
+        await pending.save([...(await pending.load()), concurrentEv])
+        return { status: 'ok' as const, serverSeq: events.length, missedEvents: [] }
+      })
+      const store = new ClientPalimpsestStore(syncFn, { pendingStore: pending, initialState: testInitialState })
+      await store.sync()
+
+      const stillPending = await pending.load()
+      expect(stillPending.map(e => e.id)).toEqual([concurrentEv.id])
+    })
+
+    it('surfaces post-sync cleanup exhausting its retries as a sync error, without throwing or duplicating the event in state', async () => {
+      const ev = makeTaskEvent()
+      const pending = new AlwaysConflictingPendingStore([ev])
+      const syncFn = makeServerWithEvents([])
+      const store = new ClientPalimpsestStore(syncFn, { pendingStore: pending, initialState: testInitialState })
+
+      await expect(store.sync()).resolves.toBeUndefined()
+      expect(store.syncState.health).toBe('error')
+      expect(store.syncState.lastError).toBeDefined()
+
+      // A second failed attempt must not duplicate the still-unsynced event in projected state.
+      await expect(store.sync()).resolves.toBeUndefined()
+      const state = await store.getState()
+      expect(state.tasks.size).toBe(1)
     })
 
     it('always syncs from seq 0 on restart regardless of prior baseSeq', async () => {
