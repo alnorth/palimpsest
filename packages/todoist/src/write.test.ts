@@ -628,6 +628,30 @@ describe('buildCommands — project lifecycle', () => {
     expect(agendaMapTaskTempId).toBeUndefined()
   })
 
+  it('agendaId CLEAR when the project has no existing mapping entry → no-op, no command emitted', () => {
+    const { commands } = buildCommands(
+      {
+        type: 'project.updated', id: evId(), occurredAt: '',
+        projectId: projId('1'), patch: { agendaId: CLEAR },
+      },
+      baseState(),
+      { rawAgendaMapping: {} },
+    )
+    expect(commands).toHaveLength(0)
+  })
+
+  it('agendaId set to its already-current value → no-op, no command emitted', () => {
+    const { commands } = buildCommands(
+      {
+        type: 'project.updated', id: evId(), occurredAt: '',
+        projectId: projId('1'), patch: { agendaId: 'agenda-jim' as AgendaId },
+      },
+      baseState(),
+      { rawAgendaMapping: { 'proj-1': 'jim' }, agendaMapTaskId: 'maptask1' },
+    )
+    expect(commands).toHaveLength(0)
+  })
+
   it('agendaId for an agenda with no Todoist label throws', () => {
     expect(() => buildCommands(
       {

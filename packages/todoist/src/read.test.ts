@@ -408,6 +408,17 @@ describe('buildDeltaEvents — shared project/agenda mapping', () => {
     expect(events.some(e => e.type === 'project.updated' && e.projectId === 'p1')).toBe(false)
   })
 
+  it('does not emit a spurious project.updated for a project deleted in the same delta as its mapping entry removal', () => {
+    const projects = [...CONTAINERS, makeProject({ id: 'p1', parent_id: TODOIST_WORK_PROJECT_ID })]
+    const items = [makeMapTask({ p1: 'jim' })]
+    const base = makeBase(projects, items)
+    const events = buildDeltaEvents(base, [
+      makeProject({ id: 'p1', parent_id: TODOIST_WORK_PROJECT_ID, is_deleted: true }),
+    ], [makeMapTask({})])
+    expect(events.filter(e => e.type === 'project.updated' && e.projectId === 'p1')).toHaveLength(0)
+    expect(events.some(e => e.type === 'project.archived' && e.projectId === 'p1')).toBe(true)
+  })
+
   it('never emits task events for the shared storage task appearing in a delta', () => {
     const base = makeBase()
     const events = buildDeltaEvents(base, [], [makeMapTask({ proj1: 'jim' })])

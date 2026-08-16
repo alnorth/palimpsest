@@ -262,6 +262,11 @@ export function buildCommands(
         const newMapping = { ...ctx.rawAgendaMapping }
         if (patch.agendaId === CLEAR) delete newMapping[String(event.projectId)]
         else newMapping[String(event.projectId)] = labelForAgenda(patch.agendaId)
+
+        if (JSON.stringify(newMapping) === JSON.stringify(ctx.rawAgendaMapping)) {
+          return { commands, agendaMappingAfter: newMapping }
+        }
+
         const description = serializeAgendaMapping(newMapping)
 
         let agendaMapTaskTempId: string | undefined
