@@ -236,6 +236,36 @@ describe('projects', () => {
     expect(all.projects.map(p => p.name)).toEqual(['Alpha', 'Beta'])
   })
 
+  test('agenda filters to projects linked to that agenda', () => {
+    const sphere = makeSphere()
+    const agenda = makeAgenda(sphere, { title: 'Jim' })
+    const linked = makeProject(sphere, { name: 'Shared', agendaId: agenda.id })
+    const unlinked = makeProject(sphere, { name: 'Solo' })
+    const state = buildState({ spheres: [sphere], agendas: [agenda], projects: [linked, unlinked] })
+
+    const result = runQuery(state, { kind: 'projects', agenda: 'Jim' }) as { projects: { name: string }[] }
+    expect(result.projects.map(p => p.name)).toEqual(['Shared'])
+  })
+
+  test('unresolved agenda name throws', () => {
+    const state = buildState({})
+    expect(() => runQuery(state, { kind: 'projects', agenda: 'Nope' })).toThrowError(/No agenda matching "Nope"/)
+  })
+
+  test('hasAgenda / withoutAgenda', () => {
+    const sphere = makeSphere()
+    const agenda = makeAgenda(sphere)
+    const linked = makeProject(sphere, { name: 'Shared', agendaId: agenda.id })
+    const unlinked = makeProject(sphere, { name: 'Solo' })
+    const state = buildState({ spheres: [sphere], agendas: [agenda], projects: [linked, unlinked] })
+
+    const withAgenda = runQuery(state, { kind: 'projects', hasAgenda: true }) as { projects: { name: string }[] }
+    expect(withAgenda.projects.map(p => p.name)).toEqual(['Shared'])
+
+    const withoutAgenda = runQuery(state, { kind: 'projects', withoutAgenda: true }) as { projects: { name: string }[] }
+    expect(withoutAgenda.projects.map(p => p.name)).toEqual(['Solo'])
+  })
+
   test('omits nextTasks by default', () => {
     const sphere = makeSphere()
     const project = makeProject(sphere, { name: 'Website' })

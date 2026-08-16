@@ -7,7 +7,7 @@ import type { TaskStore } from './tools'
 import {
   handleTasks, handleTask, handleProjects, handleSpheres, handleAgendas, handleContexts,
   handleDashboard, handleProcessing, handleWaiting, handlePickList, handleSearch,
-  handleCompleteTask, handleSetDueDate, handleDeleteTask,
+  handleCompleteTask, handleSetDueDate, handleDeleteTask, handleSetProjectAgenda,
 } from './tools'
 
 function fakeStore(state: ProjectionState): TaskStore & { calls: string[] } {
@@ -219,6 +219,23 @@ describe('handleProjects', () => {
 
     const parsed = parseOk<{ projects: { id: string; todoistUrl: string }[] }>(result)
     expect(parsed.projects[0]?.todoistUrl).toBe(`https://todoist.com/app/project/${project.id}`)
+  })
+
+  test('agenda/hasAgenda/withoutAgenda filters pass through to the query', async () => {
+    const sphere = makeSphere({ name: 'Work' })
+    const agenda = makeAgenda(sphere, { title: 'Jim' })
+    const linked = makeProject(sphere, { name: 'Shared', agendaId: agenda.id })
+    const unlinked = makeProject(sphere, { name: 'Solo' })
+    const store = fakeStore(buildState({ spheres: [sphere], agendas: [agenda], projects: [linked, unlinked] }))
+
+    const byAgenda = await handleProjects(store, { agenda: 'Jim' })
+    expect(parseOk<{ projects: { name: string }[] }>(byAgenda).projects.map(p => p.name)).toEqual(['Shared'])
+
+    const withAgenda = await handleProjects(store, { hasAgenda: true })
+    expect(parseOk<{ projects: { name: string }[] }>(withAgenda).projects.map(p => p.name)).toEqual(['Shared'])
+
+    const withoutAgenda = await handleProjects(store, { withoutAgenda: true })
+    expect(parseOk<{ projects: { name: string }[] }>(withoutAgenda).projects.map(p => p.name)).toEqual(['Solo'])
   })
 
   test('omits nextTasks by default', async () => {
@@ -571,6 +588,79 @@ describe('handleDeleteTask', () => {
 
     expect(result.isError).toBe(true)
     expect(resultText(result)).toMatch(/Todoist Sync API/)
+  })
+})
+
+describe('handleSetProjectAgenda', () => {
+  test('links a project to an agenda, flushes, and returns the updated project', async () => {
+    const sphere = makeSphere({ name: 'Work' })
+    const agenda = makeAgenda(sphere, { title: 'Jim' })
+    const project = makeProject(sphere, { name: 'Launch' })
+    const store = mutableFakeStore(buildState({ spheres: [sphere], agendas: [agenda], projects: [project] }))
+
+    const result = await handleSetProjectAgenda(store, { id: project.id, agendaId: agenda.id })
+
+    expect(result.isError).toBeUndefined()
+    expect(store.calls).toEqual(['sync', 'getState', 'appendEvents', 'sync', 'getState'])
+    expect(store.appended).toEqual([[expect.objectContaining({
+      type: 'project.updated', projectId: project.id, patch: { agendaId: agenda.id },
+    })]])
+    const parsed = parseOk<{ synced: boolean; project: { name: string; agenda: { name: string } | null } }>(result)
+    expect(parsed.synced).toBe(true)
+    expect(parsed.project.name).toBe('Launch')
+    expect(parsed.project.agenda).toEqual({ id: agenda.id, name: 'Jim' })
+  })
+
+  test('attaches a todoistUrl to the returned project', async () => {
+    const sphere = makeSphere({ name: 'Work' })
+    const agenda = makeAgenda(sphere)
+    const project = makeProject(sphere)
+    const store = mutableFakeStore(buildState({ spheres: [sphere], agendas: [agenda], projects: [project] }))
+
+    const result = await handleSetProjectAgenda(store, { id: project.id, agendaId: agenda.id })
+
+    const parsed = parseOk<{ project: { id: string; todoistUrl: string } }>(result)
+    expect(parsed.project.todoistUrl).toBe(`https://todoist.com/app/project/${project.id}`)
+  })
+
+  test('clears an agenda link when agendaId is null', async () => {
+    const sphere = makeSphere({ name: 'Work' })
+    const agenda = makeAgenda(sphere)
+    const project = makeProject(sphere, { agendaId: agenda.id })
+    const store = mutableFakeStore(buildState({ spheres: [sphere], agendas: [agenda], projects: [project] }))
+
+    const result = await handleSetProjectAgenda(store, { id: project.id, agendaId: null })
+
+    expect(store.appended).toEqual([[expect.objectContaining({
+      type: 'project.updated', projectId: project.id, patch: { agendaId: null },
+    })]])
+    const parsed = parseOk<{ project: { agenda: { name: string } | null } }>(result)
+    expect(parsed.project.agenda).toBeNull()
+  })
+
+  test('reports synced:false with a warning when the confirmation flush silently fails', async () => {
+    const sphere = makeSphere({ name: 'Work' })
+    const agenda = makeAgenda(sphere)
+    const project = makeProject(sphere)
+    const store = flakyFlushStore(buildState({ spheres: [sphere], agendas: [agenda], projects: [project] }))
+
+    const result = await handleSetProjectAgenda(store, { id: project.id, agendaId: agenda.id })
+
+    expect(result.isError).toBeUndefined()
+    const parsed = parseOk<{ synced: boolean; warning?: string; project: { agenda: { name: string } | null } }>(result)
+    expect(parsed.synced).toBe(false)
+    expect(parsed.warning).toMatch(/not yet confirmed/)
+    expect(parsed.project.agenda).not.toBeNull()
+  })
+
+  test('surfaces an unknown project id as isError, and never appends', async () => {
+    const store = mutableFakeStore(buildState({}))
+
+    const result = await handleSetProjectAgenda(store, { id: 'missing-id', agendaId: 'agenda-jim' })
+
+    expect(result.isError).toBe(true)
+    expect(resultText(result)).toMatch(/Project not found: missing-id/)
+    expect(store.appended).toEqual([])
   })
 })
 

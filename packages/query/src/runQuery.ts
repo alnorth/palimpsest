@@ -44,6 +44,9 @@ export interface ProjectsCommand {
   sphere?: string
   archived?: boolean
   all?: boolean
+  agenda?: string
+  hasAgenda?: boolean
+  withoutAgenda?: boolean
   includeNextTasks?: boolean
 }
 
@@ -184,9 +187,13 @@ function runTaskQuery(state: ProjectionState, command: TaskCommand): Record<stri
 
 function runProjectsQuery(state: ProjectionState, command: ProjectsCommand): Record<string, unknown> {
   const sphereId = command.sphere !== undefined ? resolveSphere(state, command.sphere) : undefined
+  const agendaId = command.agenda !== undefined ? resolveAgenda(state, command.agenda, sphereId) : undefined
   const filter = {
     ...(sphereId !== undefined && { sphereId }),
     ...(command.all !== true && { isArchived: command.archived === true }),
+    ...(agendaId !== undefined && { agendaId }),
+    ...(command.hasAgenda === true && { hasAgenda: true }),
+    ...(command.withoutAgenda === true && { hasAgenda: false }),
   }
   const projects = sortByName(listProjects(state, filter))
   const { stats, nextTasksByProject } = command.includeNextTasks === true

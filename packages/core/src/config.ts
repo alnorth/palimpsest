@@ -80,6 +80,7 @@ export const PALIMPSEST_CONFIG: SphereConfig[] = [
     agendas: [
       { id: 'agenda-han' as AgendaId, title: 'Han' },
       { id: 'agenda-dad' as AgendaId, title: 'Dad' },
+      { id: 'agenda-scouts' as AgendaId, title: 'Scouts' },
       { id: 'agenda-inspire' as AgendaId, title: 'Inspire' },
     ],
     contexts: [

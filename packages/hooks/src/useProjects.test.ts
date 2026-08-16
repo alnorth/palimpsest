@@ -20,6 +20,26 @@ describe('useProjects', () => {
     expect(result.current.data).toEqual([expect.objectContaining({ name: 'Launch', hasNextAction: true })])
   })
 
+  test('agenda/hasAgenda/withoutAgenda filters pass through', async () => {
+    const sphere = makeSphere({ name: 'Work' })
+    const agenda = makeAgenda(sphere, { title: 'Jim' })
+    const linked = makeProject(sphere, { name: 'Shared', agendaId: agenda.id })
+    const unlinked = makeProject(sphere, { name: 'Solo' })
+    const store = new FakeStore(buildState({ spheres: [sphere], agendas: [agenda], projects: [linked, unlinked] }))
+
+    const byAgenda = renderHook(() => useProjects({ agenda: 'Jim' }), { wrapper: makeWrapper(store) })
+    await waitFor(() => expect(byAgenda.result.current.isLoading).toBe(false))
+    expect(byAgenda.result.current.data?.map(p => p.name)).toEqual(['Shared'])
+
+    const withAgenda = renderHook(() => useProjects({ hasAgenda: true }), { wrapper: makeWrapper(store) })
+    await waitFor(() => expect(withAgenda.result.current.isLoading).toBe(false))
+    expect(withAgenda.result.current.data?.map(p => p.name)).toEqual(['Shared'])
+
+    const withoutAgenda = renderHook(() => useProjects({ withoutAgenda: true }), { wrapper: makeWrapper(store) })
+    await waitFor(() => expect(withoutAgenda.result.current.isLoading).toBe(false))
+    expect(withoutAgenda.result.current.data?.map(p => p.name)).toEqual(['Solo'])
+  })
+
   test('includeNextTasks includes each project\'s open next-action tasks', async () => {
     const sphere = makeSphere({ name: 'Work' })
     const project = makeProject(sphere, { name: 'Launch' })

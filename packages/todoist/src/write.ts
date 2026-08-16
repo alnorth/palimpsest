@@ -4,10 +4,16 @@ import type { SyncCommand } from './api'
 import { computeLabels } from './labels'
 import {
   WORK_SPHERE_ID,
+  TODOIST_INBOX_ID,
   freeFloatingProjectFor,
   sphereParentProjectFor,
   todoistProjectUrl,
 } from './mapping'
+import {
+  AGENDA_PROJECT_MAP_TASK_TITLE,
+  labelForAgenda,
+  serializeAgendaMapping,
+} from './sharedStorage'
 
 // crypto.randomUUID() isn't implemented by Hermes (React Native's JS engine) even with
 // react-native-get-random-values installed — that polyfill only covers the older
@@ -40,10 +46,26 @@ function dueDateArgs(
 // Convert a palimpsest event into the Sync API commands needed to apply it.
 // Returns the array of commands plus the temp_id used for creation events (so
 // the caller can read the Todoist-assigned ID back from temp_id_mapping).
+export interface BuildCommandsContext {
+  rawAgendaMapping: Record<string, string>
+  agendaMapTaskId?: string
+}
+
+export interface BuildCommandsResult {
+  commands: SyncCommand[]
+  tempId?: string
+  // Set only for a project.updated event whose patch touches agendaId and ctx is provided — lets
+  // a caller processing a whole batch (TodoistStore's buildAllCommands) thread the mapping forward
+  // to the next event, instead of every event in the same flush reading the same stale snapshot.
+  agendaMappingAfter?: Record<string, string>
+  agendaMapTaskTempId?: string
+}
+
 export function buildCommands(
   event: PalimpsestEvent,
   state: ProjectionState,
-): { commands: SyncCommand[]; tempId?: string } {
+  ctx?: BuildCommandsContext,
+): BuildCommandsResult {
   switch (event.type) {
 
     case 'task.created': {
@@ -227,8 +249,43 @@ export function buildCommands(
       if (patch.name !== undefined) args['name'] = patch.name
       if (patch.description !== undefined) args['description'] = patch.description === CLEAR ? '' : patch.description
 
-      if (Object.keys(args).length === 1) return { commands: [] }
-      return { commands: [{ type: 'project_update', uuid: uuid(), args }] }
+      const commands: SyncCommand[] = []
+      if (Object.keys(args).length > 1) {
+        commands.push({ type: 'project_update', uuid: uuid(), args })
+      }
+
+      // Todoist projects have no native field for a custom agenda link, so it round-trips through
+      // a shared JSON-blob storage task instead (same mechanism/task the dashboard app already
+      // uses) — read-modify-write one entry in the current mapping, preserving every other
+      // project's entry untouched.
+      if (patch.agendaId !== undefined && ctx !== undefined) {
+        const newMapping = { ...ctx.rawAgendaMapping }
+        if (patch.agendaId === CLEAR) delete newMapping[String(event.projectId)]
+        else newMapping[String(event.projectId)] = labelForAgenda(patch.agendaId)
+
+        if (JSON.stringify(newMapping) === JSON.stringify(ctx.rawAgendaMapping)) {
+          return { commands, agendaMappingAfter: newMapping }
+        }
+
+        const description = serializeAgendaMapping(newMapping)
+
+        let agendaMapTaskTempId: string | undefined
+        if (ctx.agendaMapTaskId !== undefined) {
+          commands.push({ type: 'item_update', uuid: uuid(), args: { id: ctx.agendaMapTaskId, description } })
+        } else {
+          agendaMapTaskTempId = uuid()
+          commands.push({ type: 'item_add', uuid: uuid(), temp_id: agendaMapTaskTempId,
+            args: { content: AGENDA_PROJECT_MAP_TASK_TITLE, project_id: TODOIST_INBOX_ID, description } })
+        }
+
+        return {
+          commands,
+          agendaMappingAfter: newMapping,
+          ...(agendaMapTaskTempId !== undefined && { agendaMapTaskTempId }),
+        }
+      }
+
+      return { commands }
     }
 
     case 'project.archived':

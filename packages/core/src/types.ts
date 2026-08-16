@@ -39,6 +39,7 @@ export interface Project {
   sphereId: SphereId
   name: string
   description?: string
+  agendaId?: AgendaId
   isArchived?: boolean
   createdAt: string
   updatedAt: string

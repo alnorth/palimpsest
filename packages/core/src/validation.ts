@@ -6,11 +6,17 @@ function validateEvent(state: ProjectionState, event: PalimpsestEvent): void {
   switch (event.type) {
     case 'project.created':
       if (!state.spheres.has(event.sphereId)) throw new Error(`Sphere not found: ${event.sphereId}`)
+      if (event.agendaId !== undefined && !state.agendas.has(event.agendaId)) {
+        throw new Error(`Agenda not found: ${event.agendaId}`)
+      }
       break
     case 'project.updated':
       if (!state.projects.has(event.projectId)) throw new Error(`Project not found: ${event.projectId}`)
       if (event.patch.sphereId !== undefined && !state.spheres.has(event.patch.sphereId)) {
         throw new Error(`Sphere not found: ${event.patch.sphereId}`)
+      }
+      if (event.patch.agendaId != null && !state.agendas.has(event.patch.agendaId)) {
+        throw new Error(`Agenda not found: ${event.patch.agendaId}`)
       }
       break
     case 'project.archived':
