@@ -309,11 +309,87 @@ describe('syncState', () => {
       const sentCommands = secondCallArgs?.[1]?.commands ?? []
       const mappingCommands = sentCommands.filter(c =>
         (c.type === 'item_add' && c.args.content === AGENDA_PROJECT_MAP_TASK_TITLE) || c.type === 'item_update')
-      expect(mappingCommands).toHaveLength(2)
-      const last = mappingCommands[mappingCommands.length - 1]
-      const description = last?.args.description as string
+      // Exactly one command, not two: the second event's change is folded into the first
+      // event's still-unsent item_add rather than emitted as a separate item_update whose `id`
+      // would reference that item_add's temp_id — see the "client offline, batches up several
+      // changes" tests below for why relying on the Sync API resolving a temp_id inside a
+      // second command's `id` argument (rather than just a reference field like project_id) is
+      // avoided rather than assumed.
+      expect(mappingCommands).toHaveLength(1)
+      const description = mappingCommands[0]?.args.description as string
       expect(description).toContain('"p1": "jim"')
       expect(description).toContain('"p2": "han"')
+    })
+
+    it('offline client batches three agenda-link changes to different projects before any map task exists: all fold into a single item_add', async () => {
+      vi.mocked(api.sync).mockResolvedValueOnce({
+        sync_token: 'tok2', full_sync: true,
+        projects: [makeSyncProject('p1'), makeSyncProject('p2'), makeSyncProject('p3')],
+        items: [],
+      })
+      const store = makeStore(stateWithAgendas)
+      await store.refresh()
+
+      await store.appendEvents([
+        {
+          id: 'ev1' as EventId, type: 'project.updated', occurredAt: new Date().toISOString(),
+          projectId: 'p1' as ProjectId, patch: { agendaId: 'agenda-jim' as AgendaId },
+        },
+        {
+          id: 'ev2' as EventId, type: 'project.updated', occurredAt: new Date().toISOString(),
+          projectId: 'p2' as ProjectId, patch: { agendaId: 'agenda-han' as AgendaId },
+        },
+        {
+          id: 'ev3' as EventId, type: 'project.updated', occurredAt: new Date().toISOString(),
+          projectId: 'p3' as ProjectId, patch: { agendaId: 'agenda-jim' as AgendaId },
+        },
+      ])
+
+      vi.mocked(api.sync).mockResolvedValueOnce({ sync_token: 'tok3', full_sync: false, projects: [], items: [] })
+      await store.refresh()
+
+      const sentCommands = vi.mocked(api.sync).mock.calls[1]?.[1]?.commands ?? []
+      const mappingCommands = sentCommands.filter(c =>
+        (c.type === 'item_add' && c.args.content === AGENDA_PROJECT_MAP_TASK_TITLE) || c.type === 'item_update')
+      expect(mappingCommands).toHaveLength(1)
+      expect(mappingCommands[0]?.type).toBe('item_add')
+      const description = mappingCommands[0]?.args.description as string
+      expect(description).toContain('"p1": "jim"')
+      expect(description).toContain('"p2": "han"')
+      expect(description).toContain('"p3": "jim"')
+    })
+
+    it('offline client batches two agenda-link changes to the SAME project before any map task exists: only the final value is sent, via a single item_add', async () => {
+      vi.mocked(api.sync).mockResolvedValueOnce({
+        sync_token: 'tok2', full_sync: true,
+        projects: [makeSyncProject('p1')],
+        items: [],
+      })
+      const store = makeStore(stateWithAgendas)
+      await store.refresh()
+
+      await store.appendEvents([
+        {
+          id: 'ev1' as EventId, type: 'project.updated', occurredAt: new Date().toISOString(),
+          projectId: 'p1' as ProjectId, patch: { agendaId: 'agenda-jim' as AgendaId },
+        },
+        {
+          id: 'ev2' as EventId, type: 'project.updated', occurredAt: new Date().toISOString(),
+          projectId: 'p1' as ProjectId, patch: { agendaId: 'agenda-han' as AgendaId },
+        },
+      ])
+
+      vi.mocked(api.sync).mockResolvedValueOnce({ sync_token: 'tok3', full_sync: false, projects: [], items: [] })
+      await store.refresh()
+
+      const sentCommands = vi.mocked(api.sync).mock.calls[1]?.[1]?.commands ?? []
+      const mappingCommands = sentCommands.filter(c =>
+        (c.type === 'item_add' && c.args.content === AGENDA_PROJECT_MAP_TASK_TITLE) || c.type === 'item_update')
+      expect(mappingCommands).toHaveLength(1)
+      expect(mappingCommands[0]?.type).toBe('item_add')
+      const description = mappingCommands[0]?.args.description as string
+      expect(description).toContain('"p1": "han"')
+      expect(description).not.toContain('jim')
     })
   })
 })
