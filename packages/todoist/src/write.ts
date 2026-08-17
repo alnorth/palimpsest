@@ -123,11 +123,17 @@ export function buildCommands(
         args['description'] = patch.description
       }
 
+      // A task with no projectId may carry an agendaId inferred purely from living directly in
+      // that agenda's dedicated Todoist project (see AGENDA_PROJECT_IDS) rather than from an
+      // explicit label — moving it onto a real project drops that implicit signal, so the label
+      // set must be (re)computed whenever the project changes and the task has an agendaId, not
+      // only when agendaId itself is what's being patched.
       if (
         patch.isNext     !== undefined ||
         patch.agendaId   !== undefined ||
         patch.contextId  !== undefined ||
-        patch.waitingFor !== undefined
+        patch.waitingFor !== undefined ||
+        (patch.projectId !== undefined && patch.projectId !== CLEAR && task.agendaId !== undefined)
       ) {
         const newAgendaId   = patch.agendaId   !== undefined ? (patch.agendaId   === CLEAR ? undefined : patch.agendaId)   : task.agendaId
         const newContextId  = patch.contextId  !== undefined ? (patch.contextId  === CLEAR ? undefined : patch.contextId)  : task.contextId

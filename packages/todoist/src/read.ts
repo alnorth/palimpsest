@@ -7,6 +7,7 @@ import {
   TODOIST_AGENDAS_ID,
   EXCLUDED_PROJECT_IDS,
   FREE_FLOATING_PROJECT_IDS,
+  AGENDA_PROJECT_IDS,
   WORK_SPHERE_ID,
   PERSONAL_SPHERE_ID,
   LABEL_TO_AGENDA_ID,
@@ -76,6 +77,10 @@ function resolveSphereFromTask(
     if (task.labels.includes('personal')) return PERSONAL_SPHERE_ID
     return WORK_SPHERE_ID
   }
+  // Agenda-specific projects sit directly under TODOIST_AGENDAS_ID, so the normal
+  // parent-chain walk in resolveSphereId can't resolve their sphere — look it up statically.
+  const agendaProject = AGENDA_PROJECT_IDS[task.project_id]
+  if (agendaProject !== undefined) return agendaProject.sphereId
   const proj = byId.get(task.project_id)
   if (proj === undefined) return undefined
   return resolveSphereId(proj, byId)
@@ -104,6 +109,11 @@ function buildPalimpsestTask(t: SyncItem, byId: Map<string, SyncProject>): Task 
   for (const label of t.labels) {
     const id = LABEL_TO_AGENDA_ID[label]
     if (id !== undefined) { agendaId = id; break }
+  }
+  // No explicit agenda label — fall back to the agenda implied by living directly in that
+  // agenda's dedicated Todoist project (dashboard's Agendas.jsx "Criteria 2").
+  if (agendaId === undefined) {
+    agendaId = AGENDA_PROJECT_IDS[t.project_id]?.agendaId
   }
 
   let contextId = undefined as typeof LABEL_TO_CONTEXT_ID[string] | undefined
