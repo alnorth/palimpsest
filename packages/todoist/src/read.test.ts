@@ -158,7 +158,7 @@ describe('buildEvents — projects', () => {
     expect(created).toMatchObject({ agendaId: 'agenda-jim' })
   })
 
-  it('omits agendaId from project.created when the project is mapped to "me"', () => {
+  it('omits agendaId but sets isSelfOnly when the project is mapped to "me"', () => {
     const projects = [
       ...CONTAINERS,
       makeProject({ id: 'proj1', name: 'Widgets', parent_id: TODOIST_WORK_PROJECT_ID }),
@@ -167,9 +167,10 @@ describe('buildEvents — projects', () => {
     const events = buildEvents(projects, items)
     const created = events.find(e => e.type === 'project.created' && e.projectId === 'proj1')
     expect(created).not.toHaveProperty('agendaId')
+    expect(created).toMatchObject({ isSelfOnly: true })
   })
 
-  it('omits agendaId from project.created when there is no shared storage task', () => {
+  it('omits both agendaId and isSelfOnly when there is no shared storage task at all', () => {
     const projects = [
       ...CONTAINERS,
       makeProject({ id: 'proj1', name: 'Widgets', parent_id: TODOIST_WORK_PROJECT_ID }),
@@ -177,6 +178,19 @@ describe('buildEvents — projects', () => {
     const events = buildEvents(projects, [])
     const created = events.find(e => e.type === 'project.created' && e.projectId === 'proj1')
     expect(created).not.toHaveProperty('agendaId')
+    expect(created).not.toHaveProperty('isSelfOnly')
+  })
+
+  it('omits both agendaId and isSelfOnly for a project absent from the mapping, distinguishing it from "me"', () => {
+    const projects = [
+      ...CONTAINERS,
+      makeProject({ id: 'proj1', name: 'Widgets', parent_id: TODOIST_WORK_PROJECT_ID }),
+    ]
+    const items = [makeMapTask({ someOtherProject: 'jim' })]
+    const events = buildEvents(projects, items)
+    const created = events.find(e => e.type === 'project.created' && e.projectId === 'proj1')
+    expect(created).not.toHaveProperty('agendaId')
+    expect(created).not.toHaveProperty('isSelfOnly')
   })
 
   it('projects the correct state for multiple projects', () => {
@@ -244,6 +258,21 @@ describe('buildEvents — tasks', () => {
   it('never emits a task.created event for the shared agenda-mapping storage task itself', () => {
     const events = buildEvents(CONTAINERS, [makeMapTask({ proj1: 'jim' }), makeItem({ id: 't1' })])
     expect(events.some(e => e.type === 'task.created' && e.taskId === 'maptask1')).toBe(false)
+    expect(events.some(e => e.type === 'task.created' && e.taskId === 't1')).toBe(true)
+  })
+
+  it('never emits a task.created event for any other known dashboard storage task', () => {
+    const events = buildEvents(CONTAINERS, [
+      makeItem({ id: 'ghPr', content: '* _GITHUB_PR_DATA_' }),
+      makeItem({ id: 'starred', content: '* _STARRED_ITEMS_' }),
+      makeItem({ id: 'overview', content: '* _PROJECT_OVERVIEW_MAPPING_' }),
+      makeItem({ id: 'basics', content: '* _DAILY_BASICS_DATA_' }),
+      makeItem({ id: 'checklist', content: '* _DAILY_CHECKLIST_DATA_' }),
+      makeItem({ id: 't1' }),
+    ])
+    for (const id of ['ghPr', 'starred', 'overview', 'basics', 'checklist']) {
+      expect(events.some(e => e.type === 'task.created' && e.taskId === id)).toBe(false)
+    }
     expect(events.some(e => e.type === 'task.created' && e.taskId === 't1')).toBe(true)
   })
 
@@ -379,6 +408,17 @@ describe('buildDeltaEvents — shared project/agenda mapping', () => {
     expect(updated).toMatchObject({ patch: { name: 'New', agendaId: 'agenda-jim' } })
   })
 
+  it('folds isSelfOnly into the patch when the project itself also changed in this delta', () => {
+    const projects = [...CONTAINERS, makeProject({ id: 'p1', name: 'Old', parent_id: TODOIST_WORK_PROJECT_ID })]
+    const items = [makeMapTask({ p1: 'me' })]
+    const base = makeBase(projects, items)
+    const events = buildDeltaEvents(base, [
+      makeProject({ id: 'p1', name: 'New', parent_id: TODOIST_WORK_PROJECT_ID }),
+    ], items)
+    const updated = events.find(e => e.type === 'project.updated' && e.projectId === 'p1')
+    expect(updated).toMatchObject({ patch: { name: 'New', isSelfOnly: true, agendaId: CLEAR } })
+  })
+
   it('emits project.updated with agendaId CLEAR when the mapping entry is removed but the project itself did not change', () => {
     const projects = [...CONTAINERS, makeProject({ id: 'p1', parent_id: TODOIST_WORK_PROJECT_ID })]
     const items = [makeMapTask({ p1: 'jim' })]
@@ -408,6 +448,58 @@ describe('buildDeltaEvents — shared project/agenda mapping', () => {
     expect(events.some(e => e.type === 'project.updated' && e.projectId === 'p1')).toBe(false)
   })
 
+  // The four quadrants of the "mapping-only-changed" branch: agendaId and isSelfOnly diff
+  // independently, and only the field(s) that actually changed should appear in the patch.
+  describe('mapping-only-changed branch: independent agendaId/isSelfOnly diffing', () => {
+    it('neither changed → no project.updated event at all', () => {
+      const projects = [...CONTAINERS, makeProject({ id: 'p1', parent_id: TODOIST_WORK_PROJECT_ID })]
+      const items = [makeMapTask({ p1: 'jim' })]
+      const base = makeBase(projects, items)
+      const events = buildDeltaEvents(base, [], [makeMapTask({ p1: 'jim' })])
+      expect(events.some(e => e.type === 'project.updated' && e.projectId === 'p1')).toBe(false)
+    })
+
+    it('only agendaId changed → patch has agendaId only, no isSelfOnly key', () => {
+      const projects = [...CONTAINERS, makeProject({ id: 'p1', parent_id: TODOIST_WORK_PROJECT_ID })]
+      const items = [makeMapTask({ p1: 'jim' })]
+      const base = makeBase(projects, items)
+      const events = buildDeltaEvents(base, [], [makeMapTask({ p1: 'han' })])
+      const updated = events.find(e => e.type === 'project.updated' && e.projectId === 'p1')
+      if (updated?.type !== 'project.updated') throw new Error('Expected project.updated event')
+      expect(updated.patch.agendaId).toBe('agenda-han')
+      expect(updated.patch).not.toHaveProperty('isSelfOnly')
+    })
+
+    it('only isSelfOnly changed → patch has isSelfOnly only, no agendaId key', () => {
+      // p1 starts unmapped (no agendaId either way), so the "me" transition only flips isSelfOnly —
+      // switching from a real label to "me" would change both fields, which isn't this case.
+      const projects = [...CONTAINERS, makeProject({ id: 'p1', parent_id: TODOIST_WORK_PROJECT_ID })]
+      const items = [makeMapTask({})]
+      const base = makeBase(projects, items)
+      const events = buildDeltaEvents(base, [], [makeMapTask({ p1: 'me' })])
+      const updated = events.find(e => e.type === 'project.updated' && e.projectId === 'p1')
+      if (updated?.type !== 'project.updated') throw new Error('Expected project.updated event')
+      expect(updated.patch.isSelfOnly).toBe(true)
+      expect(updated.patch).not.toHaveProperty('agendaId')
+    })
+
+    it('both changed → patch has both fields', () => {
+      const projects = [
+        ...CONTAINERS,
+        makeProject({ id: 'p1', parent_id: TODOIST_WORK_PROJECT_ID }),
+        makeProject({ id: 'p2', parent_id: TODOIST_WORK_PROJECT_ID }),
+      ]
+      const items = [makeMapTask({ p1: 'jim', p2: 'me' })]
+      const base = makeBase(projects, items)
+      const events = buildDeltaEvents(base, [], [makeMapTask({ p1: 'me', p2: 'jim' })])
+      const u1 = events.find(e => e.type === 'project.updated' && e.projectId === 'p1')
+      const u2 = events.find(e => e.type === 'project.updated' && e.projectId === 'p2')
+      if (u1?.type !== 'project.updated' || u2?.type !== 'project.updated') throw new Error('Expected project.updated events')
+      expect(u1.patch).toMatchObject({ agendaId: CLEAR, isSelfOnly: true })
+      expect(u2.patch).toMatchObject({ agendaId: 'agenda-jim', isSelfOnly: false })
+    })
+  })
+
   it('does not emit a spurious project.updated for a project deleted in the same delta as its mapping entry removal', () => {
     const projects = [...CONTAINERS, makeProject({ id: 'p1', parent_id: TODOIST_WORK_PROJECT_ID })]
     const items = [makeMapTask({ p1: 'jim' })]
@@ -423,6 +515,16 @@ describe('buildDeltaEvents — shared project/agenda mapping', () => {
     const base = makeBase()
     const events = buildDeltaEvents(base, [], [makeMapTask({ proj1: 'jim' })])
     expect(events.some(e => 'taskId' in e && e.taskId === 'maptask1')).toBe(false)
+  })
+
+  it('never emits a task.created event for any other known dashboard storage task appearing in a delta', () => {
+    const base = makeBase()
+    const events = buildDeltaEvents(base, [], [
+      makeItem({ id: 'ghPr', content: '* _GITHUB_PR_DATA_' }),
+      makeItem({ id: 't1', content: 'Real task' }),
+    ])
+    expect(events.some(e => e.type === 'task.created' && e.taskId === 'ghPr')).toBe(false)
+    expect(events.some(e => e.type === 'task.created' && e.taskId === 't1')).toBe(true)
   })
 })
 

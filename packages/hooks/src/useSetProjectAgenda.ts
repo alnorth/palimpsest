@@ -6,7 +6,8 @@ import type { MutationResult } from './types'
 
 export interface SetProjectAgendaArgs {
   projectId: string
-  agendaId: string | null
+  agendaId?: string | null
+  selfOnly?: boolean
 }
 
 // Module-level (not a closure created per render/hook-instance) so useMutation's internal
@@ -14,7 +15,10 @@ export interface SetProjectAgendaArgs {
 // change, instead of on every render.
 async function runSetProjectAgenda(store: PalimpsestStore, projState: ProjectionState, args: SetProjectAgendaArgs): Promise<void> {
   const project = requireProject(projState, args.projectId)
-  await store.appendEvents(updateProject(project, { agendaId: args.agendaId === null ? CLEAR : args.agendaId as AgendaId }))
+  await store.appendEvents(updateProject(project, {
+    ...(args.agendaId !== undefined && { agendaId: args.agendaId === null ? CLEAR : args.agendaId as AgendaId }),
+    ...(args.selfOnly !== undefined && { isSelfOnly: args.selfOnly }),
+  }))
 }
 
 export function useSetProjectAgenda(): MutationResult<SetProjectAgendaArgs, void> {

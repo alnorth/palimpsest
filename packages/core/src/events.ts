@@ -3,6 +3,16 @@ import type { WaitingFor } from './types'
 
 export const CLEAR = null
 
+// Resolves the effective value of an optional, CLEAR-able patched field: the patch's own value if
+// present (undefined meaning "unchanged"), else the entity's current value; CLEAR resolves to
+// undefined either way. Shared by commands.ts (entity+patch only) and validation.ts (which
+// re-derives the same effective value with full ProjectionState access) so the CLEAR-sentinel
+// resolution logic lives in exactly one place.
+export function resolvePatched<T>(current: T | undefined, patched: T | typeof CLEAR | undefined): T | undefined {
+  if (patched === undefined) return current
+  return patched === CLEAR ? undefined : patched
+}
+
 interface EventBase {
   id: EventId
   occurredAt: string
@@ -17,6 +27,7 @@ export interface ProjectCreatedEvent extends EventBase {
   name: string
   description?: string
   agendaId?: AgendaId
+  isSelfOnly?: true
 }
 
 export type ProjectPatch = {
@@ -24,6 +35,7 @@ export type ProjectPatch = {
   description?: string | typeof CLEAR
   sphereId?: SphereId
   agendaId?: AgendaId | typeof CLEAR
+  isSelfOnly?: boolean
 }
 
 export interface ProjectUpdatedEvent extends EventBase {

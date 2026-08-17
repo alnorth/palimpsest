@@ -147,6 +147,7 @@ describe('project/sphere/agenda/context serialization', () => {
       description: null,
       sphere: { id: sphere.id, name: 'Work' },
       agenda: null,
+      isSelfOnly: false,
       isArchived: false,
       openTaskCount: 1,
       hasNextAction: true,
@@ -154,6 +155,14 @@ describe('project/sphere/agenda/context serialization', () => {
       updatedAt: project.updatedAt,
       archivedAt: null,
     })
+  })
+
+  test('toProjectJson: isSelfOnly true when the project has isSelfOnly set', () => {
+    const sphere = makeSphere()
+    const project = makeProject(sphere, { isSelfOnly: true })
+    const state = buildState({ spheres: [sphere], projects: [project] })
+    const stats = computeProjectStats(state)
+    expect(toProjectJson(state, project, stats.get(project.id)!).isSelfOnly).toBe(true)
   })
 
   test('toProjectJson resolves agenda ref when the project is linked to an agenda', () => {

@@ -93,6 +93,86 @@ describe('Project.agendaId', () => {
   })
 })
 
+describe('Project.isSelfOnly', () => {
+  it('createProject leaves isSelfOnly unset by default', () => {
+    const { proj } = setup()
+    expect(proj.isSelfOnly).toBeUndefined()
+  })
+
+  it('updateProject sets isSelfOnly via patch', () => {
+    const { projEvts, proj, projectId } = setup()
+    const updateEvts = updateProject(proj, { isSelfOnly: true })
+    const s2 = project([...projEvts, ...updateEvts], baseState)
+    expect(s2.projects.get(projectId)?.isSelfOnly).toBe(true)
+  })
+
+  it('updateProject clears isSelfOnly by setting false', () => {
+    const { projEvts, proj, projectId } = setup()
+    const setEvts = updateProject(proj, { isSelfOnly: true })
+    const s2 = project([...projEvts, ...setEvts], baseState)
+    const selfOnlyProj = s2.projects.get(projectId)!
+    const clearEvts = updateProject(selfOnlyProj, { isSelfOnly: false })
+    const s3 = project([...projEvts, ...setEvts, ...clearEvts], baseState)
+    expect(s3.projects.get(projectId)?.isSelfOnly).toBeUndefined()
+  })
+
+  it('throws when agendaId and isSelfOnly are both set in the same patch', () => {
+    const { proj } = setup()
+    expect(() => updateProject(proj, { agendaId, isSelfOnly: true }))
+      .toThrow('cannot have both agendaId and isSelfOnly set')
+  })
+
+  it('throws when isSelfOnly is set true while the project already has an agendaId (effective-value case)', () => {
+    const { projEvts, proj, projectId } = setup()
+    const linkEvts = updateProject(proj, { agendaId })
+    const s2 = project([...projEvts, ...linkEvts], baseState)
+    const linkedProj = s2.projects.get(projectId)!
+    expect(() => updateProject(linkedProj, { isSelfOnly: true }))
+      .toThrow('cannot have both agendaId and isSelfOnly set')
+  })
+
+  it('throws when agendaId is set while the project is already self-only (effective-value case)', () => {
+    const { projEvts, proj, projectId } = setup()
+    const selfEvts = updateProject(proj, { isSelfOnly: true })
+    const s2 = project([...projEvts, ...selfEvts], baseState)
+    const selfOnlyProj = s2.projects.get(projectId)!
+    expect(() => updateProject(selfOnlyProj, { agendaId }))
+      .toThrow('cannot have both agendaId and isSelfOnly set')
+  })
+
+  it('allows switching from self-only to a real agenda link when isSelfOnly is explicitly cleared in the same patch', () => {
+    const { projEvts, proj, projectId } = setup()
+    const selfEvts = updateProject(proj, { isSelfOnly: true })
+    const s2 = project([...projEvts, ...selfEvts], baseState)
+    const selfOnlyProj = s2.projects.get(projectId)!
+    const switchEvts = updateProject(selfOnlyProj, { agendaId, isSelfOnly: false })
+    const s3 = project([...projEvts, ...selfEvts, ...switchEvts], baseState)
+    expect(s3.projects.get(projectId)?.agendaId).toBe(agendaId)
+    expect(s3.projects.get(projectId)?.isSelfOnly).toBeUndefined()
+  })
+
+  it('allows switching from a real agenda link to self-only when agendaId is explicitly cleared in the same patch', () => {
+    const { projEvts, proj, projectId } = setup()
+    const linkEvts = updateProject(proj, { agendaId })
+    const s2 = project([...projEvts, ...linkEvts], baseState)
+    const linkedProj = s2.projects.get(projectId)!
+    const switchEvts = updateProject(linkedProj, { agendaId: null, isSelfOnly: true })
+    const s3 = project([...projEvts, ...linkEvts, ...switchEvts], baseState)
+    expect(s3.projects.get(projectId)?.agendaId).toBeUndefined()
+    expect(s3.projects.get(projectId)?.isSelfOnly).toBe(true)
+  })
+})
+
+describe('listProjects with isSelfOnly filter', () => {
+  it('filters by isSelfOnly', () => {
+    const { projEvts, proj, projectId } = setup()
+    const selfEvts = updateProject(proj, { isSelfOnly: true })
+    const s2 = project([...projEvts, ...selfEvts], baseState)
+    expect(listProjects(s2, { isSelfOnly: true }).map(p => p.id)).toContain(projectId)
+    expect(listProjects(s2, { isSelfOnly: false }).map(p => p.id)).not.toContain(projectId)
+  })
+})
+
 describe('listProjects with agendaId filter', () => {
   it('filters by agendaId', () => {
     const { projEvts, proj, projectId } = setup()

@@ -11,6 +11,7 @@ import {
 } from './mapping'
 import {
   AGENDA_PROJECT_MAP_TASK_TITLE,
+  SELF_AGENDA_LABEL,
   labelForAgenda,
   serializeAgendaMapping,
 } from './sharedStorage'
@@ -257,11 +258,23 @@ export function buildCommands(
       // Todoist projects have no native field for a custom agenda link, so it round-trips through
       // a shared JSON-blob storage task instead (same mechanism/task the dashboard app already
       // uses) — read-modify-write one entry in the current mapping, preserving every other
-      // project's entry untouched.
-      if (patch.agendaId !== undefined && ctx !== undefined) {
+      // project's entry untouched. isSelfOnly shares the same one mapping entry (SELF_AGENDA_LABEL
+      // instead of an agenda label), so either field touches this block.
+      if ((patch.agendaId !== undefined || patch.isSelfOnly !== undefined) && ctx !== undefined) {
         const newMapping = { ...ctx.rawAgendaMapping }
-        if (patch.agendaId === CLEAR) delete newMapping[String(event.projectId)]
-        else newMapping[String(event.projectId)] = labelForAgenda(patch.agendaId)
+        const key = String(event.projectId)
+        // isSelfOnly checked first: core's mutual-exclusivity guard (updateProject) prevents both
+        // being positively true in a hand-authored patch, but buildDeltaEvents's unconditional
+        // per-project rebuild routinely sends both agendaId: CLEAR and isSelfOnly: true/false
+        // together — that's not contradictory ("make this self-only" already implies "no agenda"),
+        // so isSelfOnly wins whenever both fields are present.
+        if (patch.isSelfOnly === true) newMapping[key] = SELF_AGENDA_LABEL
+        else if (patch.agendaId !== undefined && patch.agendaId !== CLEAR) newMapping[key] = labelForAgenda(patch.agendaId)
+        else if (patch.agendaId === CLEAR) delete newMapping[key]
+        // isSelfOnly: false alone only clears the entry if it's currently the self label — it must
+        // not clobber a real agenda label a different patch put there (e.g. an "un-mark self-only"
+        // call on a project that's actually already linked to a real agenda, not self-only at all).
+        else if (patch.isSelfOnly === false && newMapping[key] === SELF_AGENDA_LABEL) delete newMapping[key]
 
         if (JSON.stringify(newMapping) === JSON.stringify(ctx.rawAgendaMapping)) {
           return { commands, agendaMappingAfter: newMapping }

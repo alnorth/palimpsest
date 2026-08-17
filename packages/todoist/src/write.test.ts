@@ -663,6 +663,75 @@ describe('buildCommands — project lifecycle', () => {
     )).toThrow('No Todoist label mapped for agenda')
   })
 
+  it('isSelfOnly: true writes "me", preserving other entries', () => {
+    const { commands } = buildCommands(
+      {
+        type: 'project.updated', id: evId(), occurredAt: '',
+        projectId: projId('1'), patch: { isSelfOnly: true },
+      },
+      baseState(),
+      { rawAgendaMapping: { 'proj-2': 'jim' }, agendaMapTaskId: 'maptask1' },
+    )
+    expect(commands).toHaveLength(1)
+    expect(commands[0]?.type).toBe('item_update')
+    const description = commands[0]?.args.description as string
+    expect(description).toContain('"proj-1": "me"')
+    expect(description).toContain('"proj-2": "jim"')
+  })
+
+  it('isSelfOnly: false deletes the entry', () => {
+    const { commands } = buildCommands(
+      {
+        type: 'project.updated', id: evId(), occurredAt: '',
+        projectId: projId('1'), patch: { isSelfOnly: false },
+      },
+      baseState(),
+      { rawAgendaMapping: { 'proj-1': 'me', 'proj-2': 'jim' }, agendaMapTaskId: 'maptask1' },
+    )
+    expect(commands).toHaveLength(1)
+    const description = commands[0]?.args.description as string
+    expect(description).not.toContain('proj-1')
+    expect(description).toContain('"proj-2": "jim"')
+  })
+
+  it('isSelfOnly: false on a project whose entry is a real agenda label leaves it untouched', () => {
+    const { commands, agendaMappingAfter } = buildCommands(
+      {
+        type: 'project.updated', id: evId(), occurredAt: '',
+        projectId: projId('1'), patch: { isSelfOnly: false },
+      },
+      baseState(),
+      { rawAgendaMapping: { 'proj-1': 'jim' }, agendaMapTaskId: 'maptask1' },
+    )
+    expect(commands).toHaveLength(0)
+    expect(agendaMappingAfter).toEqual({ 'proj-1': 'jim' })
+  })
+
+  it('agendaId: CLEAR combined with isSelfOnly: true resolves to "me" (isSelfOnly takes precedence)', () => {
+    const { commands } = buildCommands(
+      {
+        type: 'project.updated', id: evId(), occurredAt: '',
+        projectId: projId('1'), patch: { agendaId: CLEAR, isSelfOnly: true },
+      },
+      baseState(),
+      { rawAgendaMapping: { 'proj-1': 'jim' }, agendaMapTaskId: 'maptask1' },
+    )
+    expect(commands).toHaveLength(1)
+    const description = commands[0]?.args.description as string
+    expect(description).toContain('"proj-1": "me"')
+  })
+
+  it('isSelfOnly patch with no ctx → no command (backwards compatible when ctx is omitted)', () => {
+    const { commands } = buildCommands(
+      {
+        type: 'project.updated', id: evId(), occurredAt: '',
+        projectId: projId(), patch: { isSelfOnly: true },
+      },
+      baseState(),
+    )
+    expect(commands).toHaveLength(0)
+  })
+
   it('project.archived → project_archive', () => {
     const { commands } = buildCommands(
       { type: 'project.archived', id: evId(), occurredAt: '', projectId: projId() },

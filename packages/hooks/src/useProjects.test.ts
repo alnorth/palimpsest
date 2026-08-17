@@ -40,6 +40,17 @@ describe('useProjects', () => {
     expect(withoutAgenda.result.current.data?.map(p => p.name)).toEqual(['Solo'])
   })
 
+  test('isSelfOnly filter passes through', async () => {
+    const sphere = makeSphere({ name: 'Work' })
+    const selfOnly = makeProject(sphere, { name: 'Personal', isSelfOnly: true })
+    const other = makeProject(sphere, { name: 'Other' })
+    const store = new FakeStore(buildState({ spheres: [sphere], projects: [selfOnly, other] }))
+
+    const { result } = renderHook(() => useProjects({ isSelfOnly: true }), { wrapper: makeWrapper(store) })
+    await waitFor(() => expect(result.current.isLoading).toBe(false))
+    expect(result.current.data?.map(p => p.name)).toEqual(['Personal'])
+  })
+
   test('includeNextTasks includes each project\'s open next-action tasks', async () => {
     const sphere = makeSphere({ name: 'Work' })
     const project = makeProject(sphere, { name: 'Launch' })

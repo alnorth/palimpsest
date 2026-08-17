@@ -14,10 +14,10 @@ import {
   extractProjectIdFromUrl,
 } from './mapping'
 import {
-  AGENDA_PROJECT_MAP_TASK_TITLE,
+  DASHBOARD_STORAGE_TASK_TITLES,
   findAgendaMapTask,
   parseAgendaMapping,
-  resolveProjectAgendaIds,
+  resolveProjectSharing,
 } from './sharedStorage'
 
 // ── Project helpers ───────────────────────────────────────────────────────────
@@ -41,6 +41,7 @@ function buildPalimpsestProjects(
   raw: SyncProject[],
   byId: Map<string, SyncProject>,
   agendaIds: Record<string, AgendaId> = {},
+  selfOnlyProjectIds: Set<string> = new Set(),
 ): Map<ProjectId, Project> {
   const projects = new Map<ProjectId, Project>()
   for (const p of raw) {
@@ -57,6 +58,7 @@ function buildPalimpsestProjects(
       updatedAt: p.updated_at,
       ...(p.description !== '' && { description: p.description }),
       ...(agendaIds[p.id] !== undefined && { agendaId: agendaIds[p.id] }),
+      ...(selfOnlyProjectIds.has(p.id) && { isSelfOnly: true as const }),
       ...(p.is_archived && { isArchived: true, archivedAt: p.updated_at }),
     })
   }
@@ -204,16 +206,17 @@ export function buildEvents(
   rawItems: SyncItem[],
 ): PalimpsestEvent[] {
   const byId = buildProjectMap(rawProjects)
-  const agendaIds = resolveProjectAgendaIds(parseAgendaMapping(findAgendaMapTask(rawItems)))
+  const { agendaIds, selfOnlyProjectIds } = resolveProjectSharing(parseAgendaMapping(findAgendaMapTask(rawItems)))
   const events: PalimpsestEvent[] = []
 
-  for (const p of buildPalimpsestProjects(rawProjects, byId, agendaIds).values()) {
+  for (const p of buildPalimpsestProjects(rawProjects, byId, agendaIds, selfOnlyProjectIds).values()) {
     events.push({
       id: newEventId(), type: 'project.created',
       projectId: p.id, sphereId: p.sphereId, name: p.name,
       occurredAt: p.createdAt,
       ...(p.description !== undefined && { description: p.description }),
       ...(p.agendaId     !== undefined && { agendaId:     p.agendaId }),
+      ...(p.isSelfOnly   !== undefined && { isSelfOnly:   p.isSelfOnly }),
     })
     if (p.isArchived === true) {
       events.push({
@@ -225,7 +228,7 @@ export function buildEvents(
 
   for (const t of rawItems) {
     if (t.is_deleted) continue
-    if (t.content === AGENDA_PROJECT_MAP_TASK_TITLE) continue
+    if (DASHBOARD_STORAGE_TASK_TITLES.has(t.content)) continue
     const task = buildPalimpsestTask(t, byId)
     if (task === undefined) continue
 
@@ -265,11 +268,11 @@ export function buildDeltaEvents(
   for (const p of deltaProjects) byId.set(p.id, p)
 
   // The shared agenda-mapping storage task only shows up in deltaItems when it (or a project's
-  // link) actually changed — when absent, fall back to each project's already-known agendaId
-  // rather than treating "not in this delta" as "cleared".
+  // link) actually changed — when absent, fall back to each project's already-known agendaId/
+  // isSelfOnly rather than treating "not in this delta" as "cleared".
   const agendaMapTask = findAgendaMapTask(deltaItems)
-  const agendaIds = agendaMapTask !== undefined
-    ? resolveProjectAgendaIds(parseAgendaMapping(agendaMapTask))
+  const sharing = agendaMapTask !== undefined
+    ? resolveProjectSharing(parseAgendaMapping(agendaMapTask))
     : undefined
   const projectIdsHandledByDelta = new Set<ProjectId>()
 
@@ -295,7 +298,8 @@ export function buildDeltaEvents(
       }
       const sphereId = resolveSphereId(p, byId)
       if (sphereId === undefined) continue
-      const newAgendaId = agendaIds !== undefined ? agendaIds[projectId] : existing?.agendaId
+      const newAgendaId = sharing !== undefined ? sharing.agendaIds[projectId] : existing?.agendaId
+      const newIsSelfOnly = sharing !== undefined ? sharing.selfOnlyProjectIds.has(projectId) : existing?.isSelfOnly === true
       events.push({
         id: newEventId(), type: 'project.updated',
         projectId,
@@ -303,6 +307,7 @@ export function buildDeltaEvents(
           name: p.name, sphereId,
           description: p.description !== '' ? p.description : CLEAR,
           agendaId: newAgendaId ?? CLEAR,
+          isSelfOnly: newIsSelfOnly,
         },
         occurredAt: p.updated_at,
       })
@@ -314,35 +319,45 @@ export function buildDeltaEvents(
 
     const sphereId = resolveSphereId(p, byId)
     if (sphereId === undefined) continue
-    const newAgendaId = agendaIds?.[projectId]
+    const newAgendaId = sharing?.agendaIds[projectId]
+    const newIsSelfOnly = sharing?.selfOnlyProjectIds.has(projectId) === true
     events.push({
       id: newEventId(), type: 'project.created',
       projectId, sphereId, name: p.name, occurredAt: p.created_at,
       ...(p.description !== '' && { description: p.description }),
       ...(newAgendaId    !== undefined && { agendaId:    newAgendaId }),
+      ...(newIsSelfOnly  === true      && { isSelfOnly:  true }),
     })
     if (p.is_archived) {
       events.push({ id: newEventId(), type: 'project.archived', projectId, occurredAt: p.updated_at })
     }
   }
 
-  // The mapping changed but a linked project didn't otherwise appear in this delta.
-  if (agendaMapTask !== undefined && agendaIds !== undefined) {
+  // The mapping changed but a linked project didn't otherwise appear in this delta. agendaId and
+  // isSelfOnly can each independently flip, so diff them independently and only include whichever
+  // field(s) actually changed — emit nothing at all if neither did.
+  if (agendaMapTask !== undefined && sharing !== undefined) {
     for (const [projectId, existing] of current.projects) {
       if (projectIdsHandledByDelta.has(projectId)) continue
-      const newAgendaId = agendaIds[projectId]
-      if (newAgendaId !== existing.agendaId) {
+      const newAgendaId = sharing.agendaIds[projectId]
+      const newIsSelfOnly = sharing.selfOnlyProjectIds.has(projectId)
+      const agendaChanged = newAgendaId !== existing.agendaId
+      const selfOnlyChanged = newIsSelfOnly !== (existing.isSelfOnly === true)
+      if (agendaChanged || selfOnlyChanged) {
         events.push({
           id: newEventId(), type: 'project.updated',
           projectId, occurredAt: agendaMapTask.updated_at,
-          patch: { agendaId: newAgendaId ?? CLEAR },
+          patch: {
+            ...(agendaChanged   && { agendaId:   newAgendaId ?? CLEAR }),
+            ...(selfOnlyChanged && { isSelfOnly: newIsSelfOnly }),
+          },
         })
       }
     }
   }
 
   for (const t of deltaItems) {
-    if (t.content === AGENDA_PROJECT_MAP_TASK_TITLE) continue
+    if (DASHBOARD_STORAGE_TASK_TITLES.has(t.content)) continue
     const taskId = t.id as TaskId
     if (t.is_deleted) {
       if (current.tasks.has(taskId)) {

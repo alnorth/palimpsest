@@ -27,6 +27,7 @@ export function applyEvent(state: ProjectionState, event: PalimpsestEvent): Proj
         updatedAt: event.occurredAt,
         ...(event.description !== undefined && { description: event.description }),
         ...(event.agendaId    !== undefined && { agendaId:    event.agendaId }),
+        ...(event.isSelfOnly  !== undefined && { isSelfOnly:  event.isSelfOnly }),
       }
       state.projects.set(project.id, project)
       return state
@@ -45,6 +46,10 @@ export function applyEvent(state: ProjectionState, event: PalimpsestEvent): Proj
       if (patch.agendaId !== undefined) {
         if (patch.agendaId === CLEAR) delete project.agendaId
         else project.agendaId = patch.agendaId
+      }
+      if (patch.isSelfOnly !== undefined) {
+        if (patch.isSelfOnly === false) delete project.isSelfOnly
+        else project.isSelfOnly = true
       }
       project.updatedAt = event.occurredAt
       return state

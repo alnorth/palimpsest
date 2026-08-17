@@ -1,24 +1,45 @@
 import type { ProjectionState } from './projection'
 import type { PalimpsestEvent } from './events'
+import { resolvePatched } from './events'
 import { applyEvent, cloneState } from './projection'
 
 function validateEvent(state: ProjectionState, event: PalimpsestEvent): void {
   switch (event.type) {
-    case 'project.created':
+    case 'project.created': {
       if (!state.spheres.has(event.sphereId)) throw new Error(`Sphere not found: ${event.sphereId}`)
-      if (event.agendaId !== undefined && !state.agendas.has(event.agendaId)) {
-        throw new Error(`Agenda not found: ${event.agendaId}`)
+      if (event.agendaId !== undefined) {
+        const agenda = state.agendas.get(event.agendaId)
+        if (agenda === undefined) throw new Error(`Agenda not found: ${event.agendaId}`)
+        if (agenda.sphereId !== event.sphereId) {
+          throw new Error(`Agenda ${event.agendaId} belongs to a different sphere than project ${event.projectId}`)
+        }
       }
       break
-    case 'project.updated':
-      if (!state.projects.has(event.projectId)) throw new Error(`Project not found: ${event.projectId}`)
+    }
+    case 'project.updated': {
+      const project = state.projects.get(event.projectId)
+      if (!project) throw new Error(`Project not found: ${event.projectId}`)
       if (event.patch.sphereId !== undefined && !state.spheres.has(event.patch.sphereId)) {
         throw new Error(`Sphere not found: ${event.patch.sphereId}`)
       }
       if (event.patch.agendaId != null && !state.agendas.has(event.patch.agendaId)) {
         throw new Error(`Agenda not found: ${event.patch.agendaId}`)
       }
+      // Only re-check the same-sphere invariant when the patch actually touches sphereId/agendaId —
+      // an unrelated patch (e.g. { name }) must not re-reject a project that already carries a
+      // legacy cross-sphere link the read path tolerated when folding it into state.
+      if (event.patch.sphereId !== undefined || event.patch.agendaId !== undefined) {
+        const effectiveSphereId = event.patch.sphereId ?? project.sphereId
+        const effectiveAgendaId = resolvePatched(project.agendaId, event.patch.agendaId)
+        if (effectiveAgendaId !== undefined) {
+          const agenda = state.agendas.get(effectiveAgendaId)
+          if (agenda !== undefined && agenda.sphereId !== effectiveSphereId) {
+            throw new Error(`Agenda ${effectiveAgendaId} belongs to a different sphere than project ${event.projectId}`)
+          }
+        }
+      }
       break
+    }
     case 'project.archived':
     case 'project.unarchived':
       if (!state.projects.has(event.projectId)) throw new Error(`Project not found: ${event.projectId}`)

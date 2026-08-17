@@ -49,6 +49,7 @@ export interface ProjectsToolInput {
   agenda?: string | undefined
   hasAgenda?: boolean | undefined
   withoutAgenda?: boolean | undefined
+  isSelfOnly?: boolean | undefined
   includeNextTasks?: boolean | undefined
 }
 
@@ -89,7 +90,8 @@ export interface DeleteTaskToolInput {
 
 export interface SetProjectAgendaToolInput {
   id: string
-  agendaId: string | null
+  agendaId?: string | null | undefined
+  selfOnly?: boolean | undefined
 }
 
 // "today" is the only natural-language date form this tool resolves, mirroring the `tasks` tool's
@@ -152,6 +154,7 @@ export function handleProjects(store: TaskStore, input: ProjectsToolInput): Prom
     ...(input.agenda !== undefined && { agenda: input.agenda }),
     ...(input.hasAgenda === true && { hasAgenda: true }),
     ...(input.withoutAgenda === true && { withoutAgenda: true }),
+    ...(input.isSelfOnly !== undefined && { isSelfOnly: input.isSelfOnly }),
     ...(input.includeNextTasks === true && { includeNextTasks: true }),
   })
 }
@@ -298,6 +301,8 @@ function runProjectToolMutation(
 }
 
 export function handleSetProjectAgenda(store: TaskStore, input: SetProjectAgendaToolInput): Promise<CallToolResult> {
-  return runProjectToolMutation(store, input.id, project =>
-    updateProject(project, { agendaId: input.agendaId === null ? CLEAR : input.agendaId as AgendaId }))
+  return runProjectToolMutation(store, input.id, project => updateProject(project, {
+    ...(input.agendaId !== undefined && { agendaId: input.agendaId === null ? CLEAR : input.agendaId as AgendaId }),
+    ...(input.selfOnly !== undefined && { isSelfOnly: input.selfOnly }),
+  }))
 }

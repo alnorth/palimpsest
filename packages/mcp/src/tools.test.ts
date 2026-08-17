@@ -1,6 +1,6 @@
 import { describe, test, expect, vi } from 'vitest'
 import type { PalimpsestEvent, ProjectionState } from '@alnorth/palimpsest'
-import { applyEvent, cloneState, nextDueDate } from '@alnorth/palimpsest'
+import { applyEvent, cloneState, nextDueDate, validateBatch } from '@alnorth/palimpsest'
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js'
 import { makeSphere, makeProject, makeAgenda, makeContext, makeTask, buildState } from './testFixtures'
 import type { TaskStore } from './tools'
@@ -36,6 +36,10 @@ function mutableFakeStore(initial: ProjectionState): TaskStore & { calls: string
     getState: vi.fn(async () => { calls.push('getState'); return cloneState(state) }),
     appendEvents: vi.fn(async (events: PalimpsestEvent[]) => {
       calls.push('appendEvents')
+      // Mirrors core's real PalimpsestStore.appendEvents, which validates against the current
+      // state before applying — otherwise this fake would silently accept events (e.g. a
+      // cross-sphere agenda link) that production would reject.
+      validateBatch(state, events)
       appended.push(events)
       for (const event of events) applyEvent(state, event)
     }),
@@ -236,6 +240,16 @@ describe('handleProjects', () => {
 
     const withoutAgenda = await handleProjects(store, { withoutAgenda: true })
     expect(parseOk<{ projects: { name: string }[] }>(withoutAgenda).projects.map(p => p.name)).toEqual(['Solo'])
+  })
+
+  test('isSelfOnly filter passes through to the query', async () => {
+    const sphere = makeSphere({ name: 'Work' })
+    const selfOnly = makeProject(sphere, { name: 'Personal', isSelfOnly: true })
+    const other = makeProject(sphere, { name: 'Other' })
+    const store = fakeStore(buildState({ spheres: [sphere], projects: [selfOnly, other] }))
+
+    const filtered = await handleProjects(store, { isSelfOnly: true })
+    expect(parseOk<{ projects: { name: string }[] }>(filtered).projects.map(p => p.name)).toEqual(['Personal'])
   })
 
   test('omits nextTasks by default', async () => {
@@ -660,6 +674,48 @@ describe('handleSetProjectAgenda', () => {
 
     expect(result.isError).toBe(true)
     expect(resultText(result)).toMatch(/Project not found: missing-id/)
+    expect(store.appended).toEqual([])
+  })
+
+  test('selfOnly: true marks a project self-only with no agendaId argument', async () => {
+    const sphere = makeSphere({ name: 'Work' })
+    const project = makeProject(sphere, { name: 'Launch' })
+    const store = mutableFakeStore(buildState({ spheres: [sphere], projects: [project] }))
+
+    const result = await handleSetProjectAgenda(store, { id: project.id, selfOnly: true })
+
+    expect(result.isError).toBeUndefined()
+    expect(store.appended).toEqual([[expect.objectContaining({
+      type: 'project.updated', projectId: project.id, patch: { isSelfOnly: true },
+    })]])
+    const parsed = parseOk<{ project: { isSelfOnly: boolean } }>(result)
+    expect(parsed.project.isSelfOnly).toBe(true)
+  })
+
+  test('rejects a call with both agendaId and selfOnly:true, without appending', async () => {
+    const sphere = makeSphere({ name: 'Work' })
+    const agenda = makeAgenda(sphere)
+    const project = makeProject(sphere)
+    const store = mutableFakeStore(buildState({ spheres: [sphere], agendas: [agenda], projects: [project] }))
+
+    const result = await handleSetProjectAgenda(store, { id: project.id, agendaId: agenda.id, selfOnly: true })
+
+    expect(result.isError).toBe(true)
+    expect(resultText(result)).toMatch(/agendaId.*selfOnly/i)
+    expect(store.appended).toEqual([])
+  })
+
+  test('a same-sphere validation violation surfaces as isError', async () => {
+    const sphere = makeSphere({ name: 'Work' })
+    const otherSphere = makeSphere({ name: 'Personal' })
+    const agenda = makeAgenda(otherSphere)
+    const project = makeProject(sphere)
+    const store = mutableFakeStore(buildState({ spheres: [sphere, otherSphere], agendas: [agenda], projects: [project] }))
+
+    const result = await handleSetProjectAgenda(store, { id: project.id, agendaId: agenda.id })
+
+    expect(result.isError).toBe(true)
+    expect(resultText(result)).toMatch(/different sphere/)
     expect(store.appended).toEqual([])
   })
 })
