@@ -25,6 +25,41 @@ export const FREE_FLOATING_PROJECT_IDS = new Set([
   TODOIST_INBOX_ID,
 ])
 
+// ── Agenda-specific projects ──────────────────────────────────────────────────
+// The dashboard app gives some agendas (people.jsx's `agendaProjectId`) their own dedicated
+// Todoist project, nested under TODOIST_AGENDAS_ID, as an alternative to the @<agenda> label —
+// dashboard's Agendas.jsx treats "lives in this project" as equivalent to "carries this agenda's
+// label" (its "Criteria 2"). Tasks living directly in one of these projects have no real
+// palimpsest project of their own: they resolve to a project-less Task with sphereId set directly
+// and agendaId inferred from the project, exactly as if they carried the agenda's label instead.
+// Every entry here is therefore also excluded from ever becoming a palimpsest Project (see
+// EXCLUDED_PROJECT_IDS below) — these are containers, not real projects.
+export interface AgendaProjectInfo {
+  agendaId: AgendaId
+  sphereId: SphereId
+}
+
+export const AGENDA_PROJECT_IDS: Readonly<Record<string, AgendaProjectInfo>> = {
+  '6JJC6Fjjgx3gvhQ5': { agendaId: 'agenda-jim'      as AgendaId, sphereId: WORK_SPHERE_ID },
+  '6JJC6Hc8GQQCPJqQ': { agendaId: 'agenda-marcia'   as AgendaId, sphereId: WORK_SPHERE_ID },
+  '6JJC6H29RVmq9vc6': { agendaId: 'agenda-nicolas'  as AgendaId, sphereId: WORK_SPHERE_ID },
+  '6JJC6HJHq486R6vW': { agendaId: 'agenda-anton'    as AgendaId, sphereId: WORK_SPHERE_ID },
+  '6JJCCfg4HHQ9gv9F': { agendaId: 'agenda-dev'      as AgendaId, sphereId: WORK_SPHERE_ID },
+  '6cqhxvmJjm5C3H59': { agendaId: 'agenda-showcase' as AgendaId, sphereId: WORK_SPHERE_ID },
+  '6g69qcgGG4gJjrHG': { agendaId: 'agenda-tab'      as AgendaId, sphereId: WORK_SPHERE_ID },
+  '6XpxJRR98r7QfGp7': { agendaId: 'agenda-devoteam' as AgendaId, sphereId: WORK_SPHERE_ID },
+  '6JJC6GcphmrwhxFF': { agendaId: 'agenda-han'      as AgendaId, sphereId: PERSONAL_SPHERE_ID },
+  '6MrcP7QXgXJh2Wfx': { agendaId: 'agenda-dad'      as AgendaId, sphereId: PERSONAL_SPHERE_ID },
+  '6X5w4vgPjh6v6Xwr': { agendaId: 'agenda-scouts'   as AgendaId, sphereId: PERSONAL_SPHERE_ID },
+  '6hGv5357hCwmGR9R': { agendaId: 'agenda-inspire'  as AgendaId, sphereId: PERSONAL_SPHERE_ID },
+}
+
+// Reverse lookup: agenda id -> its dedicated Todoist project id (test/caller convenience,
+// mirroring AGENDA_ID_TO_LABEL's relationship to LABEL_TO_AGENDA_ID).
+export const AGENDA_ID_TO_AGENDA_PROJECT_ID: Readonly<Record<string, string>> = Object.fromEntries(
+  Object.entries(AGENDA_PROJECT_IDS).map(([projectId, info]) => [info.agendaId, projectId]),
+)
+
 // Projects that are excluded from becoming palimpsest projects entirely
 // (sphere containers, meta-projects, agenda containers)
 export const EXCLUDED_PROJECT_IDS = new Set([
@@ -36,6 +71,7 @@ export const EXCLUDED_PROJECT_IDS = new Set([
   TODOIST_AGENDAS_ID,
   TODOIST_WORK_ONEOFFS_ID,
   TODOIST_PERSONAL_ONEOFFS_ID,
+  ...Object.keys(AGENDA_PROJECT_IDS),
 ])
 
 // ── Label → palimpsest ID mappings ───────────────────────────────────────────

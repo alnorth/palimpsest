@@ -189,6 +189,31 @@ Sphere/project/agenda/context filters are matched by name via `resolve.ts` (exac
 `TodoistStore` (extends `packages/core`'s `PollingStore`) is the `PalimpsestStore` backing every
 Todoist-connected consumer (`packages/mcp`, `packages/hooks`'s `todoistToken` convenience prop).
 
+**Agenda-specific projects are a second, native-Todoist-hierarchy way to link a task to an agenda,
+distinct from the `@<agenda>` label.** The dashboard app gives some agendas (`people.jsx`'s
+`agendaProjectId`) their own dedicated Todoist project nested under a container project (Todoist id
+`6JJC6Cc598MJgVvV`) — dashboard's `Agendas.jsx` treats "task lives directly in this project" as
+equivalent to "task carries this agenda's label" (its "Criteria 2", alongside "Criteria 1": an
+explicit label). `mapping.ts`'s `AGENDA_PROJECT_IDS` (Todoist project id → `{ agendaId, sphereId }`)
+is the static table of these twelve projects, one per agenda in `PALIMPSEST_CONFIG`; every entry is
+also folded into `EXCLUDED_PROJECT_IDS` so none of them ever becomes a real palimpsest `Project` —
+they're containers, not projects, exactly like the sphere/meta containers already excluded.
+`read.ts`'s `resolveSphereFromTask`/`buildPalimpsestTask` check `AGENDA_PROJECT_IDS` before falling
+back to the normal parent-chain walk (which can't resolve a sphere for these projects — their
+parent is the agenda container, not a sphere container) and before the explicit-label scan
+(preferring a real label if one happens to also be present) — a task living in one of these
+projects imports as project-less (`projectId` omitted, `sphereId` set directly) with `agendaId`
+inferred from the project, indistinguishable in palimpsest state from a task that carries the label
+directly. Because that inference is implicit — no label actually exists on the Todoist item — moving
+such a task onto a real project (so it now has *both* an agenda and a project, the way a normal
+"shared project" task does) would silently drop the agenda the moment it leaves the agenda project,
+unless the label is added at the same time. `write.ts`'s `task.updated` case handles this: it
+recomputes and resends the task's label set whenever `patch.projectId` is set to a real project
+*and* the task carries an `agendaId` — not only when `agendaId` itself is what's being patched —
+so the `item_move` is always paired with an `item_update` that makes the association explicit via
+the label, the same as it would be for any other task in a real project. `AGENDA_ID_TO_AGENDA_PROJECT_ID`
+is the reverse lookup, mirroring `AGENDA_ID_TO_LABEL`'s relationship to `LABEL_TO_AGENDA_ID`.
+
 Project descriptions round-trip like every other project field: `SyncProject.description` (added to
 Todoist's project object after this integration was first built) is mapped onto core's
 `Project.description` in `read.ts`'s `buildPalimpsestProjects`/`buildEvents`/`buildDeltaEvents`, and

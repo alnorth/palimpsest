@@ -17,6 +17,9 @@ import {
   PERSONAL_SPHERE_ID,
   LABEL_TO_AGENDA_ID,
   AGENDA_ID_TO_LABEL,
+  AGENDA_PROJECT_IDS,
+  AGENDA_ID_TO_AGENDA_PROJECT_ID,
+  EXCLUDED_PROJECT_IDS,
 } from './mapping'
 import { buildStateFromConfig, PALIMPSEST_CONFIG } from '@alnorth/palimpsest'
 import type { ProjectId, TaskId } from '@alnorth/palimpsest'
@@ -121,5 +124,34 @@ describe('LABEL_TO_AGENDA_ID / PALIMPSEST_CONFIG stay in sync', () => {
   it('no two labels map to the same agenda id', () => {
     const ids = Object.values(LABEL_TO_AGENDA_ID)
     expect(new Set(ids).size).toBe(ids.length)
+  })
+})
+
+describe('AGENDA_PROJECT_IDS', () => {
+  const { agendas } = buildStateFromConfig(PALIMPSEST_CONFIG)
+
+  it('every agenda-specific project points at an agenda that exists in PALIMPSEST_CONFIG, in the correct sphere', () => {
+    for (const info of Object.values(AGENDA_PROJECT_IDS)) {
+      const agenda = agendas.get(info.agendaId)
+      expect(agenda).toBeDefined()
+      expect(agenda?.sphereId).toBe(info.sphereId)
+    }
+  })
+
+  it('every agenda-specific project id is excluded from becoming a palimpsest project', () => {
+    for (const projectId of Object.keys(AGENDA_PROJECT_IDS)) {
+      expect(EXCLUDED_PROJECT_IDS.has(projectId)).toBe(true)
+    }
+  })
+
+  it('no two agenda-specific projects map to the same agenda id', () => {
+    const ids = Object.values(AGENDA_PROJECT_IDS).map(info => info.agendaId)
+    expect(new Set(ids).size).toBe(ids.length)
+  })
+
+  it('AGENDA_ID_TO_AGENDA_PROJECT_ID is the exact inverse of AGENDA_PROJECT_IDS', () => {
+    for (const [projectId, info] of Object.entries(AGENDA_PROJECT_IDS)) {
+      expect(AGENDA_ID_TO_AGENDA_PROJECT_ID[info.agendaId]).toBe(projectId)
+    }
   })
 })

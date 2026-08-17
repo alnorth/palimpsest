@@ -261,6 +261,30 @@ describe('buildCommands — task.updated', () => {
     expect(commands.some(c => c.type === 'item_move')).toBe(true)
   })
 
+  // A task living only in its agenda project (see AGENDA_PROJECT_IDS in mapping.ts) carries its
+  // agendaId with no explicit Todoist label — the project membership alone conveys it. Moving that
+  // task onto a real project (task now has both an agenda AND a project) must not silently drop
+  // the agenda: the label has to be added explicitly, since the implicit "lives in the agenda
+  // project" signal disappears the moment it leaves that project.
+  it('moving a task with an implicit agendaId onto a real project → item_move plus item_update carrying the agenda label', () => {
+    const { commands } = buildCommands(
+      updEvent('t1', { projectId: 'proj2' as ProjectId }),
+      stateWithTask('t1', { agendaId: 'agenda-jim' as AgendaId }),
+    )
+    const updateCmd = commands.find(c => c.type === 'item_update')
+    const moveCmd = commands.find(c => c.type === 'item_move')
+    expect(updateCmd?.args.labels).toContain('jim')
+    expect(moveCmd?.args.project_id).toBe('proj2')
+  })
+
+  it('moving a task with no agendaId onto a real project does not spuriously add labels', () => {
+    const { commands } = buildCommands(
+      updEvent('t1', { projectId: 'proj2' as ProjectId }),
+      stateWithTask('t1'),
+    )
+    expect(commands.every(c => c.type !== 'item_update')).toBe(true)
+  })
+
   it('patch with no content fields → no item_update command', () => {
     const { commands } = buildCommands(
       updEvent('t1', { dueDate: CLEAR }),

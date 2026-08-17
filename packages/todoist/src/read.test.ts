@@ -10,6 +10,7 @@ import {
   TODOIST_AGENDAS_ID,
   WORK_SPHERE_ID,
   PERSONAL_SPHERE_ID,
+  AGENDA_ID_TO_AGENDA_PROJECT_ID,
 } from './mapping'
 import { AGENDA_PROJECT_MAP_TASK_TITLE, serializeAgendaMapping } from './sharedStorage'
 import { buildStateFromConfig, createEmptyState, PALIMPSEST_CONFIG, project, CLEAR } from '@alnorth/palimpsest'
@@ -323,6 +324,50 @@ describe('buildEvents — tasks', () => {
   })
 })
 
+describe('buildEvents — agenda-specific projects', () => {
+  const JIM_AGENDA_PROJECT_ID = AGENDA_ID_TO_AGENDA_PROJECT_ID['agenda-jim']!
+  const HAN_AGENDA_PROJECT_ID = AGENDA_ID_TO_AGENDA_PROJECT_ID['agenda-han']!
+
+  it('imports a task living in a work agenda project as project-less, with that agendaId and sphere', () => {
+    const events = buildEvents(CONTAINERS, [
+      makeItem({ id: 't1', project_id: JIM_AGENDA_PROJECT_ID }),
+    ])
+    const created = events.find(e => e.type === 'task.created' && e.taskId === 't1')
+    expect(created).toMatchObject({ sphereId: WORK_SPHERE_ID, agendaId: 'agenda-jim' })
+    expect(created).not.toHaveProperty('projectId')
+  })
+
+  it('imports a task living in a personal agenda project with the personal sphere', () => {
+    const events = buildEvents(CONTAINERS, [
+      makeItem({ id: 't1', project_id: HAN_AGENDA_PROJECT_ID }),
+    ])
+    const created = events.find(e => e.type === 'task.created' && e.taskId === 't1')
+    expect(created).toMatchObject({ sphereId: PERSONAL_SPHERE_ID, agendaId: 'agenda-han' })
+    expect(created).not.toHaveProperty('projectId')
+  })
+
+  it('never emits a project.created event for an agenda-specific project itself', () => {
+    const projects = [
+      ...CONTAINERS,
+      makeProject({ id: JIM_AGENDA_PROJECT_ID, name: 'Jim', parent_id: TODOIST_AGENDAS_ID }),
+    ]
+    const events = buildEvents(projects, [makeItem({ id: 't1', project_id: JIM_AGENDA_PROJECT_ID })])
+    expect(events.some(e => e.type === 'project.created' && e.projectId === JIM_AGENDA_PROJECT_ID)).toBe(false)
+  })
+
+  it('an explicit agenda label on a task in a regular project still resolves agendaId normally', () => {
+    const projects = [
+      ...CONTAINERS,
+      makeProject({ id: 'proj1', parent_id: TODOIST_WORK_PROJECT_ID }),
+    ]
+    const events = buildEvents(projects, [
+      makeItem({ id: 't1', project_id: 'proj1', labels: ['jim'] }),
+    ])
+    const created = events.find(e => e.type === 'task.created' && e.taskId === 't1')
+    expect(created).toMatchObject({ projectId: 'proj1', agendaId: 'agenda-jim' })
+  })
+})
+
 // ── buildDeltaEvents ──────────────────────────────────────────────────────────
 
 describe('buildDeltaEvents — projects', () => {
@@ -624,5 +669,49 @@ describe('buildDeltaEvents — tasks', () => {
     if (updated?.type !== 'task.updated') throw new Error('Expected task.updated event')
     expect(updated.patch.agendaId).toBeNull()
     expect(updated.patch.isNext).toBe(false)
+  })
+
+  it('moving a task from its agenda project (implicit agendaId) into a real project with an explicit agenda label keeps the same agendaId', () => {
+    const JIM_AGENDA_PROJECT_ID = AGENDA_ID_TO_AGENDA_PROJECT_ID['agenda-jim']!
+    const projects = [
+      ...CONTAINERS,
+      makeProject({ id: 'proj1', parent_id: TODOIST_WORK_PROJECT_ID }),
+    ]
+    // Starts living directly in Jim's agenda project — no project, agendaId inferred implicitly.
+    const base = makeBase(projects, [
+      makeItem({ id: 't1', project_id: JIM_AGENDA_PROJECT_ID }),
+    ])
+    expect(base.tasks.get('t1' as TaskId)).toMatchObject({ sphereId: WORK_SPHERE_ID, agendaId: 'agenda-jim' })
+    expect(base.tasks.get('t1' as TaskId)).not.toHaveProperty('projectId')
+
+    // Moves to a real project; the write path is responsible for adding the 'jim' label
+    // (see write.test.ts) so the agenda association survives leaving the agenda project.
+    const events = buildDeltaEvents(base, [], [
+      makeItem({ id: 't1', project_id: 'proj1', labels: ['jim'] }),
+    ])
+    const updated = events.find(e => e.type === 'task.updated' && e.taskId === 't1')
+    if (updated?.type !== 'task.updated') throw new Error('Expected task.updated event')
+    expect(updated.patch.projectId).toBe('proj1')
+    expect(updated.patch).not.toHaveProperty('agendaId')
+
+    const next = project(events, base)
+    expect(next.tasks.get('t1' as TaskId)).toMatchObject({ projectId: 'proj1', agendaId: 'agenda-jim' })
+  })
+
+  it('moving a task out of its agenda project into a real project without carrying the label loses the agendaId', () => {
+    const JIM_AGENDA_PROJECT_ID = AGENDA_ID_TO_AGENDA_PROJECT_ID['agenda-jim']!
+    const projects = [
+      ...CONTAINERS,
+      makeProject({ id: 'proj1', parent_id: TODOIST_WORK_PROJECT_ID }),
+    ]
+    const base = makeBase(projects, [
+      makeItem({ id: 't1', project_id: JIM_AGENDA_PROJECT_ID }),
+    ])
+    const events = buildDeltaEvents(base, [], [
+      makeItem({ id: 't1', project_id: 'proj1' }),
+    ])
+    const updated = events.find(e => e.type === 'task.updated' && e.taskId === 't1')
+    if (updated?.type !== 'task.updated') throw new Error('Expected task.updated event')
+    expect(updated.patch.agendaId).toBeNull()
   })
 })
