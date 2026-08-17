@@ -25,12 +25,17 @@ function validateEvent(state: ProjectionState, event: PalimpsestEvent): void {
       if (event.patch.agendaId != null && !state.agendas.has(event.patch.agendaId)) {
         throw new Error(`Agenda not found: ${event.patch.agendaId}`)
       }
-      const effectiveSphereId = event.patch.sphereId ?? project.sphereId
-      const effectiveAgendaId = resolvePatched(project.agendaId, event.patch.agendaId)
-      if (effectiveAgendaId !== undefined) {
-        const agenda = state.agendas.get(effectiveAgendaId)
-        if (agenda !== undefined && agenda.sphereId !== effectiveSphereId) {
-          throw new Error(`Agenda ${effectiveAgendaId} belongs to a different sphere than project ${event.projectId}`)
+      // Only re-check the same-sphere invariant when the patch actually touches sphereId/agendaId —
+      // an unrelated patch (e.g. { name }) must not re-reject a project that already carries a
+      // legacy cross-sphere link the read path tolerated when folding it into state.
+      if (event.patch.sphereId !== undefined || event.patch.agendaId !== undefined) {
+        const effectiveSphereId = event.patch.sphereId ?? project.sphereId
+        const effectiveAgendaId = resolvePatched(project.agendaId, event.patch.agendaId)
+        if (effectiveAgendaId !== undefined) {
+          const agenda = state.agendas.get(effectiveAgendaId)
+          if (agenda !== undefined && agenda.sphereId !== effectiveSphereId) {
+            throw new Error(`Agenda ${effectiveAgendaId} belongs to a different sphere than project ${event.projectId}`)
+          }
         }
       }
       break

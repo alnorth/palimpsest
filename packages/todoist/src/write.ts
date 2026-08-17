@@ -270,7 +270,11 @@ export function buildCommands(
         // so isSelfOnly wins whenever both fields are present.
         if (patch.isSelfOnly === true) newMapping[key] = SELF_AGENDA_LABEL
         else if (patch.agendaId !== undefined && patch.agendaId !== CLEAR) newMapping[key] = labelForAgenda(patch.agendaId)
-        else if (patch.agendaId === CLEAR || patch.isSelfOnly === false) delete newMapping[key]
+        else if (patch.agendaId === CLEAR) delete newMapping[key]
+        // isSelfOnly: false alone only clears the entry if it's currently the self label — it must
+        // not clobber a real agenda label a different patch put there (e.g. an "un-mark self-only"
+        // call on a project that's actually already linked to a real agenda, not self-only at all).
+        else if (patch.isSelfOnly === false && newMapping[key] === SELF_AGENDA_LABEL) delete newMapping[key]
 
         if (JSON.stringify(newMapping) === JSON.stringify(ctx.rawAgendaMapping)) {
           return { commands, agendaMappingAfter: newMapping }

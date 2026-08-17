@@ -694,6 +694,19 @@ describe('buildCommands — project lifecycle', () => {
     expect(description).toContain('"proj-2": "jim"')
   })
 
+  it('isSelfOnly: false on a project whose entry is a real agenda label leaves it untouched', () => {
+    const { commands, agendaMappingAfter } = buildCommands(
+      {
+        type: 'project.updated', id: evId(), occurredAt: '',
+        projectId: projId('1'), patch: { isSelfOnly: false },
+      },
+      baseState(),
+      { rawAgendaMapping: { 'proj-1': 'jim' }, agendaMapTaskId: 'maptask1' },
+    )
+    expect(commands).toHaveLength(0)
+    expect(agendaMappingAfter).toEqual({ 'proj-1': 'jim' })
+  })
+
   it('agendaId: CLEAR combined with isSelfOnly: true resolves to "me" (isSelfOnly takes precedence)', () => {
     const { commands } = buildCommands(
       {

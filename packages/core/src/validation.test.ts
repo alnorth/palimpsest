@@ -136,4 +136,18 @@ describe('validateBatch', () => {
     const moveEvts = updateProject(proj, { sphereId: otherSphereId, agendaId: otherAgendaId })
     expect(() => validateBatch(s1, moveEvts)).not.toThrow()
   })
+
+  it('accepts an unrelated patch on a project that already carries a legacy cross-sphere agenda link', () => {
+    // Simulates data that predates this validation (e.g. tolerantly folded in by the read path from
+    // pre-existing Todoist data) — constructed directly via project(), bypassing validateBatch,
+    // since createProject+validateBatch would reject writing this link today.
+    const badEvent: PalimpsestEvent = {
+      id: 'evt-x' as EventId, type: 'project.created', occurredAt: new Date().toISOString(),
+      projectId: 'proj-x' as ProjectId, sphereId, agendaId: otherAgendaId, name: 'Legacy project',
+    }
+    const s1 = project([badEvent], baseState)
+    const proj = s1.projects.get('proj-x' as ProjectId)!
+    const renameEvts = updateProject(proj, { name: 'Renamed' })
+    expect(() => validateBatch(s1, renameEvts)).not.toThrow()
+  })
 })
