@@ -18,6 +18,7 @@ function makeMapTask(overrides: Partial<SyncItem> = {}): SyncItem {
     content: AGENDA_PROJECT_MAP_TASK_TITLE,
     description: '',
     project_id: '6JHvGw2XGX8wPQR5',
+    parent_id: null,
     labels: [],
     priority: 1,
     due: null,

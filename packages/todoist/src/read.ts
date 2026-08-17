@@ -92,6 +92,9 @@ function resolveProjectId(
 }
 
 function buildPalimpsestTask(t: SyncItem, byId: Map<string, SyncProject>): Task | undefined {
+  // Sub-tasks are ignored entirely — palimpsest only tracks top-level Todoist items.
+  if (t.parent_id !== null) return undefined
+
   const sphereId = resolveSphereFromTask(t, byId)
   if (sphereId === undefined) return undefined
 

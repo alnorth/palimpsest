@@ -78,6 +78,7 @@ function makeMapTask(mapping: Record<string, string>, overrides: Partial<SyncIte
     content: AGENDA_PROJECT_MAP_TASK_TITLE,
     description: serializeAgendaMapping(mapping),
     project_id: TODOIST_INBOX_ID,
+    parent_id: null,
     labels: [],
     priority: 1,
     due: null,
