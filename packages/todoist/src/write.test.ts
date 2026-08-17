@@ -285,6 +285,48 @@ describe('buildCommands — task.updated', () => {
     expect(commands.every(c => c.type !== 'item_update')).toBe(true)
   })
 
+  it('a task already in a real project with an explicit agenda label moves to a different real project → label still resent', () => {
+    const { commands } = buildCommands(
+      updEvent('t1', { projectId: 'proj3' as ProjectId }),
+      stateWithTask('t1', { agendaId: 'agenda-jim' as AgendaId, projectId: 'proj2' as ProjectId }),
+    )
+    const updateCmd = commands.find(c => c.type === 'item_update')
+    const moveCmd = commands.find(c => c.type === 'item_move')
+    expect(updateCmd?.args.labels).toContain('jim')
+    expect(moveCmd?.args.project_id).toBe('proj3')
+  })
+
+  it('clearing a task\'s project (CLEAR) while it has an agendaId does not force a label recompute', () => {
+    const { commands } = buildCommands(
+      updEvent('t1', { projectId: CLEAR }),
+      stateWithTask('t1', { agendaId: 'agenda-jim' as AgendaId, projectId: 'proj2' as ProjectId }),
+    )
+    expect(commands.every(c => c.type !== 'item_update')).toBe(true)
+  })
+
+  it('a combined agendaId + projectId patch → item_update carries the new agenda label alongside item_move', () => {
+    const { commands } = buildCommands(
+      updEvent('t1', { agendaId: 'agenda-marcia' as AgendaId, projectId: 'proj2' as ProjectId }),
+      stateWithTask('t1', { agendaId: 'agenda-jim' as AgendaId }),
+    )
+    const updateCmd = commands.find(c => c.type === 'item_update')
+    const moveCmd = commands.find(c => c.type === 'item_move')
+    expect(updateCmd?.args.labels).toContain('marcia')
+    expect(updateCmd?.args.labels).not.toContain('jim')
+    expect(moveCmd?.args.project_id).toBe('proj2')
+  })
+
+  it('clearing agendaId while moving onto a real project → item_update omits the agenda label, item_move still happens', () => {
+    const { commands } = buildCommands(
+      updEvent('t1', { agendaId: CLEAR, projectId: 'proj2' as ProjectId }),
+      stateWithTask('t1', { agendaId: 'agenda-jim' as AgendaId }),
+    )
+    const updateCmd = commands.find(c => c.type === 'item_update')
+    const moveCmd = commands.find(c => c.type === 'item_move')
+    expect(updateCmd?.args.labels).not.toContain('jim')
+    expect(moveCmd?.args.project_id).toBe('proj2')
+  })
+
   it('patch with no content fields → no item_update command', () => {
     const { commands } = buildCommands(
       updEvent('t1', { dueDate: CLEAR }),
