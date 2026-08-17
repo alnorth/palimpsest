@@ -38,6 +38,7 @@ function makeItem(overrides: Partial<SyncItem> & { id: string }): SyncItem {
     content: 'Test task',
     description: '',
     project_id: TODOIST_WORK_ONEOFFS_ID,
+    parent_id: null,
     labels: [],
     priority: 1,
     due: null,
@@ -274,6 +275,15 @@ describe('buildEvents — tasks', () => {
       expect(events.some(e => e.type === 'task.created' && e.taskId === id)).toBe(false)
     }
     expect(events.some(e => e.type === 'task.created' && e.taskId === 't1')).toBe(true)
+  })
+
+  it('never emits a task.created event for a sub-task of another task', () => {
+    const events = buildEvents(CONTAINERS, [
+      makeItem({ id: 't1' }),
+      makeItem({ id: 't1-sub', parent_id: 't1' }),
+    ])
+    expect(events.some(e => e.type === 'task.created' && e.taskId === 't1')).toBe(true)
+    expect(events.some(e => e.type === 'task.created' && e.taskId === 't1-sub')).toBe(false)
   })
 
   it('does not set waitingFor for a task with only the waiting label', () => {
@@ -535,6 +545,12 @@ describe('buildDeltaEvents — tasks', () => {
     expect(events.find(e => e.type === 'task.created' && e.taskId === 'tNew')).toMatchObject({
       title: 'Hello', sphereId: WORK_SPHERE_ID,
     })
+  })
+
+  it('never emits a task.created event for a new sub-task appearing in a delta', () => {
+    const base = makeBase()
+    const events = buildDeltaEvents(base, [], [makeItem({ id: 'tSub', parent_id: 'tParent' })])
+    expect(events.some(e => e.type === 'task.created' && e.taskId === 'tSub')).toBe(false)
   })
 
   it('emits task.deleted for a deleted task', () => {

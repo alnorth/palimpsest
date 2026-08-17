@@ -24,7 +24,7 @@ describe('useRunQuery — todoistUrl attachment', () => {
       sync_token: 'tok',
       full_sync: true,
       items: [{
-        id: 't1', content: 'Ship it', description: '', project_id: TODOIST_WORK_ONEOFFS_ID,
+        id: 't1', content: 'Ship it', description: '', project_id: TODOIST_WORK_ONEOFFS_ID, parent_id: null,
         labels: [], priority: 1, due: null, checked: false, is_deleted: false,
         added_at: '2026-01-01T00:00:00.000Z', updated_at: '2026-01-01T00:00:00.000Z', completed_at: null,
       }],

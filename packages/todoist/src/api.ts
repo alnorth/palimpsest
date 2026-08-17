@@ -14,6 +14,7 @@ export interface SyncItem {
   content: string
   description: string
   project_id: string
+  parent_id: string | null   // set when this item is a sub-task of another task
   labels: string[]
   priority: number        // 1 = normal (p4 in UI), 4 = urgent (p1 in UI)
   due: {

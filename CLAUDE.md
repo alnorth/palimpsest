@@ -223,6 +223,16 @@ creates in Inbox — the agenda-mapping one plus five others (GitHub PR cache, s
 project-overview mapping, daily basics, daily checklist) — `read.ts` excludes all six from ever
 becoming spurious visible tasks, not just the agenda-mapping one.
 
+`buildPalimpsestTask` also ignores any item with a non-null `parent_id` — a Todoist sub-task —
+before doing any sphere/project resolution, so sub-tasks never become palimpsest `Task`s via either
+`buildEvents` (initial load) or `buildDeltaEvents` (incremental sync). This reuses the same
+"return `undefined` to skip" convention already used for a task whose sphere can't be resolved:
+`buildEvents` simply omits the `task.created`, and `buildDeltaEvents` treats an already-tracked task
+that later gains a `parent_id` the same as any other now-unresolvable task — it's left alone in
+state rather than actively deleted, consistent with `projection.ts`'s "stay resilient" principle.
+`SyncItem.parent_id` is `string | null` and always present in the Sync API's `items` payload
+(`null` for a top-level item), so no extra `resource_types`/field request is needed to read it.
+
 `read.ts`'s `buildEvents`/`buildDeltaEvents` compute the resolved mapping once per sync and fold it
 into `project.created`/`project.updated` events the same way `description`/`sphereId` already are;
 the map task itself is explicitly excluded from ever becoming a spurious palimpsest task. Because
