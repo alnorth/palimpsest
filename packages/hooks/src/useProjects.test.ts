@@ -3,6 +3,7 @@ import { describe, test, expect } from 'vitest'
 import { makeSphere, makeProject, makeTask, makeAgenda, makeContext, buildState } from './testFixtures'
 import { FakeStore, makeWrapper, renderSuspendedHook } from './testHelpers'
 import { useProjects } from './useProjects'
+import { useProject } from './useProject'
 import { useSpheres } from './useSpheres'
 import { useAgendas } from './useAgendas'
 import { useContexts } from './useContexts'
@@ -53,6 +54,27 @@ describe('useProjects', () => {
 
     const { result } = await renderSuspendedHook(() => useProjects({ sphere: 'Work', includeNextTasks: true }), { wrapper: makeWrapper(store) })
     expect(result.current.items[0]?.nextTasks?.map(t => t.title)).toEqual(['Ship it'])
+  })
+})
+
+describe('useProject', () => {
+  test('returns a single project by id, including stats', async () => {
+    const sphere = makeSphere({ name: 'Work' })
+    const project = makeProject(sphere, { name: 'Find me' })
+    const task = makeTask({ projectId: project.id, isNext: true })
+    const store = new FakeStore(buildState({ spheres: [sphere], projects: [project], tasks: [task] }))
+
+    const { result } = await renderSuspendedHook(() => useProject(project.id), { wrapper: makeWrapper(store) })
+    expect(result.current).toEqual(expect.objectContaining({ name: 'Find me', hasNextAction: true }))
+  })
+
+  test('surfaces an unknown id to the ErrorBoundary', async () => {
+    const store = new FakeStore(buildState({}))
+    let caught: Error | undefined
+
+    await renderSuspendedHook(() => useProject('missing'), { wrapper: makeWrapper(store, { onError: e => { caught = e } }) })
+
+    expect(caught?.message).toMatch(/No project with id "missing"/)
   })
 })
 
