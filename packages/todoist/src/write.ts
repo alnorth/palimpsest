@@ -1,11 +1,11 @@
-import type { PalimpsestEvent, ProjectionState } from '@alnorth/palimpsest'
-import { CLEAR } from '@alnorth/palimpsest'
+import type { PalimpsestEvent, ProjectionState, Task, TaskPatch } from '@alnorth/palimpsest'
+import { CLEAR, getTaskSphereId } from '@alnorth/palimpsest'
 import type { SyncCommand } from './api'
 import { computeLabels } from './labels'
 import {
   WORK_SPHERE_ID,
   TODOIST_INBOX_ID,
-  freeFloatingProjectFor,
+  projectlessContainerFor,
   sphereParentProjectFor,
   todoistProjectUrl,
 } from './mapping'
@@ -32,6 +32,26 @@ function uuid(): string {
   bytes[8] = (bytes[8]! & 0x3f) | 0x80
   const hex = Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('')
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`
+}
+
+// The value a patched field will hold once `patch` is applied: the patch's own value if it
+// touches the field (undefined if CLEARed), else the field's current value on the task.
+function resolvePatchField<T>(current: T | undefined, patchValue: T | typeof CLEAR | undefined): T | undefined {
+  return patchValue !== undefined ? (patchValue === CLEAR ? undefined : patchValue) : current
+}
+
+// The due date/expression a task will have once `patch` is applied. Used only to pick the
+// project-less container a task belongs in (see the isProjectless block in the task.updated case
+// below), which is why it stays separate from the newExpression/newDate locals computed inline
+// there for the different purpose of building the Sync API `due` arg.
+function effectiveDueState(
+  task: Pick<Task, 'dueDate' | 'dueDateExpression'>,
+  patch: Pick<TaskPatch, 'dueDate' | 'dueDateExpression'>,
+): { dueDate: string | undefined; dueDateExpression: string | undefined } {
+  return {
+    dueDate: resolvePatchField(task.dueDate, patch.dueDate),
+    dueDateExpression: resolvePatchField(task.dueDateExpression, patch.dueDateExpression),
+  }
 }
 
 // Build the due date args for a Sync API item_add / item_update command.
@@ -76,7 +96,7 @@ export function buildCommands(
 
       const todoistProjectId = event.projectId !== undefined
         ? String(event.projectId)
-        : freeFloatingProjectFor(sphereId, {
+        : projectlessContainerFor(sphereId, event.agendaId, {
             ...(event.dueDate           !== undefined && { dueDate:           event.dueDate }),
             ...(event.dueDateExpression !== undefined && { dueDateExpression: event.dueDateExpression }),
           })
@@ -123,6 +143,8 @@ export function buildCommands(
         args['description'] = patch.description
       }
 
+      const newAgendaId = resolvePatchField(task.agendaId, patch.agendaId)
+
       // A task with no projectId may carry an agendaId inferred purely from living directly in
       // that agenda's dedicated Todoist project (see AGENDA_PROJECT_IDS) rather than from an
       // explicit label — moving it onto a real project drops that implicit signal, so the label
@@ -135,10 +157,9 @@ export function buildCommands(
         patch.waitingFor !== undefined ||
         (patch.projectId !== undefined && patch.projectId !== CLEAR && task.agendaId !== undefined)
       ) {
-        const newAgendaId   = patch.agendaId   !== undefined ? (patch.agendaId   === CLEAR ? undefined : patch.agendaId)   : task.agendaId
-        const newContextId  = patch.contextId  !== undefined ? (patch.contextId  === CLEAR ? undefined : patch.contextId)  : task.contextId
+        const newContextId  = resolvePatchField(task.contextId, patch.contextId)
         const newIsNext     = patch.isNext     !== undefined ? (patch.isNext     === false  ? undefined : true)             : task.isNext
-        const newWaitingFor = patch.waitingFor !== undefined ? (patch.waitingFor === CLEAR ? undefined : patch.waitingFor) : task.waitingFor
+        const newWaitingFor = resolvePatchField(task.waitingFor, patch.waitingFor)
         args['labels'] = computeLabels({ isNext: newIsNext, agendaId: newAgendaId, contextId: newContextId, waitingFor: newWaitingFor })
       }
 
@@ -187,19 +208,25 @@ export function buildCommands(
         return { commands }
       }
 
-      // For free-floating tasks, keep the task in the correct container
-      // (One-Offs / Future Log / Recurring) whenever due date state changes.
-      if (task.projectId === undefined && (patch.dueDate !== undefined || patch.dueDateExpression !== undefined)) {
-        const sphereId = task.sphereId ?? WORK_SPHERE_ID
-        const newExpression = patch.dueDateExpression !== undefined
-          ? (patch.dueDateExpression === CLEAR ? undefined : patch.dueDateExpression)
-          : task.dueDateExpression
-        const newDueDate = patch.dueDate !== undefined
-          ? (patch.dueDate === CLEAR ? undefined : patch.dueDate)
-          : task.dueDate
-        const newContainer = freeFloatingProjectFor(sphereId, {
-          ...(newExpression !== undefined && { dueDateExpression: newExpression }),
-          ...(newDueDate    !== undefined && { dueDate:           newDueDate }),
+      // The task is (now) project-less — either it already had no real project, or this patch
+      // just cleared one (the real-project move above already returned otherwise). Keep it in
+      // the correct container whenever anything that container choice depends on changes: its
+      // agendaId (own dedicated project takes priority — mirrors the read path's AGENDA_PROJECT_IDS
+      // check), the project itself being cleared, or due date state (One-Offs / Future Log /
+      // Recurring, when there's no agenda project to place it in instead).
+      const isProjectless = task.projectId === undefined || patch.projectId === CLEAR
+      if (isProjectless && (
+        patch.projectId         !== undefined ||
+        patch.agendaId          !== undefined ||
+        patch.dueDate            !== undefined ||
+        patch.dueDateExpression  !== undefined
+      )) {
+        const sphereId = getTaskSphereId(state, task) ?? WORK_SPHERE_ID
+        const { dueDate: containerDueDate, dueDateExpression: containerDueExpression } =
+          effectiveDueState(task, patch)
+        const newContainer = projectlessContainerFor(sphereId, newAgendaId, {
+          ...(containerDueExpression !== undefined && { dueDateExpression: containerDueExpression }),
+          ...(containerDueDate       !== undefined && { dueDate:           containerDueDate }),
         })
         commands.push({
           type: 'item_move',

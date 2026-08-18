@@ -204,15 +204,39 @@ parent is the agenda container, not a sphere container) and before the explicit-
 (preferring a real label if one happens to also be present) — a task living in one of these
 projects imports as project-less (`projectId` omitted, `sphereId` set directly) with `agendaId`
 inferred from the project, indistinguishable in palimpsest state from a task that carries the label
-directly. Because that inference is implicit — no label actually exists on the Todoist item — moving
-such a task onto a real project (so it now has *both* an agenda and a project, the way a normal
-"shared project" task does) would silently drop the agenda the moment it leaves the agenda project,
-unless the label is added at the same time. `write.ts`'s `task.updated` case handles this: it
-recomputes and resends the task's label set whenever `patch.projectId` is set to a real project
-*and* the task carries an `agendaId` — not only when `agendaId` itself is what's being patched —
-so the `item_move` is always paired with an `item_update` that makes the association explicit via
-the label, the same as it would be for any other task in a real project. `AGENDA_ID_TO_AGENDA_PROJECT_ID`
-is the reverse lookup, mirroring `AGENDA_ID_TO_LABEL`'s relationship to `LABEL_TO_AGENDA_ID`.
+directly. `AGENDA_ID_TO_AGENDA_PROJECT_ID` is the reverse lookup, mirroring `AGENDA_ID_TO_LABEL`'s
+relationship to `LABEL_TO_AGENDA_ID`.
+
+The write path uses the agenda-specific projects the same way the read path does, rather than only
+ever encoding an agenda via the label: `mapping.ts`'s `projectlessContainerFor(sphereId, agendaId,
+opts)` is `write.ts`'s mirror of `read.ts`'s `AGENDA_PROJECT_IDS`-before-due-date-bucket priority —
+given an `agendaId` with a dedicated Todoist project, it returns that project; otherwise it falls
+back to the ordinary `freeFloatingProjectFor` due-date bucketing (Recurring/Future Log/One-Offs).
+`write.ts`'s `task.created` case calls it whenever the new task has no `projectId`, so a
+project-less task created with an `agendaId` is placed directly into that agenda's project, not
+merely labelled while it sits in One-Offs. `task.updated` calls it (via a `newContainer`
+`item_move`) whenever the task is (now) project-less — already was, or `patch.projectId` just
+cleared a real one — and either `patch.projectId`, `patch.agendaId`, `patch.dueDate`, or
+`patch.dueDateExpression` changed, so setting/clearing/changing a project-less task's `agendaId`
+physically moves it into/out of/between agenda projects, and a due date change on an agenda-tagged
+project-less task leaves it in the agenda project rather than a due-date bucket (agendaId takes
+priority over due date when both are present). Every one of these container moves is recomputed and
+resent unconditionally on a relevant patch (the same "recompute the full derived value, resend
+regardless of whether it actually changed" pattern the label set already uses) rather than tracked
+incrementally, since core's `Task` type has no field recording which Todoist container a
+project-less task currently sits in to diff against.
+
+Moving a task *onto a real project* is the one case `projectlessContainerFor` doesn't cover, since
+the task is no longer project-less at all — but it has the same "silently drop the agenda" risk:
+because the agenda inference is implicit (no label actually exists on the Todoist item while the
+task lives in the agenda project), moving it onto a real project (so it now has *both* an agenda and
+a project, the way a normal "shared project" task does) would silently drop the agenda the moment it
+leaves the agenda project, unless the label is added at the same time. `write.ts`'s `task.updated`
+case handles this by recomputing and resending the task's label set whenever `patch.projectId` is
+set to a real project *and* the task carries an `agendaId` — not only when `agendaId` itself is
+what's being patched — so the `item_move` onto the real project is always paired with an
+`item_update` that makes the association explicit via the label, the same as it would be for any
+other task in a real project.
 
 Project descriptions round-trip like every other project field: `SyncProject.description` (added to
 Todoist's project object after this integration was first built) is mapped onto core's
