@@ -11,6 +11,7 @@ export type {
   WaitingCommand,
   PickListCommand,
   SearchCommand,
+  AgendaViewCommand,
   StatusArg,
   RunQueryOptions,
 } from './runQuery'
@@ -28,9 +29,9 @@ export type {
 } from './serialize'
 export {
   toTaskJson, toProjectJson, toSphereJson, toAgendaJson, toContextJson,
-  computeProjectStats, computeProjectNextTasks, computeProjectStatsAndNextTasks,
+  computeProjectStats, computeProjectNextTasks, computeProjectStatsAndNextTasks, statsFor,
 } from './serialize'
-export type { ProcessingBuckets, WaitingGroup, PickListGroup } from './views'
-export { dashboardTasks, processingBuckets, waitingGroups, pickListGroups } from './views'
+export type { ProcessingBuckets, WaitingGroup, PickListGroup, AgendaViewResult } from './views'
+export { dashboardTasks, processingBuckets, waitingGroups, pickListGroups, agendaView } from './views'
 export type { SearchOptions, SearchResultJson } from './search'
 export { searchAll } from './search'

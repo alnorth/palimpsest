@@ -1,6 +1,6 @@
 import { describe, test, expect } from 'vitest'
 import { makeSphere, makeProject, makeAgenda, makeContext, makeTask, buildState } from './fixtures'
-import { dashboardTasks, processingBuckets, waitingGroups, pickListGroups } from './views'
+import { dashboardTasks, processingBuckets, waitingGroups, pickListGroups, agendaView } from './views'
 
 describe('dashboardTasks', () => {
   test('includes tasks due today or earlier, and starred tasks, excludes others', () => {
@@ -166,5 +166,92 @@ describe('pickListGroups', () => {
     const notActionable = makeTask({ projectId: project.id, contextId: context.id })
     const state = buildState({ spheres: [sphere], projects: [project], contexts: [context], tasks: [notActionable] })
     expect(pickListGroups(state, sphere.id)).toEqual([])
+  })
+})
+
+describe('agendaView', () => {
+  test('free-floating task tagged with the agenda is included even without isNext', () => {
+    const sphere = makeSphere()
+    const agenda = makeAgenda(sphere)
+    const task = makeTask({ sphereId: sphere.id, title: 'FreeFloating', agendaId: agenda.id })
+    const state = buildState({ spheres: [sphere], agendas: [agenda], tasks: [task] })
+
+    const result = agendaView(state, agenda.id, '2026-08-01')
+    expect(result.activeTasks.map(t => t.title)).toEqual(['FreeFloating'])
+  })
+
+  test('task in a real project tagged with the agenda needs isNext to be included', () => {
+    const sphere = makeSphere()
+    const agenda = makeAgenda(sphere)
+    const project = makeProject(sphere)
+    const notNext = makeTask({ projectId: project.id, title: 'NotNext', agendaId: agenda.id })
+    const isNext = makeTask({ projectId: project.id, title: 'IsNext', agendaId: agenda.id, isNext: true })
+    const state = buildState({ spheres: [sphere], agendas: [agenda], projects: [project], tasks: [notNext, isNext] })
+
+    const result = agendaView(state, agenda.id, '2026-08-01')
+    expect(result.activeTasks.map(t => t.title)).toEqual(['IsNext'])
+  })
+
+  test('excludes tasks without this agendaId regardless of project/isNext', () => {
+    const sphere = makeSphere()
+    const agenda = makeAgenda(sphere)
+    const other = makeAgenda(sphere)
+    const task = makeTask({ sphereId: sphere.id, title: 'OtherAgenda', agendaId: other.id })
+    const state = buildState({ spheres: [sphere], agendas: [agenda, other], tasks: [task] })
+
+    expect(agendaView(state, agenda.id, '2026-08-01').activeTasks).toEqual([])
+  })
+
+  test('due-date filter: undated and due-today/overdue included, future excluded', () => {
+    const sphere = makeSphere()
+    const agenda = makeAgenda(sphere)
+    const undated = makeTask({ sphereId: sphere.id, title: 'Undated', agendaId: agenda.id })
+    const overdue = makeTask({ sphereId: sphere.id, title: 'Overdue', agendaId: agenda.id, dueDate: '2026-07-30' })
+    const dueToday = makeTask({ sphereId: sphere.id, title: 'DueToday', agendaId: agenda.id, dueDate: '2026-08-01' })
+    const future = makeTask({ sphereId: sphere.id, title: 'Future', agendaId: agenda.id, dueDate: '2026-08-10' })
+    const state = buildState({ spheres: [sphere], agendas: [agenda], tasks: [undated, overdue, dueToday, future] })
+
+    const result = agendaView(state, agenda.id, '2026-08-01')
+    expect(result.activeTasks.map(t => t.title).sort()).toEqual(['DueToday', 'Overdue', 'Undated'])
+  })
+
+  test('splits into waiting/active by waitingFor, independent of which criterion matched', () => {
+    const sphere = makeSphere()
+    const agenda = makeAgenda(sphere)
+    const project = makeProject(sphere)
+    const waitingFreeFloating = makeTask({
+      sphereId: sphere.id, title: 'WaitingFreeFloating', agendaId: agenda.id, waitingFor: { kind: 'review' },
+    })
+    const waitingInProject = makeTask({
+      projectId: project.id, title: 'WaitingInProject', agendaId: agenda.id, isNext: true, waitingFor: { kind: 'review' },
+    })
+    const activeFreeFloating = makeTask({ sphereId: sphere.id, title: 'ActiveFreeFloating', agendaId: agenda.id })
+    const state = buildState({
+      spheres: [sphere], agendas: [agenda], projects: [project],
+      tasks: [waitingFreeFloating, waitingInProject, activeFreeFloating],
+    })
+
+    const result = agendaView(state, agenda.id, '2026-08-01')
+    expect(result.waitingTasks.map(t => t.title).sort()).toEqual(['WaitingFreeFloating', 'WaitingInProject'])
+    expect(result.activeTasks.map(t => t.title)).toEqual(['ActiveFreeFloating'])
+  })
+
+  test('projects: non-archived projects linked to this agenda, populated even with no eligible tasks', () => {
+    const sphere = makeSphere()
+    const agenda = makeAgenda(sphere)
+    const other = makeAgenda(sphere)
+    const linked = makeProject(sphere, { name: 'Linked', agendaId: agenda.id })
+    const archivedLinked = makeProject(sphere, { name: 'ArchivedLinked', agendaId: agenda.id, isArchived: true })
+    const otherAgendaProject = makeProject(sphere, { name: 'OtherAgenda', agendaId: other.id })
+    const unlinked = makeProject(sphere, { name: 'Unlinked' })
+    const state = buildState({
+      spheres: [sphere], agendas: [agenda, other],
+      projects: [linked, archivedLinked, otherAgendaProject, unlinked],
+    })
+
+    const result = agendaView(state, agenda.id, '2026-08-01')
+    expect(result.projects.map(p => p.name)).toEqual(['Linked'])
+    expect(result.activeTasks).toEqual([])
+    expect(result.waitingTasks).toEqual([])
   })
 })

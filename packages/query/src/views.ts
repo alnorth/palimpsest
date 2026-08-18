@@ -1,4 +1,4 @@
-import type { ProjectionState, Task, Project, Context, WaitingFor, SphereId } from '@alnorth/palimpsest'
+import type { ProjectionState, Task, Project, Context, WaitingFor, SphereId, AgendaId } from '@alnorth/palimpsest'
 import { listTasks, listProjects, listContexts } from '@alnorth/palimpsest'
 import { computeProjectNextTasks } from './serialize'
 
@@ -78,4 +78,24 @@ export function pickListGroups(state: ProjectionState, sphereId: SphereId): Pick
     if (bucket !== undefined && bucket.length > 0) groups.push({ context, tasks: bucket })
   }
   return groups
+}
+
+export interface AgendaViewResult {
+  waitingTasks: Task[]
+  activeTasks: Task[]
+  projects: Project[]
+}
+
+export function agendaView(state: ProjectionState, agendaId: AgendaId, today: string): AgendaViewResult {
+  // isActionable already matches dashboard's two criteria for "relevant to this agenda", generalized:
+  // status 'open' && (no real project [covers both explicitly labelled and dedicated-project-derived
+  // free-floating tasks] || isNext).
+  const eligible = listTasks(state, { agendaId, isActionable: true })
+    .filter(t => t.dueDate === undefined || t.dueDate <= today)
+
+  return {
+    waitingTasks: eligible.filter(t => t.waitingFor !== undefined),
+    activeTasks: eligible.filter(t => t.waitingFor === undefined),
+    projects: listProjects(state, { agendaId, isArchived: false }),
+  }
 }

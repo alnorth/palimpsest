@@ -404,6 +404,61 @@ describe('pick_list', () => {
   })
 })
 
+describe('agenda_view', () => {
+  test('returns the agenda, waiting/active tasks, and linked projects', () => {
+    const sphere = makeSphere({ name: 'Work' })
+    const agenda = makeAgenda(sphere, { title: 'Han' })
+    const project = makeProject(sphere, { name: 'Shared', agendaId: agenda.id })
+    const active = makeTask({ sphereId: sphere.id, title: 'Active', agendaId: agenda.id })
+    const waiting = makeTask({ sphereId: sphere.id, title: 'Waiting', agendaId: agenda.id, waitingFor: { kind: 'review' } })
+    const state = buildState({ spheres: [sphere], agendas: [agenda], projects: [project], tasks: [active, waiting] })
+
+    const result = runQuery(state, { kind: 'agenda_view', agenda: 'Han' }) as {
+      agenda: { name: string }
+      activeTasks: { title: string }[]
+      waitingTasks: { title: string }[]
+      projects: { name: string }[]
+    }
+    expect(result.agenda.name).toBe('Han')
+    expect(result.activeTasks.map(t => t.title)).toEqual(['Active'])
+    expect(result.waitingTasks.map(t => t.title)).toEqual(['Waiting'])
+    expect(result.projects.map(p => p.name)).toEqual(['Shared'])
+  })
+
+  test('unresolved agenda name throws', () => {
+    const state = buildState({})
+    expect(() => runQuery(state, { kind: 'agenda_view', agenda: 'Nope' })).toThrowError(/No agenda matching "Nope"/)
+  })
+
+  test('sphere narrows an ambiguous agenda name', () => {
+    const work = makeSphere({ name: 'Work' })
+    const personal = makeSphere({ name: 'Personal' })
+    const workAgenda = makeAgenda(work, { title: 'Sam' })
+    const personalAgenda = makeAgenda(personal, { title: 'Sam' })
+    const task = makeTask({ sphereId: personal.id, title: 'PersonalTask', agendaId: personalAgenda.id })
+    const state = buildState({ spheres: [work, personal], agendas: [workAgenda, personalAgenda], tasks: [task] })
+
+    const result = runQuery(state, { kind: 'agenda_view', agenda: 'Sam', sphere: 'Personal' }) as {
+      agenda: { name: string }
+      activeTasks: { title: string }[]
+    }
+    expect(result.agenda.name).toBe('Sam')
+    expect(result.activeTasks.map(t => t.title)).toEqual(['PersonalTask'])
+  })
+
+  test('respects the due-date filter via today', () => {
+    const sphere = makeSphere({ name: 'Work' })
+    const agenda = makeAgenda(sphere, { title: 'Han' })
+    const future = makeTask({ sphereId: sphere.id, title: 'Future', agendaId: agenda.id, dueDate: '2026-08-10' })
+    const state = buildState({ spheres: [sphere], agendas: [agenda], tasks: [future] })
+
+    const result = runQuery(state, { kind: 'agenda_view', agenda: 'Han' }, { today: '2026-08-01' }) as {
+      activeTasks: { title: string }[]
+    }
+    expect(result.activeTasks).toEqual([])
+  })
+})
+
 describe('spheres, agendas, contexts', () => {
   test('spheres sorted by name', () => {
     const state = buildState({ spheres: [makeSphere({ name: 'Work' }), makeSphere({ name: 'Personal' })] })

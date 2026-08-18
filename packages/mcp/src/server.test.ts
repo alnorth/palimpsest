@@ -45,12 +45,12 @@ describe('createMcpServer', () => {
     client = await connectedClient(fakeStore(buildState({ spheres: [sphere], tasks: [task] })))
   })
 
-  test('registers all fifteen tools', async () => {
+  test('registers all sixteen tools', async () => {
     const { tools } = await client.listTools()
     expect(tools.map(t => t.name).sort()).toEqual(
       [
         'agendas', 'contexts', 'projects', 'spheres', 'task', 'tasks',
-        'dashboard', 'processing', 'waiting', 'pick_list', 'search',
+        'dashboard', 'processing', 'waiting', 'pick_list', 'search', 'agenda_view',
         'complete_task', 'set_due_date', 'delete_task', 'set_project_agenda',
       ].sort(),
     )
@@ -107,6 +107,33 @@ describe('createMcpServer', () => {
 
   test('search tool requires a query argument', async () => {
     const result = await client.callTool({ name: 'search', arguments: {} })
+    expect(result.isError).toBe(true)
+    expect(firstText(result)).toMatch(/Invalid arguments/)
+  })
+
+  test('agenda_view tool returns the agenda plus waiting/active tasks and linked projects', async () => {
+    const sphere = makeSphere({ name: 'Work' })
+    const agenda = makeAgenda(sphere, { title: 'Han' })
+    const project = makeProject(sphere, { name: 'Shared', agendaId: agenda.id })
+    const task = makeTask({ sphereId: sphere.id, title: 'TalkToHan', agendaId: agenda.id })
+    const scopedClient = await connectedClient(fakeStore(buildState({
+      spheres: [sphere], agendas: [agenda], projects: [project], tasks: [task],
+    })))
+
+    const result = await scopedClient.callTool({ name: 'agenda_view', arguments: { agenda: 'Han' } })
+
+    const parsed = JSON.parse(firstText(result)) as {
+      agenda: { name: string }
+      activeTasks: { title: string }[]
+      projects: { name: string }[]
+    }
+    expect(parsed.agenda.name).toBe('Han')
+    expect(parsed.activeTasks.map(t => t.title)).toEqual(['TalkToHan'])
+    expect(parsed.projects.map(p => p.name)).toEqual(['Shared'])
+  })
+
+  test('agenda_view tool requires an agenda argument', async () => {
+    const result = await client.callTool({ name: 'agenda_view', arguments: {} })
     expect(result.isError).toBe(true)
     expect(firstText(result)).toMatch(/Invalid arguments/)
   })
