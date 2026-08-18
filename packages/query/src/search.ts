@@ -1,7 +1,7 @@
 import MiniSearch from 'minisearch'
 import type { ProjectionState, SphereId, TaskId, ProjectId } from '@alnorth/palimpsest'
 import { listTasks, listProjects } from '@alnorth/palimpsest'
-import { toTaskJson, toProjectJson, computeProjectStats } from './serialize'
+import { toTaskJson, toProjectJson, computeProjectStats, statsFor } from './serialize'
 import type { TaskJson, ProjectJson } from './serialize'
 
 export interface SearchOptions {
@@ -101,7 +101,7 @@ export function searchAll(state: ProjectionState, query: string, opts: SearchOpt
       results.push({
         kind: 'project',
         score: hit.score,
-        project: toProjectJson(state, project, stats.get(project.id) ?? { openTaskCount: 0, hasNextAction: false }),
+        project: toProjectJson(state, project, statsFor(stats, project.id)),
       })
     }
   }

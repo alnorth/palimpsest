@@ -31,4 +31,24 @@ describe('useAgenda', () => {
 
     expect(result.current.error?.message).toMatch(/No agenda matching "Nope"/)
   })
+
+  test('uses the sphere argument to disambiguate an agenda name shared across spheres', async () => {
+    const work = makeSphere({ name: 'Work' })
+    const personal = makeSphere({ name: 'Personal' })
+    const workAgenda = makeAgenda(work, { title: 'Reviews' })
+    const personalAgenda = makeAgenda(personal, { title: 'Reviews' })
+    const workTask = makeTask({ sphereId: work.id, title: 'Work task', agendaId: workAgenda.id })
+    const personalTask = makeTask({ sphereId: personal.id, title: 'Personal task', agendaId: personalAgenda.id })
+    const store = new FakeStore(buildState({
+      spheres: [work, personal],
+      agendas: [workAgenda, personalAgenda],
+      tasks: [workTask, personalTask],
+    }))
+
+    const { result } = renderHook(() => useAgenda('Reviews', 'Work'), { wrapper: makeWrapper(store) })
+    await waitFor(() => expect(result.current.isLoading).toBe(false))
+
+    expect(result.current.data?.agenda.sphere?.name).toBe('Work')
+    expect(result.current.data?.activeTasks.map(t => t.title)).toEqual(['Work task'])
+  })
 })

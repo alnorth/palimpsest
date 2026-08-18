@@ -29,7 +29,7 @@ export type {
 } from './serialize'
 export {
   toTaskJson, toProjectJson, toSphereJson, toAgendaJson, toContextJson,
-  computeProjectStats, computeProjectNextTasks, computeProjectStatsAndNextTasks,
+  computeProjectStats, computeProjectNextTasks, computeProjectStatsAndNextTasks, statsFor,
 } from './serialize'
 export type { ProcessingBuckets, WaitingGroup, PickListGroup, AgendaViewResult } from './views'
 export { dashboardTasks, processingBuckets, waitingGroups, pickListGroups, agendaView } from './views'

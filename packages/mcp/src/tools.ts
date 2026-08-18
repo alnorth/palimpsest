@@ -2,7 +2,7 @@ import type { AgendaId, PalimpsestEvent, Project, ProjectId, ProjectionState, Sy
 import { CLEAR, completeTask, deleteTask, getProject, getTask, updateProject, updateTask } from '@alnorth/palimpsest'
 import { runQuery } from '@alnorth/palimpsest-query'
 import type { ParsedCommand, StatusArg } from '@alnorth/palimpsest-query'
-import { computeProjectStats, toProjectJson } from '@alnorth/palimpsest-query'
+import { computeProjectStats, toProjectJson, statsFor } from '@alnorth/palimpsest-query'
 import { attachTodoistUrls } from '@alnorth/palimpsest-todoist'
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js'
 
@@ -307,7 +307,7 @@ function runProjectToolMutation(
       const finalProject = getProject(finalState, projectId as ProjectId)
       if (finalProject === undefined) throw new Error(`Project not found: ${projectId}`)
       const stats = computeProjectStats(finalState)
-      const projectJson = toProjectJson(finalState, finalProject, stats.get(finalProject.id) ?? { openTaskCount: 0, hasNextAction: false })
+      const projectJson = toProjectJson(finalState, finalProject, statsFor(stats, finalProject.id))
       return { project: projectJson }
     },
   )
