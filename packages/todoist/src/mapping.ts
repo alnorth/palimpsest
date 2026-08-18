@@ -141,6 +141,22 @@ export function freeFloatingProjectFor(
   return oneOffsProjectFor(sphereId)
 }
 
+// Todoist container project for a project-less task, mirroring the read path's own priority:
+// AGENDA_PROJECT_IDS is checked before the due-date-bucketed free-floating containers there (see
+// resolveSphereFromTask/buildPalimpsestTask in read.ts), so a task carrying an agendaId with no
+// real project belongs in that agenda's dedicated project — not merely labelled while it sits in
+// Recurring/Future Log/One-Offs — the same way a task living there is read back with that agendaId
+// with no label needed at all.
+export function projectlessContainerFor(
+  sphereId: SphereId,
+  agendaId: AgendaId | undefined,
+  opts: { dueDate?: string; dueDateExpression?: string },
+): string {
+  const agendaProjectId = agendaId !== undefined ? AGENDA_ID_TO_AGENDA_PROJECT_ID[agendaId] : undefined
+  if (agendaProjectId !== undefined) return agendaProjectId
+  return freeFloatingProjectFor(sphereId, opts)
+}
+
 // Todoist parent project for new projects in a sphere
 export function sphereParentProjectFor(sphereId: SphereId): string {
   return sphereId === PERSONAL_SPHERE_ID ? TODOIST_PERSONAL_PROJECT_ID : TODOIST_WORK_PROJECT_ID

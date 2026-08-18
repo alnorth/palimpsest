@@ -13,6 +13,7 @@ import {
   TODOIST_RECURRING_ID,
   TODOIST_FUTURE_LOG_ID,
   TODOIST_INBOX_ID,
+  AGENDA_ID_TO_AGENDA_PROJECT_ID,
 } from './mapping'
 import { AGENDA_PROJECT_MAP_TASK_TITLE } from './sharedStorage'
 
@@ -94,6 +95,33 @@ describe('buildCommands — task.created', () => {
       state,
     )
     expect(commands[0]?.args.project_id).toBe('myproj')
+  })
+
+  // A new project-less task with an agendaId belongs in that agenda's dedicated Todoist project,
+  // mirroring how the read path infers the same agendaId from a task living there — not merely
+  // labelled while sitting in whichever due-date-bucketed free-floating container.
+  it('agendaId with no projectId → placed directly in the agenda\'s dedicated project, not One-Offs', () => {
+    const { commands } = buildCommands(
+      event({ agendaId: 'agenda-jim' as AgendaId, sphereId: WORK_SPHERE_ID }),
+      baseState(),
+    )
+    expect(commands[0]?.args.project_id).toBe(AGENDA_ID_TO_AGENDA_PROJECT_ID['agenda-jim'])
+  })
+
+  it('agendaId takes priority over due date state when choosing the container', () => {
+    const { commands } = buildCommands(
+      event({ agendaId: 'agenda-jim' as AgendaId, sphereId: WORK_SPHERE_ID, dueDate: '2026-12-01' }),
+      baseState(),
+    )
+    expect(commands[0]?.args.project_id).toBe(AGENDA_ID_TO_AGENDA_PROJECT_ID['agenda-jim'])
+  })
+
+  it('agendaId with no dedicated Todoist project falls back to the ordinary free-floating container', () => {
+    const { commands } = buildCommands(
+      event({ agendaId: 'agenda-ghost' as AgendaId, sphereId: WORK_SPHERE_ID }),
+      baseState(),
+    )
+    expect(commands[0]?.args.project_id).toBe(TODOIST_WORK_ONEOFFS_ID)
   })
 
   it('isStarred → priority 4', () => {
@@ -296,12 +324,66 @@ describe('buildCommands — task.updated', () => {
     expect(moveCmd?.args.project_id).toBe('proj3')
   })
 
-  it('clearing a task\'s project (CLEAR) while it has an agendaId does not force a label recompute', () => {
+  it('clearing a task\'s project (CLEAR) while it has an agendaId moves it into that agenda\'s dedicated project, with no label recompute needed', () => {
     const { commands } = buildCommands(
       updEvent('t1', { projectId: CLEAR }),
       stateWithTask('t1', { agendaId: 'agenda-jim' as AgendaId, projectId: 'proj2' as ProjectId }),
     )
     expect(commands.every(c => c.type !== 'item_update')).toBe(true)
+    const moveCmd = commands.find(c => c.type === 'item_move')
+    expect(moveCmd?.args.project_id).toBe(AGENDA_ID_TO_AGENDA_PROJECT_ID['agenda-jim'])
+  })
+
+  it('clearing a task\'s project (CLEAR) with no agendaId falls back to the due-date-appropriate free-floating container', () => {
+    const { commands } = buildCommands(
+      updEvent('t1', { projectId: CLEAR }),
+      stateWithTask('t1', { projectId: 'proj2' as ProjectId, dueDate: '2026-12-01' }),
+    )
+    const moveCmd = commands.find(c => c.type === 'item_move')
+    expect(moveCmd?.args.project_id).toBe(TODOIST_FUTURE_LOG_ID)
+  })
+
+  // Setting an agendaId on a task that has no real project — the write-side mirror of the read
+  // path's AGENDA_PROJECT_IDS fallback: the task itself moves into that agenda's dedicated
+  // project, not merely a label added while it stays in its current free-floating container.
+  it('setting agendaId on a project-less task moves it into that agenda\'s dedicated project', () => {
+    const { commands } = buildCommands(
+      updEvent('t1', { agendaId: 'agenda-jim' as AgendaId }),
+      stateWithTask('t1'),
+    )
+    const updateCmd = commands.find(c => c.type === 'item_update')
+    const moveCmd = commands.find(c => c.type === 'item_move')
+    expect(updateCmd?.args.labels).toContain('jim')
+    expect(moveCmd?.args.project_id).toBe(AGENDA_ID_TO_AGENDA_PROJECT_ID['agenda-jim'])
+  })
+
+  it('clearing agendaId on a project-less task moves it out of the agenda project into the due-date-appropriate free-floating container', () => {
+    const { commands } = buildCommands(
+      updEvent('t1', { agendaId: CLEAR }),
+      stateWithTask('t1', { agendaId: 'agenda-jim' as AgendaId, dueDateExpression: 'every monday' }),
+    )
+    const updateCmd = commands.find(c => c.type === 'item_update')
+    const moveCmd = commands.find(c => c.type === 'item_move')
+    expect(updateCmd?.args.labels).not.toContain('jim')
+    expect(moveCmd?.args.project_id).toBe(TODOIST_RECURRING_ID)
+  })
+
+  it('changing agendaId on a project-less task moves it directly from one agenda\'s project to the other\'s', () => {
+    const { commands } = buildCommands(
+      updEvent('t1', { agendaId: 'agenda-marcia' as AgendaId }),
+      stateWithTask('t1', { agendaId: 'agenda-jim' as AgendaId }),
+    )
+    const moveCmd = commands.find(c => c.type === 'item_move')
+    expect(moveCmd?.args.project_id).toBe(AGENDA_ID_TO_AGENDA_PROJECT_ID['agenda-marcia'])
+  })
+
+  it('a due date change on a project-less task with an agendaId keeps it in the agenda project rather than a due-date bucket', () => {
+    const { commands } = buildCommands(
+      updEvent('t1', { dueDate: '2026-12-01' }),
+      stateWithTask('t1', { agendaId: 'agenda-jim' as AgendaId }),
+    )
+    const moveCmd = commands.find(c => c.type === 'item_move')
+    expect(moveCmd?.args.project_id).toBe(AGENDA_ID_TO_AGENDA_PROJECT_ID['agenda-jim'])
   })
 
   it('a combined agendaId + projectId patch → item_update carries the new agenda label alongside item_move', () => {
