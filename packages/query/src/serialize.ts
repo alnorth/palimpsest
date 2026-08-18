@@ -130,6 +130,14 @@ export function toTaskJson(state: ProjectionState, task: Task): TaskJson {
   }
 }
 
+// Every caller of computeProjectStats/computeProjectStatsAndNextTasks looks up one project's
+// entry and falls back to the zero-value default when absent (a project with no open tasks never
+// gets a Map entry written for it — see the loops below) — centralized here so that default only
+// needs to be kept in sync with ProjectStats' shape in one place.
+export function statsFor(stats: Map<ProjectId, ProjectStats>, projectId: ProjectId): ProjectStats {
+  return stats.get(projectId) ?? { openTaskCount: 0, hasNextAction: false }
+}
+
 export function computeProjectStats(state: ProjectionState): Map<ProjectId, ProjectStats> {
   const stats = new Map<ProjectId, ProjectStats>()
   for (const project of state.projects.values()) {

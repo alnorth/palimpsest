@@ -37,5 +37,7 @@ export type { CurrentSphere } from './useCurrentSphere'
 export { useCurrentSphere } from './useCurrentSphere'
 export type { SearchFilter } from './useSearch'
 export { useSearch } from './useSearch'
+export type { AgendaViewData } from './useAgenda'
+export { useAgenda } from './useAgenda'
 
 export * from './presentation/index'

@@ -2,7 +2,7 @@ import type { AgendaId, PalimpsestEvent, Project, ProjectId, ProjectionState, Sy
 import { CLEAR, completeTask, deleteTask, getProject, getTask, updateProject, updateTask } from '@alnorth/palimpsest'
 import { runQuery } from '@alnorth/palimpsest-query'
 import type { ParsedCommand, StatusArg } from '@alnorth/palimpsest-query'
-import { computeProjectStats, toProjectJson } from '@alnorth/palimpsest-query'
+import { computeProjectStats, toProjectJson, statsFor } from '@alnorth/palimpsest-query'
 import { attachTodoistUrls } from '@alnorth/palimpsest-todoist'
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js'
 
@@ -73,6 +73,11 @@ export interface SearchToolInput {
   sphere?: string | undefined
   includeArchived?: boolean | undefined
   limit?: number | undefined
+}
+
+export interface AgendaViewToolInput {
+  agenda: string
+  sphere?: string | undefined
 }
 
 export interface CompleteTaskToolInput {
@@ -210,6 +215,14 @@ export function handleSearch(store: TaskStore, input: SearchToolInput): Promise<
   })
 }
 
+export function handleAgendaView(store: TaskStore, input: AgendaViewToolInput): Promise<CallToolResult> {
+  return runToolQuery(store, {
+    kind: 'agenda_view',
+    agenda: input.agenda,
+    ...(input.sphere !== undefined && { sphere: input.sphere }),
+  })
+}
+
 // Shared scaffolding for every write tool: sync → look up the entity → append the event(s) the
 // caller's command produces → flush immediately (rather than leaving it for the pending-queue's
 // debounced sync) → re-read state so the response reflects what the remote store actually
@@ -294,7 +307,7 @@ function runProjectToolMutation(
       const finalProject = getProject(finalState, projectId as ProjectId)
       if (finalProject === undefined) throw new Error(`Project not found: ${projectId}`)
       const stats = computeProjectStats(finalState)
-      const projectJson = toProjectJson(finalState, finalProject, stats.get(finalProject.id) ?? { openTaskCount: 0, hasNextAction: false })
+      const projectJson = toProjectJson(finalState, finalProject, statsFor(stats, finalProject.id))
       return { project: projectJson }
     },
   )
