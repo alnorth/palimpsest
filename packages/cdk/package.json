@@ -9,7 +9,7 @@
     "deploy:ci": "cdk deploy --app 'npx tsx app.ts' --require-approval never"
   },
   "devDependencies": {
-    "@types/node": "^24.0.0",
+    "@types/node": "^26.0.0",
     "aws-cdk": "^2.0.0",
     "aws-cdk-lib": "^2.0.0",
     "constructs": "^10.0.0",
