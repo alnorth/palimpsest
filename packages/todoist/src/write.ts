@@ -34,8 +34,13 @@ function uuid(): string {
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`
 }
 
-// The due date/expression a task will have once `patch` is applied — the patch's own value if it
-// touches the field (undefined if CLEARed), else the task's current value. Used only to pick the
+// The value a patched field will hold once `patch` is applied: the patch's own value if it
+// touches the field (undefined if CLEARed), else the field's current value on the task.
+function resolvePatchField<T>(current: T | undefined, patchValue: T | typeof CLEAR | undefined): T | undefined {
+  return patchValue !== undefined ? (patchValue === CLEAR ? undefined : patchValue) : current
+}
+
+// The due date/expression a task will have once `patch` is applied. Used only to pick the
 // project-less container a task belongs in (see the isProjectless block in the task.updated case
 // below), which is why it stays separate from the newExpression/newDate locals computed inline
 // there for the different purpose of building the Sync API `due` arg.
@@ -44,12 +49,8 @@ function effectiveDueState(
   patch: Pick<TaskPatch, 'dueDate' | 'dueDateExpression'>,
 ): { dueDate: string | undefined; dueDateExpression: string | undefined } {
   return {
-    dueDate: patch.dueDate !== undefined
-      ? (patch.dueDate === CLEAR ? undefined : patch.dueDate)
-      : task.dueDate,
-    dueDateExpression: patch.dueDateExpression !== undefined
-      ? (patch.dueDateExpression === CLEAR ? undefined : patch.dueDateExpression)
-      : task.dueDateExpression,
+    dueDate: resolvePatchField(task.dueDate, patch.dueDate),
+    dueDateExpression: resolvePatchField(task.dueDateExpression, patch.dueDateExpression),
   }
 }
 
@@ -142,7 +143,7 @@ export function buildCommands(
         args['description'] = patch.description
       }
 
-      const newAgendaId = patch.agendaId !== undefined ? (patch.agendaId === CLEAR ? undefined : patch.agendaId) : task.agendaId
+      const newAgendaId = resolvePatchField(task.agendaId, patch.agendaId)
 
       // A task with no projectId may carry an agendaId inferred purely from living directly in
       // that agenda's dedicated Todoist project (see AGENDA_PROJECT_IDS) rather than from an
@@ -156,9 +157,9 @@ export function buildCommands(
         patch.waitingFor !== undefined ||
         (patch.projectId !== undefined && patch.projectId !== CLEAR && task.agendaId !== undefined)
       ) {
-        const newContextId  = patch.contextId  !== undefined ? (patch.contextId  === CLEAR ? undefined : patch.contextId)  : task.contextId
+        const newContextId  = resolvePatchField(task.contextId, patch.contextId)
         const newIsNext     = patch.isNext     !== undefined ? (patch.isNext     === false  ? undefined : true)             : task.isNext
-        const newWaitingFor = patch.waitingFor !== undefined ? (patch.waitingFor === CLEAR ? undefined : patch.waitingFor) : task.waitingFor
+        const newWaitingFor = resolvePatchField(task.waitingFor, patch.waitingFor)
         args['labels'] = computeLabels({ isNext: newIsNext, agendaId: newAgendaId, contextId: newContextId, waitingFor: newWaitingFor })
       }
 

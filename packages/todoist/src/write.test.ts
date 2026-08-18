@@ -444,6 +444,38 @@ describe('buildCommands — task.updated', () => {
     expect(commands[0]?.args.labels).toContain('next')
   })
 
+  it('contextId patch → labels recomputed with the new context label', () => {
+    const { commands } = buildCommands(
+      updEvent('t1', { contextId: 'ctx-quick' as ContextId }),
+      stateWithTask('t1'),
+    )
+    expect(commands[0]?.args.labels).toContain('quick')
+  })
+
+  it('clearing contextId → context label removed', () => {
+    const { commands } = buildCommands(
+      updEvent('t1', { contextId: CLEAR }),
+      stateWithTask('t1', { contextId: 'ctx-quick' as ContextId }),
+    )
+    expect(commands[0]?.args.labels).not.toContain('quick')
+  })
+
+  it('waitingFor patch → labels recomputed to include the waiting label', () => {
+    const { commands } = buildCommands(
+      updEvent('t1', { waitingFor: { kind: 'review' } }),
+      stateWithTask('t1'),
+    )
+    expect(commands[0]?.args.labels).toContain('waiting')
+  })
+
+  it('clearing waitingFor (CLEAR) → waiting label removed', () => {
+    const { commands } = buildCommands(
+      updEvent('t1', { waitingFor: CLEAR }),
+      stateWithTask('t1', { waitingFor: { kind: 'review' } }),
+    )
+    expect(commands[0]?.args.labels).not.toContain('waiting')
+  })
+
   // ── Free-floating container moves ─────────────────────────────────────────
 
   it('adding dueDate to undated free-floating task → item_move to Future Log', () => {
