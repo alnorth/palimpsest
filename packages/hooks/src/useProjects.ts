@@ -1,6 +1,6 @@
 import type { ProjectJson } from '@alnorth/palimpsest-query'
 import { useRunQuery } from './internal/useRunQuery'
-import type { ListResult } from './types'
+import type { Paginated } from './types'
 
 export interface ProjectsFilter {
   sphere?: string
@@ -13,8 +13,8 @@ export interface ProjectsFilter {
   includeNextTasks?: boolean
 }
 
-export function useProjects(filter: ProjectsFilter = {}): ListResult<ProjectJson> {
-  const { raw, isLoading, error } = useRunQuery({
+export function useProjects(filter: ProjectsFilter = {}): Paginated<ProjectJson> {
+  const raw = useRunQuery({
     kind: 'projects',
     ...(filter.sphere !== undefined && { sphere: filter.sphere }),
     ...(filter.archived !== undefined && { archived: filter.archived }),
@@ -26,10 +26,8 @@ export function useProjects(filter: ProjectsFilter = {}): ListResult<ProjectJson
     ...(filter.includeNextTasks !== undefined && { includeNextTasks: filter.includeNextTasks }),
   })
   return {
-    data: raw !== undefined ? raw.projects as ProjectJson[] : undefined,
-    isLoading,
-    error,
-    total: raw !== undefined ? raw.total as number : undefined,
-    truncated: raw !== undefined ? raw.truncated as boolean : undefined,
+    items: (raw?.projects ?? []) as ProjectJson[],
+    total: (raw?.total ?? 0) as number,
+    truncated: (raw?.truncated ?? false) as boolean,
   }
 }

@@ -1,6 +1,6 @@
 import type { TaskJson, StatusArg } from '@alnorth/palimpsest-query'
 import { useRunQuery } from './internal/useRunQuery'
-import type { ListResult } from './types'
+import type { Paginated } from './types'
 
 export interface TasksFilter {
   sphere?: string
@@ -25,8 +25,8 @@ export interface TasksFilter {
   limit?: number
 }
 
-export function useTasks(filter: TasksFilter = {}): ListResult<TaskJson> {
-  const { raw, isLoading, error } = useRunQuery({
+export function useTasks(filter: TasksFilter = {}): Paginated<TaskJson> {
+  const raw = useRunQuery({
     kind: 'tasks',
     ...(filter.sphere !== undefined && { sphere: filter.sphere }),
     ...(filter.project !== undefined && { project: filter.project }),
@@ -50,10 +50,8 @@ export function useTasks(filter: TasksFilter = {}): ListResult<TaskJson> {
     ...(filter.limit !== undefined && { limit: filter.limit }),
   })
   return {
-    data: raw !== undefined ? raw.tasks as TaskJson[] : undefined,
-    isLoading,
-    error,
-    total: raw !== undefined ? raw.total as number : undefined,
-    truncated: raw !== undefined ? raw.truncated as boolean : undefined,
+    items: (raw?.tasks ?? []) as TaskJson[],
+    total: (raw?.total ?? 0) as number,
+    truncated: (raw?.truncated ?? false) as boolean,
   }
 }

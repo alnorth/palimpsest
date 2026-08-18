@@ -6,6 +6,9 @@ import type { MutationResult } from '../types'
 export function useMutation<TArgs, TResult>(
   fn: (store: PalimpsestStore, projState: ProjectionState, args: TArgs) => Promise<TResult>,
 ): MutationResult<TArgs, TResult> {
+  // projState here is PalimpsestContextValue's plain, non-throwing mirror (see
+  // PalimpsestProvider.tsx) — mutate is an event-handler callback, not a render, so it can't
+  // suspend via stateResource/use() the way a read hook does.
   const { store, projState } = usePalimpsestContext()
   const [isPending, setIsPending] = useState(false)
   const [error, setError] = useState<Error | undefined>(undefined)

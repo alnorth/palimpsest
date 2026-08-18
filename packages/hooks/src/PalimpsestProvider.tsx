@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState } from 'react'
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import type { PalimpsestStore, ProjectionState, SphereId, SyncState } from '@alnorth/palimpsest'
 import { buildStateFromConfig, createEmptyState, PALIMPSEST_CONFIG } from '@alnorth/palimpsest'
@@ -27,14 +27,35 @@ function defaultToday(): string {
 
 export interface PalimpsestContextValue {
   store: PalimpsestStore
+
+  /** use(stateResource) suspends until the store's first connect settles; rejects (and thus
+   *  throws via use(), caught by the app's own <ErrorBoundary>) if the initial
+   *  store.init()/getState() fails. Consumers should call use() on this ONLY while `projState`
+   *  below is still undefined — once a value exists, read that directly instead. Passing a fresh
+   *  Promise.resolve(state) to use() on every live update was tried and rejected: even an
+   *  already-fulfilled promise costs a real (if brief) suspend/resume cycle the first time use()
+   *  sees that particular promise object, since React can't know it's settled without a microtask
+   *  round trip — so every live update would flash the Suspense fallback. Reading the plain mirror
+   *  instead avoids ever calling use() again after the first connect. */
+  stateResource: Promise<ProjectionState>
+
+  /** Mirror of stateResource's resolved value, kept live by every store update (not just the
+   *  first). undefined until the first connect resolves; never throws. This is what every read
+   *  hook should use once defined, and what non-render-phase consumers (useMutation's mutate
+   *  callback, an event handler that can't suspend) always use. */
   projState: ProjectionState | undefined
-  isLoading: boolean
+
+  isConnecting: boolean
   connectionError: Error | undefined
   syncState: SyncState | undefined
   refresh: () => Promise<void>
   currentSphereId: SphereId | undefined
   setCurrentSphere: (id: string | undefined) => void
   today: string
+}
+
+function connect(store: PalimpsestStore): Promise<ProjectionState> {
+  return store.init().then(() => store.getState())
 }
 
 const PalimpsestContext = createContext<PalimpsestContextValue | undefined>(undefined)
@@ -66,28 +87,40 @@ export function PalimpsestProvider(props: PalimpsestProviderProps): ReactNode {
     'syncIntervalMs' in props ? props.syncIntervalMs : undefined,
   ])
 
+  const [stateResource, setStateResource] = useState<Promise<ProjectionState>>(() => connect(store))
   const [projState, setProjState] = useState<ProjectionState | undefined>(undefined)
   const [syncState, setSyncState] = useState<SyncState | undefined>(undefined)
   const [connectionError, setConnectionError] = useState<Error | undefined>(undefined)
-  const [isLoading, setIsLoading] = useState(true)
+  const [isConnecting, setIsConnecting] = useState(true)
   const [currentSphereId, setCurrentSphereIdState] = useState<SphereId | undefined>(undefined)
+
+  // Guards against calling connect(store) twice on the very first mount: the lazy useState
+  // initializer above already started one for this exact `store`. Seeding the ref with the
+  // initial `store` (rather than undefined) means the first effect run recognizes "this is the
+  // store the lazy initializer already connected" and reuses that promise; a later run (triggered
+  // by `store` actually changing identity) sees a mismatch and reconnects for real.
+  const connectedStoreRef = useRef<PalimpsestStore>(store)
 
   useEffect(() => {
     let cancelled = false
-    setIsLoading(true)
+    setIsConnecting(true)
     setConnectionError(undefined)
-    store.init().then(() => store.getState())
+    const promise = connectedStoreRef.current === store ? stateResource : connect(store)
+    connectedStoreRef.current = store
+    if (promise !== stateResource) setStateResource(promise)
+    promise
       .then(state => {
         if (cancelled) return
         setProjState(state)
-        setIsLoading(false)
+        setIsConnecting(false)
       })
       .catch((error: unknown) => {
         if (cancelled) return
         setConnectionError(error instanceof Error ? error : new Error(String(error)))
-        setIsLoading(false)
+        setIsConnecting(false)
       })
     return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [store])
 
   useEffect(() => {
@@ -124,8 +157,9 @@ export function PalimpsestProvider(props: PalimpsestProviderProps): ReactNode {
 
   const value: PalimpsestContextValue = {
     store,
+    stateResource,
     projState,
-    isLoading,
+    isConnecting,
     connectionError,
     syncState,
     refresh,

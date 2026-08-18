@@ -1,6 +1,5 @@
 import type { TaskJson, ProjectJson } from '@alnorth/palimpsest-query'
 import { useRunQuery } from './internal/useRunQuery'
-import type { QueryResult } from './types'
 
 export interface ProcessingResult {
   actionableTasks: TaskJson[]
@@ -8,11 +7,7 @@ export interface ProcessingResult {
   tasksWaitingOnArchivedProjects: TaskJson[]
 }
 
-export function useProcessing(): QueryResult<ProcessingResult> {
-  const { raw, isLoading, error } = useRunQuery({ kind: 'processing' })
-  return {
-    data: raw !== undefined ? raw as unknown as ProcessingResult : undefined,
-    isLoading,
-    error,
-  }
+export function useProcessing(): ProcessingResult {
+  const raw = useRunQuery({ kind: 'processing' })
+  return raw as unknown as ProcessingResult
 }

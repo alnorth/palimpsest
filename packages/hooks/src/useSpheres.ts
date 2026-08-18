@@ -1,14 +1,12 @@
 import type { SphereJson } from '@alnorth/palimpsest-query'
 import { useRunQuery } from './internal/useRunQuery'
-import type { ListResult } from './types'
+import type { Paginated } from './types'
 
-export function useSpheres(): ListResult<SphereJson> {
-  const { raw, isLoading, error } = useRunQuery({ kind: 'spheres' })
+export function useSpheres(): Paginated<SphereJson> {
+  const raw = useRunQuery({ kind: 'spheres' })
   return {
-    data: raw !== undefined ? raw.spheres as SphereJson[] : undefined,
-    isLoading,
-    error,
-    total: raw !== undefined ? raw.total as number : undefined,
-    truncated: raw !== undefined ? raw.truncated as boolean : undefined,
+    items: (raw?.spheres ?? []) as SphereJson[],
+    total: (raw?.total ?? 0) as number,
+    truncated: (raw?.truncated ?? false) as boolean,
   }
 }

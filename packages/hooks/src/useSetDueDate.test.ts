@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 import { describe, test, expect } from 'vitest'
-import { act, renderHook, waitFor } from '@testing-library/react'
+import { act, waitFor } from '@testing-library/react'
 import { makeSphere, makeTask, buildState } from './testFixtures'
-import { makeWrapper, RecordingStore } from './testHelpers'
+import { makeWrapper, renderSuspendedHook, RecordingStore } from './testHelpers'
 import { usePalimpsestContext } from './PalimpsestProvider'
 import { useSetDueDate } from './useSetDueDate'
 import { useTask } from './useTask'
@@ -13,18 +13,17 @@ describe('useSetDueDate', () => {
     const task = makeTask({ sphereId: sphere.id, status: 'open' })
     const store = new RecordingStore(buildState({ spheres: [sphere], tasks: [task] }))
 
-    const { result } = renderHook(() => ({
+    const { result } = await renderSuspendedHook(() => ({
       setDueDate: useSetDueDate(),
       task: useTask(task.id),
     }), { wrapper: makeWrapper(store) })
-    await waitFor(() => expect(result.current.task.isLoading).toBe(false))
 
     await act(async () => { await result.current.setDueDate.mutate({ taskId: task.id, dueDate: '2026-08-15' }) })
 
     expect(store.appended).toEqual([[expect.objectContaining({
       type: 'task.updated', taskId: task.id, patch: { dueDate: '2026-08-15' },
     })]])
-    await waitFor(() => expect(result.current.task.data?.dueDate).toBe('2026-08-15'))
+    await waitFor(() => expect(result.current.task.dueDate).toBe('2026-08-15'))
   })
 
   test('clears a due date when dueDate is null', async () => {
@@ -32,29 +31,27 @@ describe('useSetDueDate', () => {
     const task = makeTask({ sphereId: sphere.id, status: 'open', dueDate: '2026-01-01' })
     const store = new RecordingStore(buildState({ spheres: [sphere], tasks: [task] }))
 
-    const { result } = renderHook(() => ({
+    const { result } = await renderSuspendedHook(() => ({
       setDueDate: useSetDueDate(),
       task: useTask(task.id),
     }), { wrapper: makeWrapper(store) })
-    await waitFor(() => expect(result.current.task.isLoading).toBe(false))
 
     await act(async () => { await result.current.setDueDate.mutate({ taskId: task.id, dueDate: null }) })
 
     expect(store.appended).toEqual([[expect.objectContaining({
       type: 'task.updated', taskId: task.id, patch: { dueDate: null },
     })]])
-    await waitFor(() => expect(result.current.task.data?.dueDate).toBeNull())
+    await waitFor(() => expect(result.current.task.dueDate).toBeNull())
   })
 
   test('surfaces "cannot update a completed task" as error, and never appends', async () => {
     const task = makeTask({ status: 'completed' })
     const store = new RecordingStore(buildState({ tasks: [task] }))
 
-    const { result } = renderHook(() => ({
+    const { result } = await renderSuspendedHook(() => ({
       ctx: usePalimpsestContext(),
       setDueDate: useSetDueDate(),
     }), { wrapper: makeWrapper(store) })
-    await waitFor(() => expect(result.current.ctx.isLoading).toBe(false))
 
     await act(async () => {
       await expect(result.current.setDueDate.mutate({ taskId: task.id, dueDate: '2026-08-15' }))
@@ -68,11 +65,10 @@ describe('useSetDueDate', () => {
   test('surfaces an unknown task id as error, and never appends', async () => {
     const store = new RecordingStore(buildState({}))
 
-    const { result } = renderHook(() => ({
+    const { result } = await renderSuspendedHook(() => ({
       ctx: usePalimpsestContext(),
       setDueDate: useSetDueDate(),
     }), { wrapper: makeWrapper(store) })
-    await waitFor(() => expect(result.current.ctx.isLoading).toBe(false))
 
     await act(async () => {
       await expect(result.current.setDueDate.mutate({ taskId: 'missing', dueDate: '2026-08-15' }))
@@ -86,11 +82,10 @@ describe('useSetDueDate', () => {
   test('mutate keeps a stable identity across re-renders when store and projState are unchanged', async () => {
     const store = new RecordingStore(buildState({}))
 
-    const { result, rerender } = renderHook(() => ({
+    const { result, rerender } = await renderSuspendedHook(() => ({
       ctx: usePalimpsestContext(),
       setDueDate: useSetDueDate(),
     }), { wrapper: makeWrapper(store) })
-    await waitFor(() => expect(result.current.ctx.isLoading).toBe(false))
 
     const firstMutate = result.current.setDueDate.mutate
     rerender()
