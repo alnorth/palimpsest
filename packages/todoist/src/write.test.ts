@@ -343,6 +343,25 @@ describe('buildCommands — task.updated', () => {
     expect(moveCmd?.args.project_id).toBe(TODOIST_FUTURE_LOG_ID)
   })
 
+  // A task bound to a real project never carries a direct sphereId (sphere is inherited via the
+  // project — see core's getTaskSphereId); it's only project-less tasks that ever have task.sphereId
+  // set. Falling back to `task.sphereId ?? WORK_SPHERE_ID` when clearing a project therefore always
+  // picks the Work sphere for a task that was in a Personal-sphere project, since task.sphereId was
+  // never set on it. The container choice must be derived from the project's own sphere instead.
+  it('clearing a task\'s project (CLEAR) resolves the free-floating container by the project\'s (inherited) sphere, not task.sphereId', () => {
+    const state = stateWithTask('t1', { projectId: 'proj-personal' as ProjectId, sphereId: undefined })
+    state.projects.set('proj-personal' as ProjectId, {
+      id: 'proj-personal' as ProjectId, sphereId: PERSONAL_SPHERE_ID, name: 'Personal Project',
+      createdAt: '', updatedAt: '',
+    })
+    const { commands } = buildCommands(
+      updEvent('t1', { projectId: CLEAR }),
+      state,
+    )
+    const moveCmd = commands.find(c => c.type === 'item_move')
+    expect(moveCmd?.args.project_id).toBe(TODOIST_PERSONAL_ONEOFFS_ID)
+  })
+
   // Setting an agendaId on a task that has no real project — the write-side mirror of the read
   // path's AGENDA_PROJECT_IDS fallback: the task itself moves into that agenda's dedicated
   // project, not merely a label added while it stays in its current free-floating container.
