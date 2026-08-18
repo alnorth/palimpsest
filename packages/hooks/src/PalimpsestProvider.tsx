@@ -54,12 +54,18 @@ export interface PalimpsestContextValue {
   today: string
 }
 
-// Keyed by store instance so that calling connect(store) more than once for the same store
-// (React StrictMode double-invokes useState's lazy initializer in development; a
-// store-identity-unchanged effect re-run does the same) returns the exact same promise rather than
-// re-running store.init() concurrently. This matters beyond wasted work: PollingStore.init() calls
-// sync() directly, bypassing the `syncing` re-entrancy guard refresh() uses — two concurrent inits
-// on the same store race on shared mutable instance state (baseEvents, syncToken, health).
+// Keyed by store instance so that calling connect(store) more than once for the same store while
+// a connect is still in flight (React StrictMode double-invokes useState's lazy initializer in
+// development; a store-identity-unchanged effect re-run does the same) returns the exact same
+// promise rather than re-running store.init() concurrently. This matters beyond wasted work:
+// PollingStore.init() calls sync() directly, bypassing the `syncing` re-entrancy guard refresh()
+// uses — two concurrent inits on the same store race on shared mutable instance state (baseEvents,
+// syncToken, health). The entry is deleted once the promise settles (success or failure) — the
+// cache exists only to de-duplicate concurrent in-flight connects, not to remember a store's
+// connect result forever. Without that deletion, reconnecting to a previously-used store (e.g.
+// swapping the `store` prop away and back) would replay the original stale resolved value instead
+// of re-reading current state, and a store whose very first connect failed would stay permanently
+// rejected with no way to retry (see refresh() below, which relies on this cache being clearable).
 // Normalizing a non-Error rejection here (not just where connectionError is set) means the promise
 // exposed via stateResource — and thus whatever an app's <ErrorBoundary> catches from use() — is
 // always a real Error, even for a store whose init()/getState() rejects with something else.
@@ -72,6 +78,9 @@ function connect(store: PalimpsestStore): Promise<ProjectionState> {
     throw error instanceof Error ? error : new Error(String(error))
   })
   connectPromises.set(store, promise)
+  promise.catch(() => {}).finally(() => {
+    if (connectPromises.get(store) === promise) connectPromises.delete(store)
+  })
   return promise
 }
 
@@ -161,6 +170,25 @@ export function PalimpsestProvider(props: PalimpsestProviderProps): ReactNode {
   }
 
   async function refresh(): Promise<void> {
+    // A prior connect failure (or one still pending) means there's no live store subscription to
+    // refresh yet — retry the connect itself instead. connect(store)'s cache entry was already
+    // cleared when the failed attempt settled, so this actually re-runs store.init(), not a replay
+    // of the stale rejected promise.
+    if (connectionError !== undefined || projState === undefined) {
+      setIsConnecting(true)
+      setConnectionError(undefined)
+      const promise = connect(store)
+      setStateResource(promise)
+      try {
+        setProjState(await promise)
+      } catch (error) {
+        setConnectionError(error instanceof Error ? error : new Error(String(error)))
+        throw error
+      } finally {
+        setIsConnecting(false)
+      }
+      return
+    }
     if (hasRefresh(store)) {
       await store.refresh()
     } else {

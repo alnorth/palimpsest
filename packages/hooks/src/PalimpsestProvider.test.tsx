@@ -231,4 +231,62 @@ describe('PalimpsestProvider', () => {
     expect(storeB.initCallCount).toBe(1)
     expect(storeA.initCallCount).toBe(1)
   })
+
+  test('reconnecting to a previously-used store re-fetches fresh state rather than the stale first-connect promise', async () => {
+    const storeA = new FakeStore(buildState({ spheres: [makeSphere({ name: 'Work-v1' })] }))
+    const storeB = new FakeStore(buildState({ spheres: [makeSphere({ name: 'Other' })] }))
+
+    function Probe() {
+      const { projState } = usePalimpsestContext()
+      const name = projState !== undefined ? [...projState.spheres.values()][0]?.name : undefined
+      return <div data-testid="reconnect-result">{name}</div>
+    }
+
+    function Harness({ store }: { store: FakeStore }) {
+      return (
+        <PalimpsestProvider store={store}>
+          <Suspense fallback={<div data-testid="fallback" />}>
+            <Probe />
+          </Suspense>
+        </PalimpsestProvider>
+      )
+    }
+
+    let container!: HTMLElement
+    let rerender!: (ui: ReactNode) => void
+    await act(async () => {
+      ;({ container, rerender } = render(<Harness store={storeA} />))
+    })
+    await waitFor(() => expect(within(container).getByTestId('reconnect-result').textContent).toBe('Work-v1'))
+
+    // Mutate storeA's underlying state WITHOUT notifying subscribers, so the only way the new
+    // value is ever observed is via a fresh connect() on reconnect, not the live-update
+    // subscribe/notify path already covered elsewhere.
+    storeA.setStateQuietly(buildState({ spheres: [makeSphere({ name: 'Work-v2' })] }))
+
+    act(() => { rerender(<Harness store={storeB} />) })
+    await waitFor(() => expect(within(container).getByTestId('reconnect-result').textContent).toBe('Other'))
+
+    act(() => { rerender(<Harness store={storeA} />) })
+    await waitFor(() => expect(within(container).getByTestId('reconnect-result').textContent).toBe('Work-v2'))
+  })
+
+  test('refresh() retries a failed initial connect', async () => {
+    const store = new FakeStore(buildState({}))
+    store.initError = new Error('boom')
+    const { result } = renderHook(() => usePalimpsestContext(), { wrapper: makeWrapper(store) })
+
+    await waitFor(() => expect(result.current.isConnecting).toBe(false))
+    expect(result.current.connectionError?.message).toBe('boom')
+    expect(result.current.projState).toBeUndefined()
+
+    store.initError = undefined
+    const sphere = makeSphere({ name: 'Work' })
+    store.setStateQuietly(buildState({ spheres: [sphere] }))
+
+    await act(async () => { await result.current.refresh() })
+
+    expect(result.current.connectionError).toBeUndefined()
+    expect(result.current.projState?.spheres.get(sphere.id)?.name).toBe('Work')
+  })
 })
