@@ -15,6 +15,6 @@
     "sync-internal-versions": "node scripts/sync-internal-versions.mjs"
   },
   "optionalDependencies": {
-    "@rollup/rollup-linux-x64-gnu": "4.62.2"
+    "@rollup/rollup-linux-x64-gnu": "4.62.4"
   }
 }
