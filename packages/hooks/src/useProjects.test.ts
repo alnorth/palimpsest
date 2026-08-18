@@ -1,8 +1,7 @@
 // @vitest-environment jsdom
 import { describe, test, expect } from 'vitest'
-import { renderHook, waitFor } from '@testing-library/react'
 import { makeSphere, makeProject, makeTask, makeAgenda, makeContext, buildState } from './testFixtures'
-import { FakeStore, makeWrapper } from './testHelpers'
+import { FakeStore, makeWrapper, renderSuspendedHook } from './testHelpers'
 import { useProjects } from './useProjects'
 import { useProject } from './useProject'
 import { useSpheres } from './useSpheres'
@@ -16,9 +15,8 @@ describe('useProjects', () => {
     const task = makeTask({ projectId: project.id, isNext: true })
     const store = new FakeStore(buildState({ spheres: [sphere], projects: [project], tasks: [task] }))
 
-    const { result } = renderHook(() => useProjects({ sphere: 'Work' }), { wrapper: makeWrapper(store) })
-    await waitFor(() => expect(result.current.isLoading).toBe(false))
-    expect(result.current.data).toEqual([expect.objectContaining({ name: 'Launch', hasNextAction: true })])
+    const { result } = await renderSuspendedHook(() => useProjects({ sphere: 'Work' }), { wrapper: makeWrapper(store) })
+    expect(result.current.items).toEqual([expect.objectContaining({ name: 'Launch', hasNextAction: true })])
   })
 
   test('agenda/hasAgenda/withoutAgenda filters pass through', async () => {
@@ -28,17 +26,14 @@ describe('useProjects', () => {
     const unlinked = makeProject(sphere, { name: 'Solo' })
     const store = new FakeStore(buildState({ spheres: [sphere], agendas: [agenda], projects: [linked, unlinked] }))
 
-    const byAgenda = renderHook(() => useProjects({ agenda: 'Jim' }), { wrapper: makeWrapper(store) })
-    await waitFor(() => expect(byAgenda.result.current.isLoading).toBe(false))
-    expect(byAgenda.result.current.data?.map(p => p.name)).toEqual(['Shared'])
+    const byAgenda = await renderSuspendedHook(() => useProjects({ agenda: 'Jim' }), { wrapper: makeWrapper(store) })
+    expect(byAgenda.result.current.items.map(p => p.name)).toEqual(['Shared'])
 
-    const withAgenda = renderHook(() => useProjects({ hasAgenda: true }), { wrapper: makeWrapper(store) })
-    await waitFor(() => expect(withAgenda.result.current.isLoading).toBe(false))
-    expect(withAgenda.result.current.data?.map(p => p.name)).toEqual(['Shared'])
+    const withAgenda = await renderSuspendedHook(() => useProjects({ hasAgenda: true }), { wrapper: makeWrapper(store) })
+    expect(withAgenda.result.current.items.map(p => p.name)).toEqual(['Shared'])
 
-    const withoutAgenda = renderHook(() => useProjects({ withoutAgenda: true }), { wrapper: makeWrapper(store) })
-    await waitFor(() => expect(withoutAgenda.result.current.isLoading).toBe(false))
-    expect(withoutAgenda.result.current.data?.map(p => p.name)).toEqual(['Solo'])
+    const withoutAgenda = await renderSuspendedHook(() => useProjects({ withoutAgenda: true }), { wrapper: makeWrapper(store) })
+    expect(withoutAgenda.result.current.items.map(p => p.name)).toEqual(['Solo'])
   })
 
   test('isSelfOnly filter passes through', async () => {
@@ -47,9 +42,8 @@ describe('useProjects', () => {
     const other = makeProject(sphere, { name: 'Other' })
     const store = new FakeStore(buildState({ spheres: [sphere], projects: [selfOnly, other] }))
 
-    const { result } = renderHook(() => useProjects({ isSelfOnly: true }), { wrapper: makeWrapper(store) })
-    await waitFor(() => expect(result.current.isLoading).toBe(false))
-    expect(result.current.data?.map(p => p.name)).toEqual(['Personal'])
+    const { result } = await renderSuspendedHook(() => useProjects({ isSelfOnly: true }), { wrapper: makeWrapper(store) })
+    expect(result.current.items.map(p => p.name)).toEqual(['Personal'])
   })
 
   test('includeNextTasks includes each project\'s open next-action tasks', async () => {
@@ -58,9 +52,8 @@ describe('useProjects', () => {
     const task = makeTask({ projectId: project.id, isNext: true, title: 'Ship it' })
     const store = new FakeStore(buildState({ spheres: [sphere], projects: [project], tasks: [task] }))
 
-    const { result } = renderHook(() => useProjects({ sphere: 'Work', includeNextTasks: true }), { wrapper: makeWrapper(store) })
-    await waitFor(() => expect(result.current.isLoading).toBe(false))
-    expect(result.current.data?.[0]?.nextTasks?.map(t => t.title)).toEqual(['Ship it'])
+    const { result } = await renderSuspendedHook(() => useProjects({ sphere: 'Work', includeNextTasks: true }), { wrapper: makeWrapper(store) })
+    expect(result.current.items[0]?.nextTasks?.map(t => t.title)).toEqual(['Ship it'])
   })
 })
 
@@ -71,25 +64,25 @@ describe('useProject', () => {
     const task = makeTask({ projectId: project.id, isNext: true })
     const store = new FakeStore(buildState({ spheres: [sphere], projects: [project], tasks: [task] }))
 
-    const { result } = renderHook(() => useProject(project.id), { wrapper: makeWrapper(store) })
-    await waitFor(() => expect(result.current.isLoading).toBe(false))
-    expect(result.current.data).toEqual(expect.objectContaining({ name: 'Find me', hasNextAction: true }))
+    const { result } = await renderSuspendedHook(() => useProject(project.id), { wrapper: makeWrapper(store) })
+    expect(result.current).toEqual(expect.objectContaining({ name: 'Find me', hasNextAction: true }))
   })
 
-  test('surfaces an unknown id as an error', async () => {
+  test('surfaces an unknown id to the ErrorBoundary', async () => {
     const store = new FakeStore(buildState({}))
-    const { result } = renderHook(() => useProject('missing'), { wrapper: makeWrapper(store) })
-    await waitFor(() => expect(result.current.isLoading).toBe(false))
-    expect(result.current.error?.message).toMatch(/No project with id "missing"/)
+    let caught: Error | undefined
+
+    await renderSuspendedHook(() => useProject('missing'), { wrapper: makeWrapper(store, { onError: e => { caught = e } }) })
+
+    expect(caught?.message).toMatch(/No project with id "missing"/)
   })
 })
 
 describe('useSpheres', () => {
   test('returns spheres sorted by name', async () => {
     const store = new FakeStore(buildState({ spheres: [makeSphere({ name: 'Zeta' }), makeSphere({ name: 'Alpha' })] }))
-    const { result } = renderHook(() => useSpheres(), { wrapper: makeWrapper(store) })
-    await waitFor(() => expect(result.current.isLoading).toBe(false))
-    expect(result.current.data?.map(s => s.name)).toEqual(['Alpha', 'Zeta'])
+    const { result } = await renderSuspendedHook(() => useSpheres(), { wrapper: makeWrapper(store) })
+    expect(result.current.items.map(s => s.name)).toEqual(['Alpha', 'Zeta'])
   })
 })
 
@@ -101,9 +94,8 @@ describe('useAgendas', () => {
       spheres: [sphere, other],
       agendas: [makeAgenda(sphere, { title: 'Standup' }), makeAgenda(other, { title: 'Chores' })],
     }))
-    const { result } = renderHook(() => useAgendas({ sphere: 'Work' }), { wrapper: makeWrapper(store) })
-    await waitFor(() => expect(result.current.isLoading).toBe(false))
-    expect(result.current.data?.map(a => a.name)).toEqual(['Standup'])
+    const { result } = await renderSuspendedHook(() => useAgendas({ sphere: 'Work' }), { wrapper: makeWrapper(store) })
+    expect(result.current.items.map(a => a.name)).toEqual(['Standup'])
   })
 })
 
@@ -115,8 +107,7 @@ describe('useContexts', () => {
       spheres: [sphere, other],
       contexts: [makeContext(sphere, { name: '@errand' }), makeContext(other, { name: '@home' })],
     }))
-    const { result } = renderHook(() => useContexts({ sphere: 'Work' }), { wrapper: makeWrapper(store) })
-    await waitFor(() => expect(result.current.isLoading).toBe(false))
-    expect(result.current.data?.map(c => c.name)).toEqual(['@errand'])
+    const { result } = await renderSuspendedHook(() => useContexts({ sphere: 'Work' }), { wrapper: makeWrapper(store) })
+    expect(result.current.items.map(c => c.name)).toEqual(['@errand'])
   })
 })

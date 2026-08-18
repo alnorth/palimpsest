@@ -1,4 +1,4 @@
-export type { QueryResult, ListResult, SphereScopedFilter, MutationResult } from './types'
+export type { Paginated, SphereScopedFilter, MutationResult } from './types'
 
 export type { PalimpsestContextValue, PalimpsestProviderProps } from './PalimpsestProvider'
 export { PalimpsestProvider, usePalimpsestContext } from './PalimpsestProvider'

@@ -16,8 +16,8 @@ function renderMutation<TArgs, TResult>(
   }), { wrapper: makeWrapper(store) })
 }
 
-async function waitForLoaded(result: { current: { ctx: { isLoading: boolean } } }): Promise<void> {
-  await waitFor(() => expect(result.current.ctx.isLoading).toBe(false))
+async function waitForLoaded(result: { current: { ctx: { isConnecting: boolean } } }): Promise<void> {
+  await waitFor(() => expect(result.current.ctx.isConnecting).toBe(false))
 }
 
 describe('useMutation', () => {

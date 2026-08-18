@@ -1,12 +1,7 @@
-export interface QueryResult<T> {
-  data: T | undefined
-  isLoading: boolean
-  error: Error | undefined
-}
-
-export interface ListResult<T> extends QueryResult<T[]> {
-  total: number | undefined
-  truncated: boolean | undefined
+export interface Paginated<T> {
+  items: T[]
+  total: number
+  truncated: boolean
 }
 
 export interface SphereScopedFilter {
