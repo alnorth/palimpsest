@@ -1,10 +1,11 @@
 // @vitest-environment jsdom
 import { describe, test, expect } from 'vitest'
-import { Suspense, use } from 'react'
-import { render, renderHook, screen, waitFor, act } from '@testing-library/react'
+import { StrictMode, Suspense, use } from 'react'
+import type { ReactNode } from 'react'
+import { render, renderHook, screen, waitFor, act, within } from '@testing-library/react'
 import { makeSphere, buildState } from './testFixtures'
 import { PalimpsestProvider, usePalimpsestContext } from './PalimpsestProvider'
-import { FakeStore, TestErrorBoundary, makeWrapper } from './testHelpers'
+import { FakeStore, TestErrorBoundary, makeWrapper, renderSuspendedHook } from './testHelpers'
 
 describe('PalimpsestProvider', () => {
   test('starts connecting and resolves projState once the store connects', async () => {
@@ -153,5 +154,81 @@ describe('PalimpsestProvider', () => {
     })
 
     await waitFor(() => expect(caught?.message).toBe('offline'))
+  })
+
+  test('StrictMode does not double-invoke store.init() on first connect', async () => {
+    const sphere = makeSphere({ name: 'Work' })
+    const store = new FakeStore(buildState({ spheres: [sphere] }))
+
+    function Wrapper({ children }: { children: ReactNode }) {
+      return (
+        <StrictMode>
+          <PalimpsestProvider store={store}>
+            <Suspense fallback={<div data-testid="fallback" />}>
+              <TestErrorBoundary>{children}</TestErrorBoundary>
+            </Suspense>
+          </PalimpsestProvider>
+        </StrictMode>
+      )
+    }
+
+    const { result } = await renderSuspendedHook(() => usePalimpsestContext(), { wrapper: Wrapper })
+    await waitFor(() => expect(result.current.isConnecting).toBe(false))
+
+    // React's documented StrictMode behavior double-invokes a useState lazy initializer in
+    // development — connect(store) is called from that initializer, so without per-store
+    // memoization this would call store.init() (a real network call for a live store) twice.
+    expect(store.initCallCount).toBe(1)
+  })
+
+  test('stateResource normalizes a non-Error connect rejection to an Error', async () => {
+    const store = new FakeStore(buildState({}))
+    store.initError = 'offline'
+    const { result } = await renderSuspendedHook(() => usePalimpsestContext(), { wrapper: makeWrapper(store) })
+    await waitFor(() => expect(result.current.isConnecting).toBe(false))
+
+    let caught: unknown
+    await result.current.stateResource.catch((error: unknown) => { caught = error })
+
+    expect(caught).toBeInstanceOf(Error)
+    expect((caught as Error).message).toBe('offline')
+  })
+
+  test('swapping the store prop connects the new store, without re-invoking init() on the old one', async () => {
+    const sphereA = makeSphere({ name: 'Work' })
+    const storeA = new FakeStore(buildState({ spheres: [sphereA] }))
+    const sphereB = makeSphere({ name: 'Personal' })
+    const storeB = new FakeStore(buildState({ spheres: [sphereB] }))
+
+    function Probe() {
+      const { projState } = usePalimpsestContext()
+      const name = projState !== undefined ? [...projState.spheres.values()][0]?.name : undefined
+      return <div data-testid="swap-result">{name}</div>
+    }
+
+    function Harness({ store }: { store: FakeStore }) {
+      return (
+        <PalimpsestProvider store={store}>
+          <Suspense fallback={<div data-testid="fallback" />}>
+            <Probe />
+          </Suspense>
+        </PalimpsestProvider>
+      )
+    }
+
+    let container!: HTMLElement
+    let rerender!: (ui: ReactNode) => void
+    await act(async () => {
+      ;({ container, rerender } = render(<Harness store={storeA} />))
+    })
+    await waitFor(() => expect(within(container).getByTestId('swap-result').textContent).toBe('Work'))
+    expect(storeA.initCallCount).toBe(1)
+    expect(storeB.initCallCount).toBe(0)
+
+    act(() => { rerender(<Harness store={storeB} />) })
+
+    await waitFor(() => expect(within(container).getByTestId('swap-result').textContent).toBe('Personal'))
+    expect(storeB.initCallCount).toBe(1)
+    expect(storeA.initCallCount).toBe(1)
   })
 })

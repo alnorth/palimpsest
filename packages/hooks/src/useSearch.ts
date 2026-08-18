@@ -1,5 +1,6 @@
 import type { SearchResultJson } from '@alnorth/palimpsest-query'
 import { useRunQuery } from './internal/useRunQuery'
+import { toPaginated } from './internal/toPaginated'
 import type { Paginated } from './types'
 
 export interface SearchFilter {
@@ -23,13 +24,7 @@ export function useSearch(query: string, filter: SearchFilter = {}): Paginated<S
   } : undefined
   const raw = useRunQuery(command)
 
-  if (trimmed === '') {
-    return { items: [], total: 0, truncated: false }
-  }
+  if (trimmed === '') return toPaginated<SearchResultJson>(undefined, 'results')
 
-  return {
-    items: (raw?.results ?? []) as SearchResultJson[],
-    total: (raw?.total ?? 0) as number,
-    truncated: (raw?.truncated ?? false) as boolean,
-  }
+  return toPaginated<SearchResultJson>(raw, 'results')
 }

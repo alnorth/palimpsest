@@ -1,5 +1,6 @@
 import type { ProjectJson } from '@alnorth/palimpsest-query'
 import { useRunQuery } from './internal/useRunQuery'
+import { toPaginated } from './internal/toPaginated'
 import type { Paginated } from './types'
 
 export interface ProjectsFilter {
@@ -25,9 +26,5 @@ export function useProjects(filter: ProjectsFilter = {}): Paginated<ProjectJson>
     ...(filter.isSelfOnly !== undefined && { isSelfOnly: filter.isSelfOnly }),
     ...(filter.includeNextTasks !== undefined && { includeNextTasks: filter.includeNextTasks }),
   })
-  return {
-    items: (raw?.projects ?? []) as ProjectJson[],
-    total: (raw?.total ?? 0) as number,
-    truncated: (raw?.truncated ?? false) as boolean,
-  }
+  return toPaginated<ProjectJson>(raw, 'projects')
 }

@@ -37,7 +37,12 @@ export class TestErrorBoundary extends Component<TestErrorBoundaryProps, TestErr
 
 export class FakeStore extends PalimpsestStore {
   private state: ProjectionState
-  initError: Error | undefined
+  // unknown (not Error | undefined) so a test can exercise a store whose init() rejects with a
+  // non-Error value (e.g. a plain string) — PalimpsestProvider must normalize that to an Error
+  // the same way it normalizes a genuine Error, both on connectionError and on stateResource
+  // itself. `undefined` still means "don't throw".
+  initError: unknown = undefined
+  initCallCount = 0
 
   constructor(state: ProjectionState) {
     super()
@@ -48,6 +53,7 @@ export class FakeStore extends PalimpsestStore {
   protected override async doAppend() {}
 
   override async init(): Promise<void> {
+    this.initCallCount += 1
     if (this.initError !== undefined) throw this.initError
   }
 

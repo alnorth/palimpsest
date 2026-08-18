@@ -11,5 +11,5 @@ export function useWaiting(sphere?: string): WaitingGroup[] {
     kind: 'waiting',
     ...(sphere !== undefined && { sphere }),
   })
-  return raw?.groups as WaitingGroup[]
+  return (raw?.groups ?? []) as WaitingGroup[]
 }

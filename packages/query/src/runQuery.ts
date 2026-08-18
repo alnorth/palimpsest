@@ -3,7 +3,7 @@ import { getTask, getProject, getAgenda, listTasks, listProjects, listAgendas, l
 import { resolveSphere, resolveProject, resolveAgenda, resolveContext } from './resolve'
 import {
   toTaskJson, toProjectJson, toSphereJson, toAgendaJson, toContextJson,
-  computeProjectStats, computeProjectStatsAndNextTasks, statsFor,
+  computeProjectStats, computeProjectStatsAndNextTasks, computeSingleProjectStats, statsFor,
 } from './serialize'
 import { dashboardTasks, processingBuckets, waitingGroups, pickListGroups, agendaView } from './views'
 import { searchAll } from './search'
@@ -201,8 +201,7 @@ function runTaskQuery(state: ProjectionState, command: TaskCommand): Record<stri
 function runProjectQuery(state: ProjectionState, command: ProjectCommand): Record<string, unknown> {
   const project = getProject(state, command.id as ProjectId)
   if (project === undefined) throw new Error(`No project with id "${command.id}".`)
-  const stats = computeProjectStats(state)
-  return { project: toProjectJson(state, project, statsFor(stats, project.id)) }
+  return { project: toProjectJson(state, project, computeSingleProjectStats(state, project.id)) }
 }
 
 function runProjectsQuery(state: ProjectionState, command: ProjectsCommand): Record<string, unknown> {

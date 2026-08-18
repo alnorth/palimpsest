@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react'
+import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import type { PalimpsestStore, ProjectionState, SphereId, SyncState } from '@alnorth/palimpsest'
 import { buildStateFromConfig, createEmptyState, PALIMPSEST_CONFIG } from '@alnorth/palimpsest'
@@ -54,8 +54,25 @@ export interface PalimpsestContextValue {
   today: string
 }
 
+// Keyed by store instance so that calling connect(store) more than once for the same store
+// (React StrictMode double-invokes useState's lazy initializer in development; a
+// store-identity-unchanged effect re-run does the same) returns the exact same promise rather than
+// re-running store.init() concurrently. This matters beyond wasted work: PollingStore.init() calls
+// sync() directly, bypassing the `syncing` re-entrancy guard refresh() uses — two concurrent inits
+// on the same store race on shared mutable instance state (baseEvents, syncToken, health).
+// Normalizing a non-Error rejection here (not just where connectionError is set) means the promise
+// exposed via stateResource — and thus whatever an app's <ErrorBoundary> catches from use() — is
+// always a real Error, even for a store whose init()/getState() rejects with something else.
+const connectPromises = new WeakMap<PalimpsestStore, Promise<ProjectionState>>()
+
 function connect(store: PalimpsestStore): Promise<ProjectionState> {
-  return store.init().then(() => store.getState())
+  const cached = connectPromises.get(store)
+  if (cached !== undefined) return cached
+  const promise = store.init().then(() => store.getState()).catch((error: unknown) => {
+    throw error instanceof Error ? error : new Error(String(error))
+  })
+  connectPromises.set(store, promise)
+  return promise
 }
 
 const PalimpsestContext = createContext<PalimpsestContextValue | undefined>(undefined)
@@ -94,20 +111,17 @@ export function PalimpsestProvider(props: PalimpsestProviderProps): ReactNode {
   const [isConnecting, setIsConnecting] = useState(true)
   const [currentSphereId, setCurrentSphereIdState] = useState<SphereId | undefined>(undefined)
 
-  // Guards against calling connect(store) twice on the very first mount: the lazy useState
-  // initializer above already started one for this exact `store`. Seeding the ref with the
-  // initial `store` (rather than undefined) means the first effect run recognizes "this is the
-  // store the lazy initializer already connected" and reuses that promise; a later run (triggered
-  // by `store` actually changing identity) sees a mismatch and reconnects for real.
-  const connectedStoreRef = useRef<PalimpsestStore>(store)
-
   useEffect(() => {
     let cancelled = false
     setIsConnecting(true)
     setConnectionError(undefined)
-    const promise = connectedStoreRef.current === store ? stateResource : connect(store)
-    connectedStoreRef.current = store
-    if (promise !== stateResource) setStateResource(promise)
+    // connect(store) is memoized per store instance (see its own doc comment), so on the very
+    // first effect run for the store the lazy useState initializer above already connected, this
+    // returns that exact same promise rather than reconnecting — setStateResource below is then a
+    // same-reference no-op React bails out of. A later run triggered by `store` actually changing
+    // identity gets a fresh promise for the new store.
+    const promise = connect(store)
+    setStateResource(promise)
     promise
       .then(state => {
         if (cancelled) return
@@ -120,7 +134,6 @@ export function PalimpsestProvider(props: PalimpsestProviderProps): ReactNode {
         setIsConnecting(false)
       })
     return () => { cancelled = true }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [store])
 
   useEffect(() => {

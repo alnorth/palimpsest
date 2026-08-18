@@ -1,5 +1,6 @@
 import type { TaskJson, StatusArg } from '@alnorth/palimpsest-query'
 import { useRunQuery } from './internal/useRunQuery'
+import { toPaginated } from './internal/toPaginated'
 import type { Paginated } from './types'
 
 export interface TasksFilter {
@@ -49,9 +50,5 @@ export function useTasks(filter: TasksFilter = {}): Paginated<TaskJson> {
     ...(filter.includeArchived !== undefined && { includeArchived: filter.includeArchived }),
     ...(filter.limit !== undefined && { limit: filter.limit }),
   })
-  return {
-    items: (raw?.tasks ?? []) as TaskJson[],
-    total: (raw?.total ?? 0) as number,
-    truncated: (raw?.truncated ?? false) as boolean,
-  }
+  return toPaginated<TaskJson>(raw, 'tasks')
 }

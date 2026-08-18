@@ -15,5 +15,5 @@ export function usePickList(sphere?: string): PickListGroup[] {
 
   if (resolvedSphere === undefined) return []
 
-  return raw?.groups as PickListGroup[]
+  return (raw?.groups ?? []) as PickListGroup[]
 }
