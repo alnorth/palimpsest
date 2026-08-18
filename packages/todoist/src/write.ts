@@ -1,5 +1,5 @@
-import type { PalimpsestEvent, ProjectionState } from '@alnorth/palimpsest'
-import { CLEAR } from '@alnorth/palimpsest'
+import type { PalimpsestEvent, ProjectionState, Task, TaskPatch } from '@alnorth/palimpsest'
+import { CLEAR, getTaskSphereId } from '@alnorth/palimpsest'
 import type { SyncCommand } from './api'
 import { computeLabels } from './labels'
 import {
@@ -32,6 +32,25 @@ function uuid(): string {
   bytes[8] = (bytes[8]! & 0x3f) | 0x80
   const hex = Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('')
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`
+}
+
+// The due date/expression a task will have once `patch` is applied — the patch's own value if it
+// touches the field (undefined if CLEARed), else the task's current value. Used only to pick the
+// project-less container a task belongs in (see the isProjectless block in the task.updated case
+// below), which is why it stays separate from the newExpression/newDate locals computed inline
+// there for the different purpose of building the Sync API `due` arg.
+function effectiveDueState(
+  task: Pick<Task, 'dueDate' | 'dueDateExpression'>,
+  patch: Pick<TaskPatch, 'dueDate' | 'dueDateExpression'>,
+): { dueDate: string | undefined; dueDateExpression: string | undefined } {
+  return {
+    dueDate: patch.dueDate !== undefined
+      ? (patch.dueDate === CLEAR ? undefined : patch.dueDate)
+      : task.dueDate,
+    dueDateExpression: patch.dueDateExpression !== undefined
+      ? (patch.dueDateExpression === CLEAR ? undefined : patch.dueDateExpression)
+      : task.dueDateExpression,
+  }
 }
 
 // Build the due date args for a Sync API item_add / item_update command.
@@ -201,16 +220,12 @@ export function buildCommands(
         patch.dueDate            !== undefined ||
         patch.dueDateExpression  !== undefined
       )) {
-        const sphereId = task.sphereId ?? WORK_SPHERE_ID
-        const newExpression = patch.dueDateExpression !== undefined
-          ? (patch.dueDateExpression === CLEAR ? undefined : patch.dueDateExpression)
-          : task.dueDateExpression
-        const newDueDate = patch.dueDate !== undefined
-          ? (patch.dueDate === CLEAR ? undefined : patch.dueDate)
-          : task.dueDate
+        const sphereId = getTaskSphereId(state, task) ?? WORK_SPHERE_ID
+        const { dueDate: containerDueDate, dueDateExpression: containerDueExpression } =
+          effectiveDueState(task, patch)
         const newContainer = projectlessContainerFor(sphereId, newAgendaId, {
-          ...(newExpression !== undefined && { dueDateExpression: newExpression }),
-          ...(newDueDate    !== undefined && { dueDate:           newDueDate }),
+          ...(containerDueExpression !== undefined && { dueDateExpression: containerDueExpression }),
+          ...(containerDueDate       !== undefined && { dueDate:           containerDueDate }),
         })
         commands.push({
           type: 'item_move',
