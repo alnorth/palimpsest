@@ -6,7 +6,7 @@ import { makeSphere, makeProject, makeAgenda, makeContext, makeTask, buildState 
 import type { TaskStore } from './tools'
 import {
   handleTasks, handleTask, handleProjects, handleSpheres, handleAgendas, handleContexts,
-  handleDashboard, handleProcessing, handleWaiting, handlePickList, handleSearch,
+  handleDashboard, handleProcessing, handleWaiting, handlePickList, handleSearch, handleAgendaView,
   handleCompleteTask, handleSetDueDate, handleDeleteTask, handleSetProjectAgenda,
 } from './tools'
 
@@ -778,5 +778,36 @@ describe('handleSearch', () => {
     const result = await handleSearch(store, { query: 'milk', sphere: 'Nope' })
     expect(result.isError).toBe(true)
     expect(resultText(result)).toMatch(/No sphere matching "Nope"/)
+  })
+})
+
+describe('handleAgendaView', () => {
+  test('returns the agenda, waiting/active tasks, and linked projects', async () => {
+    const sphere = makeSphere({ name: 'Work' })
+    const agenda = makeAgenda(sphere, { title: 'Han' })
+    const project = makeProject(sphere, { name: 'Shared', agendaId: agenda.id })
+    const active = makeTask({ sphereId: sphere.id, title: 'Active', agendaId: agenda.id })
+    const waiting = makeTask({ sphereId: sphere.id, title: 'Waiting', agendaId: agenda.id, waitingFor: { kind: 'review' } })
+    const store = fakeStore(buildState({ spheres: [sphere], agendas: [agenda], projects: [project], tasks: [active, waiting] }))
+
+    const result = await handleAgendaView(store, { agenda: 'Han' })
+
+    const parsed = parseOk<{
+      agenda: { name: string }
+      activeTasks: { title: string }[]
+      waitingTasks: { title: string }[]
+      projects: { name: string }[]
+    }>(result)
+    expect(parsed.agenda.name).toBe('Han')
+    expect(parsed.activeTasks.map(t => t.title)).toEqual(['Active'])
+    expect(parsed.waitingTasks.map(t => t.title)).toEqual(['Waiting'])
+    expect(parsed.projects.map(p => p.name)).toEqual(['Shared'])
+  })
+
+  test('surfaces an unresolved agenda name as isError', async () => {
+    const store = fakeStore(buildState({}))
+    const result = await handleAgendaView(store, { agenda: 'Nope' })
+    expect(result.isError).toBe(true)
+    expect(resultText(result)).toMatch(/No agenda matching "Nope"/)
   })
 })

@@ -2,7 +2,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { z } from 'zod'
 import {
   handleTasks, handleTask, handleProjects, handleSpheres, handleAgendas, handleContexts,
-  handleDashboard, handleProcessing, handleWaiting, handlePickList, handleSearch,
+  handleDashboard, handleProcessing, handleWaiting, handlePickList, handleSearch, handleAgendaView,
   handleCompleteTask, handleSetDueDate, handleDeleteTask, handleSetProjectAgenda,
 } from './tools'
 import type { TaskStore } from './tools'
@@ -116,6 +116,14 @@ export function createMcpServer(store: TaskStore): McpServer {
       limit: z.number().int().positive().optional().describe('Limit the number of results'),
     },
   }, args => handleSearch(store, args))
+
+  server.registerTool('agenda_view', {
+    description: 'Tasks and projects relevant to one agenda: next-actions tagged for it (or free-floating tasks assigned to it) plus every task in any project linked to it, filtered to undated or due today/earlier, split into waiting/active. Also lists the agenda\'s linked ("shared") projects separately.',
+    inputSchema: {
+      agenda: z.string().describe('Agenda name or id'),
+      sphere: z.string().optional().describe('Filter by sphere name (disambiguates if the agenda name is ambiguous)'),
+    },
+  }, args => handleAgendaView(store, args))
 
   server.registerTool('complete_task', {
     description: 'Mark a task complete. Recurring tasks (with a recurrence expression) advance to their next due date instead of closing; non-recurring tasks are closed. Fails if the task is already completed or deleted. The response includes `synced: false` and a `warning` if the change could not be immediately confirmed by the remote store (it is still applied and will retry automatically).',

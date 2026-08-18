@@ -1,11 +1,11 @@
 import type { ProjectionState, Task, TaskFilter, TaskId, TaskStatus } from '@alnorth/palimpsest'
-import { getTask, listTasks, listProjects, listAgendas, listContexts, listSpheres } from '@alnorth/palimpsest'
+import { getTask, getAgenda, listTasks, listProjects, listAgendas, listContexts, listSpheres } from '@alnorth/palimpsest'
 import { resolveSphere, resolveProject, resolveAgenda, resolveContext } from './resolve'
 import {
   toTaskJson, toProjectJson, toSphereJson, toAgendaJson, toContextJson,
   computeProjectStats, computeProjectStatsAndNextTasks,
 } from './serialize'
-import { dashboardTasks, processingBuckets, waitingGroups, pickListGroups } from './views'
+import { dashboardTasks, processingBuckets, waitingGroups, pickListGroups, agendaView } from './views'
 import { searchAll } from './search'
 
 export type StatusArg = 'open' | 'completed' | 'deleted' | 'any'
@@ -93,9 +93,16 @@ export interface SearchCommand {
   limit?: number
 }
 
+export interface AgendaViewCommand {
+  kind: 'agenda_view'
+  agenda: string
+  sphere?: string
+}
+
 export type ParsedCommand =
   | TasksCommand | TaskCommand | ProjectsCommand | SpheresCommand | AgendasCommand | ContextsCommand
   | DashboardCommand | ProcessingCommand | WaitingCommand | PickListCommand | SearchCommand
+  | AgendaViewCommand
 
 export interface RunQueryOptions {
   today?: string
@@ -277,6 +284,20 @@ function runSearchQuery(state: ProjectionState, command: SearchCommand): Record<
   return { count, total, truncated, results: items }
 }
 
+function runAgendaViewQuery(state: ProjectionState, command: AgendaViewCommand, today: string): Record<string, unknown> {
+  const sphereId = command.sphere !== undefined ? resolveSphere(state, command.sphere) : undefined
+  const agendaId = resolveAgenda(state, command.agenda, sphereId)
+  const agenda = getAgenda(state, agendaId)!
+  const { waitingTasks, activeTasks, projects } = agendaView(state, agendaId, today)
+  const stats = computeProjectStats(state)
+  return {
+    agenda: toAgendaJson(state, agenda),
+    waitingTasks: sortTasks(waitingTasks, 'open').map(t => toTaskJson(state, t)),
+    activeTasks: sortTasks(activeTasks, 'open').map(t => toTaskJson(state, t)),
+    projects: sortByName(projects).map(p => toProjectJson(state, p, stats.get(p.id) ?? { openTaskCount: 0, hasNextAction: false })),
+  }
+}
+
 export function runQuery(state: ProjectionState, command: ParsedCommand, opts: RunQueryOptions = {}): Record<string, unknown> {
   const today = opts.today ?? defaultToday()
   switch (command.kind) {
@@ -291,5 +312,6 @@ export function runQuery(state: ProjectionState, command: ParsedCommand, opts: R
     case 'waiting': return runWaitingQuery(state, command)
     case 'pick_list': return runPickListQuery(state, command)
     case 'search': return runSearchQuery(state, command)
+    case 'agenda_view': return runAgendaViewQuery(state, command, today)
   }
 }

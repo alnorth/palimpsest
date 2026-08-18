@@ -75,6 +75,11 @@ export interface SearchToolInput {
   limit?: number | undefined
 }
 
+export interface AgendaViewToolInput {
+  agenda: string
+  sphere?: string | undefined
+}
+
 export interface CompleteTaskToolInput {
   id: string
 }
@@ -207,6 +212,14 @@ export function handleSearch(store: TaskStore, input: SearchToolInput): Promise<
     ...(input.sphere !== undefined && { sphere: input.sphere }),
     ...(input.includeArchived === true && { includeArchived: true }),
     ...(input.limit !== undefined && { limit: input.limit }),
+  })
+}
+
+export function handleAgendaView(store: TaskStore, input: AgendaViewToolInput): Promise<CallToolResult> {
+  return runToolQuery(store, {
+    kind: 'agenda_view',
+    agenda: input.agenda,
+    ...(input.sphere !== undefined && { sphere: input.sphere }),
   })
 }
 
