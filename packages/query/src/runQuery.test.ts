@@ -211,6 +211,23 @@ describe('task <id>', () => {
   })
 })
 
+describe('project <id>', () => {
+  test('returns the project by id, including stats', () => {
+    const sphere = makeSphere()
+    const project = makeProject(sphere, { name: 'Find me' })
+    const task = makeTask({ projectId: project.id, isNext: true })
+    const state = buildState({ spheres: [sphere], projects: [project], tasks: [task] })
+    const result = runQuery(state, { kind: 'project', id: project.id }) as
+      { project: { name: string; openTaskCount: number; hasNextAction: boolean } }
+    expect(result.project).toEqual(expect.objectContaining({ name: 'Find me', openTaskCount: 1, hasNextAction: true }))
+  })
+
+  test('unknown id throws not-found', () => {
+    const state = buildState({})
+    expect(() => runQuery(state, { kind: 'project', id: 'missing' })).toThrowError(/No project with id "missing"/)
+  })
+})
+
 describe('projects', () => {
   test('includes openTaskCount and hasNextAction, excludes archived by default', () => {
     const sphere = makeSphere({ name: 'Work' })

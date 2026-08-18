@@ -4,6 +4,7 @@ import { renderHook, waitFor } from '@testing-library/react'
 import { makeSphere, makeProject, makeTask, makeAgenda, makeContext, buildState } from './testFixtures'
 import { FakeStore, makeWrapper } from './testHelpers'
 import { useProjects } from './useProjects'
+import { useProject } from './useProject'
 import { useSpheres } from './useSpheres'
 import { useAgendas } from './useAgendas'
 import { useContexts } from './useContexts'
@@ -60,6 +61,26 @@ describe('useProjects', () => {
     const { result } = renderHook(() => useProjects({ sphere: 'Work', includeNextTasks: true }), { wrapper: makeWrapper(store) })
     await waitFor(() => expect(result.current.isLoading).toBe(false))
     expect(result.current.data?.[0]?.nextTasks?.map(t => t.title)).toEqual(['Ship it'])
+  })
+})
+
+describe('useProject', () => {
+  test('returns a single project by id, including stats', async () => {
+    const sphere = makeSphere({ name: 'Work' })
+    const project = makeProject(sphere, { name: 'Find me' })
+    const task = makeTask({ projectId: project.id, isNext: true })
+    const store = new FakeStore(buildState({ spheres: [sphere], projects: [project], tasks: [task] }))
+
+    const { result } = renderHook(() => useProject(project.id), { wrapper: makeWrapper(store) })
+    await waitFor(() => expect(result.current.isLoading).toBe(false))
+    expect(result.current.data).toEqual(expect.objectContaining({ name: 'Find me', hasNextAction: true }))
+  })
+
+  test('surfaces an unknown id as an error', async () => {
+    const store = new FakeStore(buildState({}))
+    const { result } = renderHook(() => useProject('missing'), { wrapper: makeWrapper(store) })
+    await waitFor(() => expect(result.current.isLoading).toBe(false))
+    expect(result.current.error?.message).toMatch(/No project with id "missing"/)
   })
 })
 

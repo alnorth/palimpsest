@@ -2,6 +2,7 @@ export type {
   ParsedCommand,
   TasksCommand,
   TaskCommand,
+  ProjectCommand,
   ProjectsCommand,
   SpheresCommand,
   AgendasCommand,

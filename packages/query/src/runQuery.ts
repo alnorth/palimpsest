@@ -1,5 +1,5 @@
-import type { ProjectionState, Task, TaskFilter, TaskId, TaskStatus } from '@alnorth/palimpsest'
-import { getTask, getAgenda, listTasks, listProjects, listAgendas, listContexts, listSpheres } from '@alnorth/palimpsest'
+import type { ProjectionState, ProjectId, Task, TaskFilter, TaskId, TaskStatus } from '@alnorth/palimpsest'
+import { getTask, getProject, getAgenda, listTasks, listProjects, listAgendas, listContexts, listSpheres } from '@alnorth/palimpsest'
 import { resolveSphere, resolveProject, resolveAgenda, resolveContext } from './resolve'
 import {
   toTaskJson, toProjectJson, toSphereJson, toAgendaJson, toContextJson,
@@ -36,6 +36,11 @@ export interface TasksCommand {
 
 export interface TaskCommand {
   kind: 'task'
+  id: string
+}
+
+export interface ProjectCommand {
+  kind: 'project'
   id: string
 }
 
@@ -100,7 +105,7 @@ export interface AgendaViewCommand {
 }
 
 export type ParsedCommand =
-  | TasksCommand | TaskCommand | ProjectsCommand | SpheresCommand | AgendasCommand | ContextsCommand
+  | TasksCommand | TaskCommand | ProjectCommand | ProjectsCommand | SpheresCommand | AgendasCommand | ContextsCommand
   | DashboardCommand | ProcessingCommand | WaitingCommand | PickListCommand | SearchCommand
   | AgendaViewCommand
 
@@ -191,6 +196,13 @@ function runTaskQuery(state: ProjectionState, command: TaskCommand): Record<stri
   const task = getTask(state, command.id as TaskId)
   if (task === undefined) throw new Error(`No task with id "${command.id}".`)
   return { task: toTaskJson(state, task) }
+}
+
+function runProjectQuery(state: ProjectionState, command: ProjectCommand): Record<string, unknown> {
+  const project = getProject(state, command.id as ProjectId)
+  if (project === undefined) throw new Error(`No project with id "${command.id}".`)
+  const stats = computeProjectStats(state)
+  return { project: toProjectJson(state, project, statsFor(stats, project.id)) }
 }
 
 function runProjectsQuery(state: ProjectionState, command: ProjectsCommand): Record<string, unknown> {
@@ -303,6 +315,7 @@ export function runQuery(state: ProjectionState, command: ParsedCommand, opts: R
   switch (command.kind) {
     case 'tasks': return runTasksQuery(state, command, today)
     case 'task': return runTaskQuery(state, command)
+    case 'project': return runProjectQuery(state, command)
     case 'projects': return runProjectsQuery(state, command)
     case 'spheres': return runSpheresQuery(state)
     case 'agendas': return runAgendasQuery(state, command)
