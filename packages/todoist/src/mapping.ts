@@ -130,15 +130,20 @@ export function oneOffsProjectFor(sphereId: SphereId): string {
   return sphereId === PERSONAL_SPHERE_ID ? TODOIST_PERSONAL_ONEOFFS_ID : TODOIST_WORK_ONEOFFS_ID
 }
 
-// Todoist container project for a new free-floating task, based on due date state.
-// Recurring > Future Log > One-Offs (sphere-specific).
+// Todoist container project for a new free-floating task, based on sphere and due date state.
+// Recurring > Future Log > One-Offs (sphere-specific) — but a dated task with no sphere (e.g. a
+// quick-captured Inbox task never triaged into a sphere) stays in Inbox rather than guessing a
+// sphere just to bucket it: Future Log/Recurring are sphere-specific views, so a task that hasn't
+// been assigned a sphere yet doesn't belong in either.
 export function freeFloatingProjectFor(
-  sphereId: SphereId,
+  sphereId: SphereId | undefined,
   opts: { dueDate?: string; dueDateExpression?: string },
 ): string {
-  if (opts.dueDateExpression !== undefined) return TODOIST_RECURRING_ID
-  if (opts.dueDate !== undefined)           return TODOIST_FUTURE_LOG_ID
-  return oneOffsProjectFor(sphereId)
+  const hasDueState = opts.dueDateExpression !== undefined || opts.dueDate !== undefined
+  if (sphereId === undefined && hasDueState) return TODOIST_INBOX_ID
+  if (opts.dueDateExpression !== undefined)  return TODOIST_RECURRING_ID
+  if (opts.dueDate !== undefined)            return TODOIST_FUTURE_LOG_ID
+  return oneOffsProjectFor(sphereId ?? WORK_SPHERE_ID)
 }
 
 // Todoist container project for a project-less task, mirroring the read path's own priority:
@@ -148,7 +153,7 @@ export function freeFloatingProjectFor(
 // Recurring/Future Log/One-Offs — the same way a task living there is read back with that agendaId
 // with no label needed at all.
 export function projectlessContainerFor(
-  sphereId: SphereId,
+  sphereId: SphereId | undefined,
   agendaId: AgendaId | undefined,
   opts: { dueDate?: string; dueDateExpression?: string },
 ): string {

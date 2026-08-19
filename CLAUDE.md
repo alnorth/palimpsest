@@ -231,6 +231,18 @@ regardless of whether it actually changed" pattern the label set already uses) r
 incrementally, since core's `Task` type has no field recording which Todoist container a
 project-less task currently sits in to diff against.
 
+`freeFloatingProjectFor(sphereId, opts)` takes `sphereId: SphereId | undefined` — Recurring and
+Future Log are sphere-specific buckets, so a dated project-less task with no resolvable sphere (its
+own `sphereId` unset and, for `task.updated`'s CLEAR-project path, `getTaskSphereId` returning
+`undefined` because the project it's being cleared from can't be found either) stays in
+`TODOIST_INBOX_ID` instead of guessing Work as a default just to pick a bucket. An undated
+project-less task with no sphere still falls back to Work One-Offs (`oneOffsProjectFor`'s existing
+default) since that bucket isn't sphere-exclusive in the same way — only the dated buckets are
+guarded. Both `write.ts` call sites (`task.created`, `task.updated`'s `isProjectless` block) pass
+the *unresolved* `sphereId | undefined` straight through rather than defaulting it to
+`WORK_SPHERE_ID` before calling `projectlessContainerFor`, so this guard actually sees the
+sphere-less case instead of it being masked upstream.
+
 Moving a task *onto a real project* is the one case `projectlessContainerFor` doesn't cover, since
 the task is no longer project-less at all — but it has the same "silently drop the agenda" risk:
 because the agenda inference is implicit (no label actually exists on the Todoist item while the

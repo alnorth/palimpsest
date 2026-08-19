@@ -124,6 +124,26 @@ describe('buildCommands — task.created', () => {
     expect(commands[0]?.args.project_id).toBe(TODOIST_WORK_ONEOFFS_ID)
   })
 
+  // A task with no sphere and no project (e.g. a quick-captured Inbox task, never triaged into a
+  // sphere) must stay in Inbox even once it gains a due date — Future Log/Recurring are reserved
+  // for tasks with a sphere; guessing a sphere for placement purposes would move the task somewhere
+  // the user hasn't actually filed it.
+  it('no sphere + no projectId + dueDate → stays in Inbox, not Future Log', () => {
+    const { commands } = buildCommands(
+      event({ dueDate: '2026-12-01', sphereId: undefined } as Partial<PalimpsestEvent>),
+      baseState(),
+    )
+    expect(commands[0]?.args.project_id).toBe(TODOIST_INBOX_ID)
+  })
+
+  it('no sphere + no projectId + dueDateExpression → stays in Inbox, not Recurring', () => {
+    const { commands } = buildCommands(
+      event({ dueDateExpression: 'every monday', sphereId: undefined } as Partial<PalimpsestEvent>),
+      baseState(),
+    )
+    expect(commands[0]?.args.project_id).toBe(TODOIST_INBOX_ID)
+  })
+
   it('isStarred → priority 4', () => {
     const { commands } = buildCommands(event({ isStarred: true }), baseState())
     expect(commands[0]?.args.priority).toBe(4)
@@ -335,12 +355,37 @@ describe('buildCommands — task.updated', () => {
   })
 
   it('clearing a task\'s project (CLEAR) with no agendaId falls back to the due-date-appropriate free-floating container', () => {
+    const state = stateWithTask('t1', { projectId: 'proj2' as ProjectId, dueDate: '2026-12-01' })
+    state.projects.set('proj2' as ProjectId, {
+      id: 'proj2' as ProjectId, sphereId: WORK_SPHERE_ID, name: 'Project Two',
+      createdAt: '', updatedAt: '',
+    })
     const { commands } = buildCommands(
       updEvent('t1', { projectId: CLEAR }),
-      stateWithTask('t1', { projectId: 'proj2' as ProjectId, dueDate: '2026-12-01' }),
+      state,
     )
     const moveCmd = commands.find(c => c.type === 'item_move')
     expect(moveCmd?.args.project_id).toBe(TODOIST_FUTURE_LOG_ID)
+  })
+
+  // A project-less task with no sphere at all (e.g. living in Inbox, never triaged) must stay in
+  // Inbox when it gains a due date, rather than guessing a sphere to bucket it into Future Log.
+  it('adding a dueDate to a sphere-less project-less task keeps it in Inbox, not Future Log', () => {
+    const { commands } = buildCommands(
+      updEvent('t1', { dueDate: '2026-12-01' }),
+      stateWithTask('t1', { sphereId: undefined }),
+    )
+    const moveCmd = commands.find(c => c.type === 'item_move')
+    expect(moveCmd?.args.project_id).toBe(TODOIST_INBOX_ID)
+  })
+
+  it('adding a dueDateExpression to a sphere-less project-less task keeps it in Inbox, not Recurring', () => {
+    const { commands } = buildCommands(
+      updEvent('t1', { dueDateExpression: 'every monday' }),
+      stateWithTask('t1', { sphereId: undefined }),
+    )
+    const moveCmd = commands.find(c => c.type === 'item_move')
+    expect(moveCmd?.args.project_id).toBe(TODOIST_INBOX_ID)
   })
 
   // A task bound to a real project never carries a direct sphereId (sphere is inherited via the

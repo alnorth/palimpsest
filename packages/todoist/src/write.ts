@@ -3,7 +3,6 @@ import { CLEAR, getTaskSphereId } from '@alnorth/palimpsest'
 import type { SyncCommand } from './api'
 import { computeLabels } from './labels'
 import {
-  WORK_SPHERE_ID,
   TODOIST_INBOX_ID,
   projectlessContainerFor,
   sphereParentProjectFor,
@@ -91,8 +90,8 @@ export function buildCommands(
 
     case 'task.created': {
       const sphereId = event.sphereId ?? (event.projectId !== undefined
-        ? (state.projects.get(event.projectId)?.sphereId ?? WORK_SPHERE_ID)
-        : WORK_SPHERE_ID)
+        ? state.projects.get(event.projectId)?.sphereId
+        : undefined)
 
       const todoistProjectId = event.projectId !== undefined
         ? String(event.projectId)
@@ -221,7 +220,7 @@ export function buildCommands(
         patch.dueDate            !== undefined ||
         patch.dueDateExpression  !== undefined
       )) {
-        const sphereId = getTaskSphereId(state, task) ?? WORK_SPHERE_ID
+        const sphereId = getTaskSphereId(state, task)
         const { dueDate: containerDueDate, dueDateExpression: containerDueExpression } =
           effectiveDueState(task, patch)
         const newContainer = projectlessContainerFor(sphereId, newAgendaId, {

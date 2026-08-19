@@ -13,6 +13,7 @@ import {
   TODOIST_PERSONAL_PROJECT_ID,
   TODOIST_RECURRING_ID,
   TODOIST_FUTURE_LOG_ID,
+  TODOIST_INBOX_ID,
   WORK_SPHERE_ID,
   PERSONAL_SPHERE_ID,
   LABEL_TO_AGENDA_ID,
@@ -92,6 +93,18 @@ describe('freeFloatingProjectFor', () => {
   it('no dates → One-Offs (sphere-specific)', () => {
     expect(freeFloatingProjectFor(WORK_SPHERE_ID,     {})).toBe(TODOIST_WORK_ONEOFFS_ID)
     expect(freeFloatingProjectFor(PERSONAL_SPHERE_ID, {})).toBe(TODOIST_PERSONAL_ONEOFFS_ID)
+  })
+
+  it('no sphere + dueDate → Inbox, not Future Log', () => {
+    expect(freeFloatingProjectFor(undefined, { dueDate: '2026-12-01' })).toBe(TODOIST_INBOX_ID)
+  })
+
+  it('no sphere + dueDateExpression → Inbox, not Recurring', () => {
+    expect(freeFloatingProjectFor(undefined, { dueDateExpression: 'every monday' })).toBe(TODOIST_INBOX_ID)
+  })
+
+  it('no sphere + no dates → falls back to Work one-offs (unaffected: only dated tasks require a sphere)', () => {
+    expect(freeFloatingProjectFor(undefined, {})).toBe(TODOIST_WORK_ONEOFFS_ID)
   })
 })
 
