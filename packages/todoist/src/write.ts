@@ -2,6 +2,7 @@ import type { PalimpsestEvent, ProjectionState, Task, TaskPatch } from '@alnorth
 import { CLEAR, getTaskSphereId } from '@alnorth/palimpsest'
 import type { SyncCommand } from './api'
 import { computeLabels } from './labels'
+import { deriveTodoistShape } from './deriveTodoistShape'
 import {
   TODOIST_INBOX_ID,
   projectlessContainerFor,
@@ -39,10 +40,8 @@ function resolvePatchField<T>(current: T | undefined, patchValue: T | typeof CLE
   return patchValue !== undefined ? (patchValue === CLEAR ? undefined : patchValue) : current
 }
 
-// The due date/expression a task will have once `patch` is applied. Used only to pick the
-// project-less container a task belongs in (see the isProjectless block in the task.updated case
-// below), which is why it stays separate from the newExpression/newDate locals computed inline
-// there for the different purpose of building the Sync API `due` arg.
+// The due date/expression a task will have once `patch` is applied — feeds both the after-patch
+// TodoistShape (due arg + container bucket) in the task.updated case below.
 function effectiveDueState(
   task: Pick<Task, 'dueDate' | 'dueDateExpression'>,
   patch: Pick<TaskPatch, 'dueDate' | 'dueDateExpression'>,
@@ -133,104 +132,75 @@ export function buildCommands(
       if (task === undefined) return { commands: [] }
 
       const patch = event.patch
+
+      // The sphere used to pick a project-less container never changes within one update: it's
+      // inherited either from the task's current project (if any) or its own sphereId, and there's
+      // no patch field that moves a task to a different sphere independent of its project — a
+      // cleared project's sphere carries forward as the container's sphere context, same as today.
+      const sphereId = getTaskSphereId(state, task)
+
+      const before = deriveTodoistShape({
+        title: task.title, description: task.description,
+        isNext: task.isNext, agendaId: task.agendaId, contextId: task.contextId,
+        waitingFor: task.waitingFor, isStarred: task.isStarred,
+        dueDate: task.dueDate, dueDateExpression: task.dueDateExpression,
+        projectId: task.projectId, sphereId,
+      })
+
+      const afterProjectId = resolvePatchField(task.projectId, patch.projectId)
+      const afterAgendaId = resolvePatchField(task.agendaId, patch.agendaId)
+      const { dueDate: afterDueDate, dueDateExpression: afterDueDateExpression } = effectiveDueState(task, patch)
+
+      const after = deriveTodoistShape({
+        title: patch.title ?? task.title,
+        description: patch.description ?? task.description,
+        isNext: patch.isNext !== undefined ? (patch.isNext === true ? true : undefined) : task.isNext,
+        agendaId: afterAgendaId,
+        contextId: resolvePatchField(task.contextId, patch.contextId),
+        waitingFor: resolvePatchField(task.waitingFor, patch.waitingFor),
+        isStarred: patch.isStarred !== undefined ? (patch.isStarred === true ? true : undefined) : task.isStarred,
+        dueDate: afterDueDate, dueDateExpression: afterDueDateExpression,
+        projectId: afterProjectId, sphereId,
+      })
+
       const args: Record<string, unknown> = { id: String(event.taskId) }
-
-      if (patch.title !== undefined) args['content'] = patch.title
-      const hasStructuralDescription =
-        task.waitingFor?.kind === 'trello' || task.waitingFor?.kind === 'project'
-      if (patch.description !== undefined && !hasStructuralDescription) {
-        args['description'] = patch.description
+      if (before.content     !== after.content)     args['content']     = after.content
+      if (before.description !== after.description) args['description'] = after.description
+      if (before.priority    !== after.priority)    args['priority']    = after.priority
+      if (after.due !== undefined && JSON.stringify(before.due) !== JSON.stringify(after.due)) {
+        args['due'] = after.due
       }
 
-      const newAgendaId = resolvePatchField(task.agendaId, patch.agendaId)
-
-      // A task with no projectId may carry an agendaId inferred purely from living directly in
-      // that agenda's dedicated Todoist project (see AGENDA_PROJECT_IDS) rather than from an
-      // explicit label — moving it onto a real project drops that implicit signal, so the label
-      // set must be (re)computed whenever the project changes and the task has an agendaId, not
-      // only when agendaId itself is what's being patched.
-      if (
-        patch.isNext     !== undefined ||
-        patch.agendaId   !== undefined ||
-        patch.contextId  !== undefined ||
-        patch.waitingFor !== undefined ||
-        (patch.projectId !== undefined && patch.projectId !== CLEAR && task.agendaId !== undefined)
-      ) {
-        const newContextId  = resolvePatchField(task.contextId, patch.contextId)
-        const newIsNext     = patch.isNext     !== undefined ? (patch.isNext     === false  ? undefined : true)             : task.isNext
-        const newWaitingFor = resolvePatchField(task.waitingFor, patch.waitingFor)
-        args['labels'] = computeLabels({ isNext: newIsNext, agendaId: newAgendaId, contextId: newContextId, waitingFor: newWaitingFor })
-      }
-
-      if (patch.isStarred !== undefined) {
-        args['priority'] = patch.isStarred === true ? 4 : 1
-      }
-
-      if (patch.waitingFor !== undefined) {
-        if (patch.waitingFor !== CLEAR && patch.waitingFor.kind === 'project') {
-          args['description'] = todoistProjectUrl(patch.waitingFor.projectId)
-        } else if (patch.waitingFor !== CLEAR && patch.waitingFor.kind === 'trello') {
-          args['description'] = patch.waitingFor.cardUrl
-        } else if (patch.description === undefined) {
-          args['description'] = task.description
-        }
-      }
-
-      const newExpression = patch.dueDateExpression !== undefined && patch.dueDateExpression !== CLEAR
-        ? patch.dueDateExpression : undefined
-      const newDate = patch.dueDate !== undefined && patch.dueDate !== CLEAR
-        ? patch.dueDate : undefined
-      // When only the date changes, carry the existing expression forward so
-      // Todoist doesn't wipe it out. When both change, newExpression wins.
-      const effectiveExpression = newExpression ?? (newDate !== undefined ? task.dueDateExpression : undefined)
-
-      if (newExpression !== undefined || newDate !== undefined) {
-        args['due'] = {
-          ...(newDate          !== undefined && { date:   newDate }),
-          ...(effectiveExpression !== undefined && { string: effectiveExpression }),
-        }
+      // A project-less task living directly in its agenda's dedicated Todoist project (see
+      // AGENDA_PROJECT_IDS) carries that agenda purely via project membership — it may never have
+      // had the agenda label explicitly written to Todoist. computeLabels() (inside
+      // deriveTodoistShape) always includes the label whenever agendaId is set, so before.labels
+      // and after.labels can come out equal even though the real Todoist item's label array is
+      // missing it. Moving such a task onto/between real projects is the one moment that implicit
+      // signal would be lost, so force a resend then, even though the diff alone sees no change.
+      const forceLabelResync =
+        patch.projectId !== undefined && patch.projectId !== CLEAR &&
+        before.containerProjectId !== after.containerProjectId &&
+        (task.agendaId !== undefined || afterAgendaId !== undefined)
+      if (forceLabelResync || JSON.stringify(before.labels) !== JSON.stringify(after.labels)) {
+        args['labels'] = after.labels
       }
 
       const commands: SyncCommand[] = []
-
       if (Object.keys(args).length > 1) {
         commands.push({ type: 'item_update', uuid: uuid(), args })
       }
 
-      // Moving to a different (real) project
-      if (patch.projectId !== undefined && patch.projectId !== CLEAR) {
+      // One comparison replaces the old two separate branches (moving onto a real project vs.
+      // recomputing the project-less container): containerProjectId already encodes "real project
+      // id if set, else the project-less bucket" (agenda project takes priority, else the
+      // due-date-bucketed free-floating container), so any transition between real/real,
+      // real/project-less, or project-less/project-less is just "did this value change."
+      if (before.containerProjectId !== after.containerProjectId) {
         commands.push({
           type: 'item_move',
           uuid: uuid(),
-          args: { id: String(event.taskId), project_id: String(patch.projectId) },
-        })
-        return { commands }
-      }
-
-      // The task is (now) project-less — either it already had no real project, or this patch
-      // just cleared one (the real-project move above already returned otherwise). Keep it in
-      // the correct container whenever anything that container choice depends on changes: its
-      // agendaId (own dedicated project takes priority — mirrors the read path's AGENDA_PROJECT_IDS
-      // check), the project itself being cleared, or due date state (One-Offs / Future Log /
-      // Recurring, when there's no agenda project to place it in instead).
-      const isProjectless = task.projectId === undefined || patch.projectId === CLEAR
-      if (isProjectless && (
-        patch.projectId         !== undefined ||
-        patch.agendaId          !== undefined ||
-        patch.dueDate            !== undefined ||
-        patch.dueDateExpression  !== undefined
-      )) {
-        const sphereId = getTaskSphereId(state, task)
-        const { dueDate: containerDueDate, dueDateExpression: containerDueExpression } =
-          effectiveDueState(task, patch)
-        const newContainer = projectlessContainerFor(sphereId, newAgendaId, {
-          ...(containerDueExpression !== undefined && { dueDateExpression: containerDueExpression }),
-          ...(containerDueDate       !== undefined && { dueDate:           containerDueDate }),
-        })
-        commands.push({
-          type: 'item_move',
-          uuid: uuid(),
-          args: { id: String(event.taskId), project_id: newContainer },
+          args: { id: String(event.taskId), project_id: after.containerProjectId },
         })
       }
 
