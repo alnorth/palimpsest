@@ -218,15 +218,21 @@ back to the ordinary `freeFloatingProjectFor` due-date bucketing (Recurring/Futu
 project-less task created with an `agendaId` is placed directly into that agenda's project, not
 merely labelled while it sits in One-Offs. `task.updated` calls it (via a `newContainer`
 `item_move`) whenever the task is (now) project-less — already was, or `patch.projectId` just
-cleared a real one — and either `patch.projectId`, `patch.agendaId`, `patch.dueDate`, or
+cleared a real one — and `patch.projectId`, `patch.sphereId`, `patch.agendaId`, `patch.dueDate`, or
 `patch.dueDateExpression` changed, so setting/clearing/changing a project-less task's `agendaId`
 physically moves it into/out of/between agenda projects, and a due date change on an agenda-tagged
 project-less task leaves it in the agenda project rather than a due-date bucket (agendaId takes
-priority over due date when both are present). Every one of these container moves is recomputed and
-resent unconditionally on a relevant patch (the same "recompute the full derived value, resend
-regardless of whether it actually changed" pattern the label set already uses) rather than tracked
-incrementally, since core's `Task` type has no field recording which Todoist container a
-project-less task currently sits in to diff against.
+priority over due date when both are present). A direct `sphereId` patch (from `set_task_sphere`/
+`useSetTaskSphere`, see packages/mcp and packages/hooks below) is resolved the same way: the
+container's effective sphere is `resolvePatchField(getTaskSphereId(state, task), patch.sphereId)`,
+not `patch.sphereId` alone — `getTaskSphereId(state, task)` (evaluated against the *pre-patch*
+state) already gets the "project just cleared" case right, since it reads the old project's own
+`sphereId` rather than the task's (a project-linked task never carries a direct `sphereId` of its
+own), and `resolvePatchField` layers an explicit `sphereId` patch on top of that without disturbing
+it. Every one of these container moves is recomputed and resent unconditionally on a relevant patch
+(the same "recompute the full derived value, resend regardless of whether it actually changed"
+pattern the label set already uses) rather than tracked incrementally, since core's `Task` type has
+no field recording which Todoist container a project-less task currently sits in to diff against.
 
 Moving a task *onto a real project* is the one case `projectlessContainerFor` doesn't cover, since
 the task is no longer project-less at all — but it has the same "silently drop the agenda" risk:
@@ -239,6 +245,14 @@ set to a real project *and* the task carries an `agendaId` — not only when `ag
 what's being patched — so the `item_move` onto the real project is always paired with an
 `item_update` that makes the association explicit via the label, the same as it would be for any
 other task in a real project.
+
+A project's `sphereId` patch (from `set_project_sphere`/`useSetProjectSphere`) physically moves the
+Todoist project itself: `write.ts`'s `project.updated` case sends a `project_move` command with
+`parent_id: sphereParentProjectFor(patch.sphereId)` whenever `patch.sphereId` is present, the same
+sphere-container parent `project.created` already places a brand-new project under — this is what
+the read path's own parent-chain walk (`resolveSphereFromTask`/`resolveSphereId`'s search for
+`TODOIST_WORK_PROJECT_ID`/`TODOIST_PERSONAL_PROJECT_ID`) resolves a project's sphere from, so without
+it a `sphereId`-only patch produced no command at all and silently reverted on the next read.
 
 Project descriptions round-trip like every other project field: `SyncProject.description` (added to
 Todoist's project object after this integration was first built) is mapped onto core's

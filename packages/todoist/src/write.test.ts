@@ -563,6 +563,50 @@ describe('buildCommands — task.updated', () => {
     )
     expect(commands.every(c => c.type !== 'item_move')).toBe(true)
   })
+
+  it('sphereId patch on a project-less task → item_move to the new sphere\'s free-floating container', () => {
+    const { commands } = buildCommands(
+      updEvent('t1', { sphereId: PERSONAL_SPHERE_ID }),
+      stateWithTask('t1', { sphereId: WORK_SPHERE_ID }),
+    )
+    const moveCmd = commands.find(c => c.type === 'item_move')
+    expect(moveCmd?.args.project_id).toBe(TODOIST_PERSONAL_ONEOFFS_ID)
+  })
+
+  it('sphereId patch on a project-less task with an agendaId keeps it in the agenda project rather than a due-date bucket', () => {
+    const { commands } = buildCommands(
+      updEvent('t1', { sphereId: PERSONAL_SPHERE_ID }),
+      stateWithTask('t1', { sphereId: WORK_SPHERE_ID, agendaId: 'agenda-jim' as AgendaId }),
+    )
+    const moveCmd = commands.find(c => c.type === 'item_move')
+    expect(moveCmd?.args.project_id).toBe(AGENDA_ID_TO_AGENDA_PROJECT_ID['agenda-jim'])
+  })
+
+  it('sphereId patch combined with dueDate still resolves the container from the new sphere', () => {
+    const { commands } = buildCommands(
+      updEvent('t1', { sphereId: PERSONAL_SPHERE_ID, dueDate: '2026-12-01' }),
+      stateWithTask('t1', { sphereId: WORK_SPHERE_ID }),
+    )
+    const moveCmd = commands.find(c => c.type === 'item_move')
+    expect(moveCmd?.args.project_id).toBe(TODOIST_FUTURE_LOG_ID)
+  })
+
+  // Clearing a real project (task.sphereId itself is never set while project-linked) must keep
+  // deriving the container from the (pre-patch) project's own sphere, not default to Work, even
+  // once a sphereId-aware resolvePatchField layer sits on top of getTaskSphereId.
+  it('clearing a task\'s project still resolves the container by the project\'s inherited sphere when no sphereId patch is present', () => {
+    const state = stateWithTask('t1', { projectId: 'proj-personal' as ProjectId, sphereId: undefined })
+    state.projects.set('proj-personal' as ProjectId, {
+      id: 'proj-personal' as ProjectId, sphereId: PERSONAL_SPHERE_ID, name: 'Personal Project',
+      createdAt: '', updatedAt: '',
+    })
+    const { commands } = buildCommands(
+      updEvent('t1', { projectId: CLEAR }),
+      state,
+    )
+    const moveCmd = commands.find(c => c.type === 'item_move')
+    expect(moveCmd?.args.project_id).toBe(TODOIST_PERSONAL_ONEOFFS_ID)
+  })
 })
 
 // ── Other event types ─────────────────────────────────────────────────────────
@@ -716,6 +760,34 @@ describe('buildCommands — project lifecycle', () => {
     expect(commands).toHaveLength(1)
     expect(commands[0]?.args.name).toBe('New name')
     expect(commands[0]?.args.description).toBe('new goal')
+  })
+
+  it('project.updated sphereId → project_move to the new sphere\'s parent container', () => {
+    const { commands } = buildCommands(
+      {
+        type: 'project.updated', id: evId(), occurredAt: '',
+        projectId: projId(), patch: { sphereId: PERSONAL_SPHERE_ID },
+      },
+      baseState(),
+    )
+    const moveCmd = commands.find(c => c.type === 'project_move')
+    expect(moveCmd?.args.id).toBe(projId())
+    expect(moveCmd?.args.parent_id).toBe(TODOIST_PERSONAL_PROJECT_ID)
+  })
+
+  it('project.updated sphereId + name → both project_update and project_move', () => {
+    const { commands } = buildCommands(
+      {
+        type: 'project.updated', id: evId(), occurredAt: '',
+        projectId: projId(), patch: { name: 'New name', sphereId: WORK_SPHERE_ID },
+      },
+      baseState(),
+    )
+    const types = commands.map(c => c.type)
+    expect(types).toContain('project_update')
+    expect(types).toContain('project_move')
+    const moveCmd = commands.find(c => c.type === 'project_move')
+    expect(moveCmd?.args.parent_id).toBe(TODOIST_WORK_PROJECT_ID)
   })
 
   it('agendaId patch with no ctx → no command (backwards compatible when ctx is omitted)', () => {
