@@ -251,9 +251,19 @@ describe('buildCommands — task.updated', () => {
   it('isStarred false → priority 1', () => {
     const { commands } = buildCommands(
       updEvent('t1', { isStarred: false }),
-      stateWithTask('t1'),
+      stateWithTask('t1', { isStarred: true }),
     )
     expect(commands[0]?.args.priority).toBe(1)
+  })
+
+  // The diff-based design only sends a command when the derived Todoist value actually changes —
+  // patching isStarred: false onto a task that's already unstarred is a no-op, not a resend.
+  it('isStarred false on an already-unstarred task → no command (no-op, not a resend)', () => {
+    const { commands } = buildCommands(
+      updEvent('t1', { isStarred: false }),
+      stateWithTask('t1'),
+    )
+    expect(commands).toHaveLength(0)
   })
 
   it('dueDate patch → due.date', () => {
@@ -441,13 +451,16 @@ describe('buildCommands — task.updated', () => {
     expect(moveCmd?.args.project_id).toBe(AGENDA_ID_TO_AGENDA_PROJECT_ID['agenda-marcia'])
   })
 
-  it('a due date change on a project-less task with an agendaId keeps it in the agenda project rather than a due-date bucket', () => {
+  // The diff-based design only moves a task when its container actually changes — a task already
+  // in its agenda's dedicated project stays there regardless of a due-date change (agenda takes
+  // priority over due-date bucketing either way), so no item_move is sent (the old code re-sent a
+  // same-container item_move here unconditionally whenever a due field was touched).
+  it('a due date change on a project-less task with an agendaId keeps it in the agenda project → no item_move (container unchanged)', () => {
     const { commands } = buildCommands(
       updEvent('t1', { dueDate: '2026-12-01' }),
       stateWithTask('t1', { agendaId: 'agenda-jim' as AgendaId }),
     )
-    const moveCmd = commands.find(c => c.type === 'item_move')
-    expect(moveCmd?.args.project_id).toBe(AGENDA_ID_TO_AGENDA_PROJECT_ID['agenda-jim'])
+    expect(commands.some(c => c.type === 'item_move')).toBe(false)
   })
 
   it('a combined agendaId + projectId patch → item_update carries the new agenda label alongside item_move', () => {
@@ -521,6 +534,29 @@ describe('buildCommands — task.updated', () => {
     expect(commands[0]?.args.labels).not.toContain('waiting')
   })
 
+  it('description patch (no waitingFor involved) → item_update description', () => {
+    const { commands } = buildCommands(
+      updEvent('t1', { description: 'new notes' }),
+      stateWithTask('t1', { description: 'old notes' }),
+    )
+    expect(commands[0]?.args.description).toBe('new notes')
+  })
+
+  // Regression: clearing a structural waitingFor (project/trello) while supplying a new
+  // description in the same patch must apply the new description — the old ad hoc code silently
+  // dropped it in exactly this combination (a pre-patch "has structural description" guard raced
+  // against a post-patch "only overwrite if patch.description is untouched" guard).
+  it('clearing a structural waitingFor while also setting a new description → new description applied', () => {
+    const { commands } = buildCommands(
+      updEvent('t1', { waitingFor: CLEAR, description: 'new notes' }),
+      stateWithTask('t1', {
+        waitingFor: { kind: 'project', projectId: 'proj2' as ProjectId },
+        description: '',
+      }),
+    )
+    expect(commands[0]?.args.description).toBe('new notes')
+  })
+
   // ── Free-floating container moves ─────────────────────────────────────────
 
   it('adding dueDate to undated free-floating task → item_move to Future Log', () => {
@@ -577,13 +613,16 @@ describe('buildCommands — task.updated', () => {
     expect(move?.args.project_id).toBe(TODOIST_WORK_ONEOFFS_ID)
   })
 
-  it('changing dueDate on Future Log task → item_move to Future Log (idempotent)', () => {
+  // The diff-based design only moves a task when its *container* changes — a due-date value
+  // change that stays within the same bucket (Future Log either way) is no longer a container
+  // change, so no item_move is sent (the old code re-sent a same-container item_move here
+  // unconditionally whenever dueDate was touched; that was always a no-op Sync API call).
+  it('changing dueDate within the same bucket (Future Log → Future Log) → no item_move', () => {
     const { commands } = buildCommands(
       updEvent('t1', { dueDate: '2027-01-01' }),
       stateWithTask('t1', { dueDate: '2026-12-01' }),
     )
-    const move = commands.find(c => c.type === 'item_move')
-    expect(move?.args.project_id).toBe(TODOIST_FUTURE_LOG_ID)
+    expect(commands.some(c => c.type === 'item_move')).toBe(false)
   })
 
   it('container move + title change → both item_update and item_move', () => {
