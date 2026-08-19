@@ -45,13 +45,14 @@ describe('createMcpServer', () => {
     client = await connectedClient(fakeStore(buildState({ spheres: [sphere], tasks: [task] })))
   })
 
-  test('registers all sixteen tools', async () => {
+  test('registers all eighteen tools', async () => {
     const { tools } = await client.listTools()
     expect(tools.map(t => t.name).sort()).toEqual(
       [
         'agendas', 'contexts', 'projects', 'spheres', 'task', 'tasks',
         'dashboard', 'processing', 'waiting', 'pick_list', 'search', 'agenda_view',
         'complete_task', 'set_due_date', 'delete_task', 'set_project_agenda',
+        'set_task_sphere', 'set_project_sphere',
       ].sort(),
     )
   })
@@ -236,6 +237,27 @@ describe('createMcpServer', () => {
     expect(firstText(result)).toMatch(/Task not found: missing/)
   })
 
+  test('set_task_sphere tool sets a task\'s sphere by id and returns the updated task', async () => {
+    const sphere = makeSphere({ name: 'Errands' })
+    const otherSphere = makeSphere({ name: 'Home' })
+    const task = makeTask({ sphereId: sphere.id, title: 'Buy milk', status: 'open' })
+    const scopedClient = await connectedClient(fakeStore(buildState({ spheres: [sphere, otherSphere], tasks: [task] })))
+
+    const result = await scopedClient.callTool({
+      name: 'set_task_sphere', arguments: { id: task.id, sphereId: otherSphere.id },
+    })
+
+    expect(result.isError).toBeUndefined()
+    const parsed = JSON.parse(firstText(result)) as { task: { title: string; sphere: { name: string } } }
+    expect(parsed.task).toEqual(expect.objectContaining({ title: 'Buy milk', sphere: { id: otherSphere.id, name: 'Home' } }))
+  })
+
+  test('set_task_sphere tool surfaces an unknown id as a tool error, not a protocol error', async () => {
+    const result = await client.callTool({ name: 'set_task_sphere', arguments: { id: 'missing', sphereId: 'sph-1' } })
+    expect(result.isError).toBe(true)
+    expect(firstText(result)).toMatch(/Task not found: missing/)
+  })
+
   test('projects tool accepts agenda/hasAgenda/withoutAgenda filters', async () => {
     const sphere = makeSphere({ name: 'Errands' })
     const agenda = makeAgenda(sphere, { title: 'Jim' })
@@ -287,6 +309,29 @@ describe('createMcpServer', () => {
 
   test('set_project_agenda tool surfaces an unknown id as a tool error, not a protocol error', async () => {
     const result = await client.callTool({ name: 'set_project_agenda', arguments: { id: 'missing', agendaId: null } })
+    expect(result.isError).toBe(true)
+    expect(firstText(result)).toMatch(/Project not found: missing/)
+  })
+
+  test('set_project_sphere tool moves a project to a different sphere and returns the updated project', async () => {
+    const sphere = makeSphere({ name: 'Errands' })
+    const otherSphere = makeSphere({ name: 'Home' })
+    const project = makeProject(sphere, { name: 'Website' })
+    const scopedClient = await connectedClient(fakeStore(buildState({
+      spheres: [sphere, otherSphere], projects: [project],
+    })))
+
+    const result = await scopedClient.callTool({
+      name: 'set_project_sphere', arguments: { id: project.id, sphereId: otherSphere.id },
+    })
+
+    expect(result.isError).toBeUndefined()
+    const parsed = JSON.parse(firstText(result)) as { project: { name: string; sphere: { name: string } } }
+    expect(parsed.project).toEqual(expect.objectContaining({ name: 'Website', sphere: { id: otherSphere.id, name: 'Home' } }))
+  })
+
+  test('set_project_sphere tool surfaces an unknown id as a tool error, not a protocol error', async () => {
+    const result = await client.callTool({ name: 'set_project_sphere', arguments: { id: 'missing', sphereId: 'sph-1' } })
     expect(result.isError).toBe(true)
     expect(firstText(result)).toMatch(/Project not found: missing/)
   })

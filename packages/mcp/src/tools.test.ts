@@ -8,6 +8,7 @@ import {
   handleTasks, handleTask, handleProjects, handleSpheres, handleAgendas, handleContexts,
   handleDashboard, handleProcessing, handleWaiting, handlePickList, handleSearch, handleAgendaView,
   handleCompleteTask, handleSetDueDate, handleDeleteTask, handleSetProjectAgenda,
+  handleSetTaskSphere, handleSetProjectSphere,
 } from './tools'
 
 function fakeStore(state: ProjectionState): TaskStore & { calls: string[] } {
@@ -713,6 +714,109 @@ describe('handleSetProjectAgenda', () => {
     const store = mutableFakeStore(buildState({ spheres: [sphere, otherSphere], agendas: [agenda], projects: [project] }))
 
     const result = await handleSetProjectAgenda(store, { id: project.id, agendaId: agenda.id })
+
+    expect(result.isError).toBe(true)
+    expect(resultText(result)).toMatch(/different sphere/)
+    expect(store.appended).toEqual([])
+  })
+})
+
+describe('handleSetTaskSphere', () => {
+  test('sets a new sphereId on a project-less task, flushes, and returns the updated task', async () => {
+    const sphere = makeSphere({ name: 'Work' })
+    const otherSphere = makeSphere({ name: 'Personal' })
+    const task = makeTask({ sphereId: sphere.id, title: 'Buy milk', status: 'open' })
+    const store = mutableFakeStore(buildState({ spheres: [sphere, otherSphere], tasks: [task] }))
+
+    const result = await handleSetTaskSphere(store, { id: task.id, sphereId: otherSphere.id })
+
+    expect(result.isError).toBeUndefined()
+    expect(store.calls).toEqual(['sync', 'getState', 'appendEvents', 'sync', 'getState'])
+    expect(store.appended).toEqual([[expect.objectContaining({
+      type: 'task.updated', taskId: task.id, patch: { sphereId: otherSphere.id },
+    })]])
+    const parsed = parseOk<{ synced: boolean; task: { title: string; sphere: { name: string } } }>(result)
+    expect(parsed.synced).toBe(true)
+    expect(parsed.task.title).toBe('Buy milk')
+    expect(parsed.task.sphere).toEqual({ id: otherSphere.id, name: 'Personal' })
+  })
+
+  test('reports synced:false with a warning when the confirmation flush silently fails', async () => {
+    const sphere = makeSphere({ name: 'Work' })
+    const otherSphere = makeSphere({ name: 'Personal' })
+    const task = makeTask({ sphereId: sphere.id, status: 'open' })
+    const store = flakyFlushStore(buildState({ spheres: [sphere, otherSphere], tasks: [task] }))
+
+    const result = await handleSetTaskSphere(store, { id: task.id, sphereId: otherSphere.id })
+
+    expect(result.isError).toBeUndefined()
+    const parsed = parseOk<{ synced: boolean; warning?: string }>(result)
+    expect(parsed.synced).toBe(false)
+    expect(parsed.warning).toMatch(/not yet confirmed/)
+  })
+
+  test('surfaces an unknown task id as isError, and never appends', async () => {
+    const store = mutableFakeStore(buildState({}))
+
+    const result = await handleSetTaskSphere(store, { id: 'missing-id', sphereId: 'sph-1' })
+
+    expect(result.isError).toBe(true)
+    expect(resultText(result)).toMatch(/Task not found: missing-id/)
+    expect(store.appended).toEqual([])
+  })
+
+  test('surfaces a task that belongs to a project as isError, and never appends', async () => {
+    const sphere = makeSphere({ name: 'Work' })
+    const proj = makeProject(sphere)
+    const task = makeTask({ projectId: proj.id, status: 'open' })
+    const store = mutableFakeStore(buildState({ spheres: [sphere], projects: [proj], tasks: [task] }))
+
+    const result = await handleSetTaskSphere(store, { id: task.id, sphereId: sphere.id })
+
+    expect(result.isError).toBe(true)
+    expect(resultText(result)).toMatch(/cannot have both a projectId and a direct sphereId/)
+    expect(store.appended).toEqual([])
+  })
+})
+
+describe('handleSetProjectSphere', () => {
+  test('moves a project to a different sphere, flushes, and returns the updated project', async () => {
+    const sphere = makeSphere({ name: 'Work' })
+    const otherSphere = makeSphere({ name: 'Personal' })
+    const proj = makeProject(sphere, { name: 'Launch' })
+    const store = mutableFakeStore(buildState({ spheres: [sphere, otherSphere], projects: [proj] }))
+
+    const result = await handleSetProjectSphere(store, { id: proj.id, sphereId: otherSphere.id })
+
+    expect(result.isError).toBeUndefined()
+    expect(store.calls).toEqual(['sync', 'getState', 'appendEvents', 'sync', 'getState'])
+    expect(store.appended).toEqual([[expect.objectContaining({
+      type: 'project.updated', projectId: proj.id, patch: { sphereId: otherSphere.id },
+    })]])
+    const parsed = parseOk<{ synced: boolean; project: { name: string; sphere: { name: string } } }>(result)
+    expect(parsed.synced).toBe(true)
+    expect(parsed.project.name).toBe('Launch')
+    expect(parsed.project.sphere).toEqual({ id: otherSphere.id, name: 'Personal' })
+  })
+
+  test('surfaces an unknown project id as isError, and never appends', async () => {
+    const store = mutableFakeStore(buildState({}))
+
+    const result = await handleSetProjectSphere(store, { id: 'missing-id', sphereId: 'sph-1' })
+
+    expect(result.isError).toBe(true)
+    expect(resultText(result)).toMatch(/Project not found: missing-id/)
+    expect(store.appended).toEqual([])
+  })
+
+  test('a cross-sphere agenda-link violation surfaces as isError', async () => {
+    const sphere = makeSphere({ name: 'Work' })
+    const otherSphere = makeSphere({ name: 'Personal' })
+    const agenda = makeAgenda(sphere)
+    const proj = makeProject(sphere, { agendaId: agenda.id })
+    const store = mutableFakeStore(buildState({ spheres: [sphere, otherSphere], agendas: [agenda], projects: [proj] }))
+
+    const result = await handleSetProjectSphere(store, { id: proj.id, sphereId: otherSphere.id })
 
     expect(result.isError).toBe(true)
     expect(resultText(result)).toMatch(/different sphere/)

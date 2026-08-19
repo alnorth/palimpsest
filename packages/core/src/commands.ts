@@ -97,6 +97,20 @@ export function createTask(input: CreateTaskInput): PalimpsestEvent[] {
 export function updateTask(task: Task, patch: TaskPatch): PalimpsestEvent[] {
   if (task.status !== 'open') throw new Error(`Cannot update a ${task.status} task`)
 
+  // Only re-check the projectId/sphereId invariant when the patch actually touches one of them —
+  // an unrelated patch (e.g. { title }) must not re-reject a task that already carries a legacy
+  // invalid combination the read path tolerated when folding it into state.
+  if (patch.projectId !== undefined || patch.sphereId !== undefined) {
+    const effectiveProjectId = resolvePatched(task.projectId, patch.projectId)
+    const effectiveSphereId = resolvePatched(task.sphereId, patch.sphereId)
+    if (effectiveProjectId !== undefined && effectiveSphereId !== undefined) {
+      throw new Error('A task cannot have both a projectId and a direct sphereId')
+    }
+    if (effectiveProjectId === undefined && effectiveSphereId === undefined) {
+      throw new Error('Task must belong to a project or have a direct sphereId')
+    }
+  }
+
   if (patch.isNext === true) {
     const effectiveProjectId = patch.projectId !== null ? (patch.projectId ?? task.projectId) : undefined
     if (effectiveProjectId === undefined) {
