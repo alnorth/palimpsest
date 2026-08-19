@@ -212,16 +212,21 @@ export function buildCommands(
       // just cleared one (the real-project move above already returned otherwise). Keep it in
       // the correct container whenever anything that container choice depends on changes: its
       // agendaId (own dedicated project takes priority — mirrors the read path's AGENDA_PROJECT_IDS
-      // check), the project itself being cleared, or due date state (One-Offs / Future Log /
-      // Recurring, when there's no agenda project to place it in instead).
+      // check), the project itself being cleared, its direct sphereId changing, or due date state
+      // (One-Offs / Future Log / Recurring, when there's no agenda project to place it in instead).
       const isProjectless = task.projectId === undefined || patch.projectId === CLEAR
       if (isProjectless && (
         patch.projectId         !== undefined ||
+        patch.sphereId          !== undefined ||
         patch.agendaId          !== undefined ||
         patch.dueDate            !== undefined ||
         patch.dueDateExpression  !== undefined
       )) {
-        const sphereId = getTaskSphereId(state, task) ?? WORK_SPHERE_ID
+        // getTaskSphereId(state, task) alone (pre-patch) is right for the "project just cleared"
+        // case (it still reads the old project's sphereId off `state`, since task.sphereId itself
+        // is never set on a project-linked task) — resolvePatchField layers a direct sphereId patch
+        // on top of that, rather than replacing it, so both cases resolve correctly.
+        const sphereId = resolvePatchField(getTaskSphereId(state, task), patch.sphereId) ?? WORK_SPHERE_ID
         const { dueDate: containerDueDate, dueDateExpression: containerDueExpression } =
           effectiveDueState(task, patch)
         const newContainer = projectlessContainerFor(sphereId, newAgendaId, {
@@ -286,6 +291,17 @@ export function buildCommands(
       const commands: SyncCommand[] = []
       if (Object.keys(args).length > 1) {
         commands.push({ type: 'project_update', uuid: uuid(), args })
+      }
+
+      // A sphereId patch physically moves the project to the new sphere's parent container — the
+      // same parent_id the read path (resolveSphereFromTask's parent-chain walk) already uses to
+      // resolve a project's sphere, mirroring project.created's own sphereParentProjectFor use.
+      if (patch.sphereId !== undefined) {
+        commands.push({
+          type: 'project_move',
+          uuid: uuid(),
+          args: { id: String(event.projectId), parent_id: sphereParentProjectFor(patch.sphereId) },
+        })
       }
 
       // Todoist projects have no native field for a custom agenda link, so it round-trips through

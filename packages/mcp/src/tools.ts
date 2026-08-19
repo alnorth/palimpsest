@@ -1,4 +1,4 @@
-import type { AgendaId, PalimpsestEvent, Project, ProjectId, ProjectionState, SyncState, Task, TaskId } from '@alnorth/palimpsest'
+import type { AgendaId, PalimpsestEvent, Project, ProjectId, ProjectionState, SphereId, SyncState, Task, TaskId } from '@alnorth/palimpsest'
 import { CLEAR, completeTask, deleteTask, getProject, getTask, updateProject, updateTask } from '@alnorth/palimpsest'
 import { runQuery } from '@alnorth/palimpsest-query'
 import type { ParsedCommand, StatusArg } from '@alnorth/palimpsest-query'
@@ -101,6 +101,16 @@ export interface SetProjectAgendaToolInput {
   id: string
   agendaId?: string | null | undefined
   selfOnly?: boolean | undefined
+}
+
+export interface SetTaskSphereToolInput {
+  id: string
+  sphereId: string
+}
+
+export interface SetProjectSphereToolInput {
+  id: string
+  sphereId: string
 }
 
 // "today" is the only natural-language date form this tool resolves, mirroring the `tasks` tool's
@@ -296,6 +306,10 @@ export function handleDeleteTask(store: TaskStore, input: DeleteTaskToolInput): 
   return runTaskToolMutation(store, input.id, deleteTask)
 }
 
+export function handleSetTaskSphere(store: TaskStore, input: SetTaskSphereToolInput): Promise<CallToolResult> {
+  return runTaskToolMutation(store, input.id, task => updateTask(task, { sphereId: input.sphereId as SphereId }))
+}
+
 // Sibling to runTaskToolMutation, for the one write tool operating on a Project instead of a Task.
 function runProjectToolMutation(
   store: TaskStore,
@@ -316,4 +330,8 @@ export function handleSetProjectAgenda(store: TaskStore, input: SetProjectAgenda
     ...(input.agendaId !== undefined && { agendaId: input.agendaId === null ? CLEAR : input.agendaId as AgendaId }),
     ...(input.selfOnly !== undefined && { isSelfOnly: input.selfOnly }),
   }))
+}
+
+export function handleSetProjectSphere(store: TaskStore, input: SetProjectSphereToolInput): Promise<CallToolResult> {
+  return runProjectToolMutation(store, input.id, project => updateProject(project, { sphereId: input.sphereId as SphereId }))
 }

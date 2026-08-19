@@ -159,6 +159,50 @@ describe('updateTask', () => {
     const patch = (events[0] as any).patch
     expect(patch.dueDate).toBe('2030-01-01')
   })
+
+  it('sets a new sphereId on a project-less task', () => {
+    const { task } = setup()
+    const otherSphereId = 'sph2' as SphereId
+    const events = updateTask(task, { sphereId: otherSphereId })
+    const patch = (events[0] as any).patch
+    expect(patch.sphereId).toBe(otherSphereId)
+  })
+
+  it('throws when setting sphereId on a task that already belongs to a project', () => {
+    const projectEvts = createProject({ sphereId, name: 'P' })
+    const projectId = (projectEvts[0] as any).projectId as ProjectId
+    const s1 = buildState(projectEvts)
+    const taskEvts = createTask({ title: 'T', projectId })
+    const s2 = project(taskEvts, s1)
+    const tid = (taskEvts[0] as any).taskId as TaskId
+    const task = s2.tasks.get(tid)!
+
+    expect(() =>
+      updateTask(task, { sphereId: 'sph2' as SphereId })
+    ).toThrow('A task cannot have both a projectId and a direct sphereId')
+  })
+
+  it('throws when setting projectId on a task that already has a direct sphereId', () => {
+    const { task } = setup()
+    expect(() =>
+      updateTask(task, { projectId: 'proj-x' as ProjectId })
+    ).toThrow('A task cannot have both a projectId and a direct sphereId')
+  })
+
+  it('throws when clearing sphereId would leave the task with neither a project nor a sphere', () => {
+    const { task } = setup()
+    expect(() =>
+      updateTask(task, { sphereId: CLEAR })
+    ).toThrow('Task must belong to a project or have a direct sphereId')
+  })
+
+  it('allows moving a task onto a project while clearing its direct sphereId', () => {
+    const { task } = setup()
+    const events = updateTask(task, { projectId: 'proj-x' as ProjectId, sphereId: CLEAR })
+    const patch = (events[0] as any).patch
+    expect(patch.projectId).toBe('proj-x')
+    expect(patch.sphereId).toBeNull()
+  })
 })
 
 describe('createTask — auto-set dueDate from expression', () => {

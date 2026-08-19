@@ -4,6 +4,7 @@ import {
   handleTasks, handleTask, handleProjects, handleSpheres, handleAgendas, handleContexts,
   handleDashboard, handleProcessing, handleWaiting, handlePickList, handleSearch, handleAgendaView,
   handleCompleteTask, handleSetDueDate, handleSetStarred, handleDeleteTask, handleSetProjectAgenda,
+  handleSetTaskSphere, handleSetProjectSphere,
 } from './tools'
 import type { TaskStore } from './tools'
 
@@ -155,6 +156,14 @@ export function createMcpServer(store: TaskStore): McpServer {
     },
   }, args => handleDeleteTask(store, args))
 
+  server.registerTool('set_task_sphere', {
+    description: 'Set the sphere of a project-less task directly. Fails if the task belongs to a project (its sphere is inherited from the project in that case — move it to a different project instead). Use the spheres tool to look up a sphere id by name first.',
+    inputSchema: {
+      id: z.string().describe('Task id'),
+      sphereId: z.string().describe('Sphere id to set'),
+    },
+  }, args => handleSetTaskSphere(store, args))
+
   server.registerTool('set_project_agenda', {
     description: 'Link a project to an agenda (making it a "shared project"), unlink it, or mark it explicitly self-only ("just mine"). Pass agendaId to link (or null to unlink); pass selfOnly: true to mark the project as explicitly personal, or selfOnly: false to clear that mark. agendaId and selfOnly: true cannot both be set in the same call. Use the agendas tool to look up an agenda id by name first.',
     inputSchema: {
@@ -163,6 +172,14 @@ export function createMcpServer(store: TaskStore): McpServer {
       selfOnly: z.boolean().optional().describe('true to mark the project explicitly self-only ("just mine"); false to clear that mark'),
     },
   }, args => handleSetProjectAgenda(store, args))
+
+  server.registerTool('set_project_sphere', {
+    description: 'Move a project to a different sphere. Fails if the project is linked to an agenda that belongs to a different sphere. Use the spheres tool to look up a sphere id by name first.',
+    inputSchema: {
+      id: z.string().describe('Project id'),
+      sphereId: z.string().describe('Sphere id to move the project to'),
+    },
+  }, args => handleSetProjectSphere(store, args))
 
   return server
 }
