@@ -45,13 +45,13 @@ describe('createMcpServer', () => {
     client = await connectedClient(fakeStore(buildState({ spheres: [sphere], tasks: [task] })))
   })
 
-  test('registers all eighteen tools', async () => {
+  test('registers all nineteen tools', async () => {
     const { tools } = await client.listTools()
     expect(tools.map(t => t.name).sort()).toEqual(
       [
         'agendas', 'contexts', 'projects', 'spheres', 'task', 'tasks',
         'dashboard', 'processing', 'waiting', 'pick_list', 'search', 'agenda_view',
-        'complete_task', 'set_due_date', 'delete_task', 'set_project_agenda',
+        'complete_task', 'set_due_date', 'set_starred', 'delete_task', 'set_project_agenda',
         'set_task_sphere', 'set_project_sphere',
       ].sort(),
     )
@@ -215,6 +215,38 @@ describe('createMcpServer', () => {
 
   test('set_due_date tool surfaces an unknown id as a tool error, not a protocol error', async () => {
     const result = await client.callTool({ name: 'set_due_date', arguments: { id: 'missing', dueDate: '2026-08-15' } })
+    expect(result.isError).toBe(true)
+    expect(firstText(result)).toMatch(/Task not found: missing/)
+  })
+
+  test('set_starred tool stars a task by id and returns the updated task', async () => {
+    const sphere = makeSphere({ name: 'Errands' })
+    const task = makeTask({ sphereId: sphere.id, title: 'Buy milk', status: 'open' })
+    const scopedClient = await connectedClient(fakeStore(buildState({ spheres: [sphere], tasks: [task] })))
+
+    const result = await scopedClient.callTool({
+      name: 'set_starred', arguments: { id: task.id, starred: true },
+    })
+
+    expect(result.isError).toBeUndefined()
+    const parsed = JSON.parse(firstText(result)) as { task: { title: string; isStarred: boolean } }
+    expect(parsed.task).toEqual(expect.objectContaining({ title: 'Buy milk', isStarred: true }))
+  })
+
+  test('set_starred tool unstars a task when starred is false', async () => {
+    const sphere = makeSphere({ name: 'Errands' })
+    const task = makeTask({ sphereId: sphere.id, title: 'Buy milk', status: 'open', isStarred: true })
+    const scopedClient = await connectedClient(fakeStore(buildState({ spheres: [sphere], tasks: [task] })))
+
+    const result = await scopedClient.callTool({ name: 'set_starred', arguments: { id: task.id, starred: false } })
+
+    expect(result.isError).toBeUndefined()
+    const parsed = JSON.parse(firstText(result)) as { task: { isStarred: boolean } }
+    expect(parsed.task.isStarred).toBe(false)
+  })
+
+  test('set_starred tool surfaces an unknown id as a tool error, not a protocol error', async () => {
+    const result = await client.callTool({ name: 'set_starred', arguments: { id: 'missing', starred: true } })
     expect(result.isError).toBe(true)
     expect(firstText(result)).toMatch(/Task not found: missing/)
   })
