@@ -7,7 +7,7 @@ import type { TaskStore } from './tools'
 import {
   handleTasks, handleTask, handleProjects, handleSpheres, handleAgendas, handleContexts,
   handleDashboard, handleProcessing, handleWaiting, handlePickList, handleSearch, handleAgendaView,
-  handleCompleteTask, handleSetDueDate, handleDeleteTask, handleSetProjectAgenda,
+  handleCompleteTask, handleSetDueDate, handleSetStarred, handleDeleteTask, handleSetProjectAgenda,
 } from './tools'
 
 function fakeStore(state: ProjectionState): TaskStore & { calls: string[] } {
@@ -534,6 +534,71 @@ describe('handleSetDueDate', () => {
     const store = mutableFakeStore(buildState({ tasks: [task] }))
 
     const result = await handleSetDueDate(store, { id: task.id, dueDate: '2026-08-15' })
+
+    expect(result.isError).toBe(true)
+    expect(resultText(result)).toMatch(/Cannot update a completed task/)
+    expect(store.appended).toEqual([])
+  })
+})
+
+describe('handleSetStarred', () => {
+  test('stars an open task, flushes, and returns the updated task', async () => {
+    const task = makeTask({ title: 'Ship it', status: 'open' })
+    const store = mutableFakeStore(buildState({ tasks: [task] }))
+
+    const result = await handleSetStarred(store, { id: task.id, starred: true })
+
+    expect(result.isError).toBeUndefined()
+    expect(store.calls).toEqual(['sync', 'getState', 'appendEvents', 'sync', 'getState'])
+    expect(store.appended).toEqual([[expect.objectContaining({
+      type: 'task.updated', taskId: task.id, patch: { isStarred: true },
+    })]])
+    const parsed = parseOk<{ synced: boolean; task: { isStarred: boolean } }>(result)
+    expect(parsed.synced).toBe(true)
+    expect(parsed.task.isStarred).toBe(true)
+  })
+
+  test('unstars a previously-starred task', async () => {
+    const task = makeTask({ status: 'open', isStarred: true })
+    const store = mutableFakeStore(buildState({ tasks: [task] }))
+
+    const result = await handleSetStarred(store, { id: task.id, starred: false })
+
+    expect(store.appended).toEqual([[expect.objectContaining({
+      type: 'task.updated', taskId: task.id, patch: { isStarred: false },
+    })]])
+    const parsed = parseOk<{ task: { isStarred: boolean } }>(result)
+    expect(parsed.task.isStarred).toBe(false)
+  })
+
+  test('reports synced:false with a warning when the confirmation flush silently fails', async () => {
+    const task = makeTask({ title: 'Ship it', status: 'open' })
+    const store = flakyFlushStore(buildState({ tasks: [task] }))
+
+    const result = await handleSetStarred(store, { id: task.id, starred: true })
+
+    expect(result.isError).toBeUndefined()
+    const parsed = parseOk<{ synced: boolean; warning?: string; task: { isStarred: boolean } }>(result)
+    expect(parsed.synced).toBe(false)
+    expect(parsed.warning).toMatch(/not yet confirmed/)
+    expect(parsed.task.isStarred).toBe(true)
+  })
+
+  test('surfaces an unknown id as isError, and never appends', async () => {
+    const store = mutableFakeStore(buildState({}))
+
+    const result = await handleSetStarred(store, { id: 'missing-id', starred: true })
+
+    expect(result.isError).toBe(true)
+    expect(resultText(result)).toMatch(/Task not found: missing-id/)
+    expect(store.appended).toEqual([])
+  })
+
+  test('surfaces a completed task as isError, and never appends', async () => {
+    const task = makeTask({ status: 'completed' })
+    const store = mutableFakeStore(buildState({ tasks: [task] }))
+
+    const result = await handleSetStarred(store, { id: task.id, starred: true })
 
     expect(result.isError).toBe(true)
     expect(resultText(result)).toMatch(/Cannot update a completed task/)

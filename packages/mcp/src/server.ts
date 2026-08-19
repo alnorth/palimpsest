@@ -3,7 +3,7 @@ import { z } from 'zod'
 import {
   handleTasks, handleTask, handleProjects, handleSpheres, handleAgendas, handleContexts,
   handleDashboard, handleProcessing, handleWaiting, handlePickList, handleSearch, handleAgendaView,
-  handleCompleteTask, handleSetDueDate, handleDeleteTask, handleSetProjectAgenda,
+  handleCompleteTask, handleSetDueDate, handleSetStarred, handleDeleteTask, handleSetProjectAgenda,
 } from './tools'
 import type { TaskStore } from './tools'
 
@@ -139,6 +139,14 @@ export function createMcpServer(store: TaskStore): McpServer {
       dueDate: z.string().nullable().describe('New due date (YYYY-MM-DD or "today"), or null to clear it'),
     },
   }, args => handleSetDueDate(store, args))
+
+  server.registerTool('set_starred', {
+    description: 'Star or unstar a task (surfaces it on the dashboard view regardless of due date). Fails if the task is completed or deleted.',
+    inputSchema: {
+      id: z.string().describe('Task id'),
+      starred: z.boolean().describe('true to star, false to unstar'),
+    },
+  }, args => handleSetStarred(store, args))
 
   server.registerTool('delete_task', {
     description: 'Delete a task. Fails if the task is already deleted.',
