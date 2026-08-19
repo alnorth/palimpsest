@@ -88,6 +88,11 @@ export interface SetDueDateToolInput {
   dueDate: string | null
 }
 
+export interface SetStarredToolInput {
+  id: string
+  starred: boolean
+}
+
 export interface DeleteTaskToolInput {
   id: string
 }
@@ -281,6 +286,10 @@ export function handleCompleteTask(store: TaskStore, input: CompleteTaskToolInpu
 export function handleSetDueDate(store: TaskStore, input: SetDueDateToolInput): Promise<CallToolResult> {
   return runTaskToolMutation(store, input.id, task =>
     updateTask(task, { dueDate: input.dueDate === null ? CLEAR : resolveDueDate(input.dueDate) }))
+}
+
+export function handleSetStarred(store: TaskStore, input: SetStarredToolInput): Promise<CallToolResult> {
+  return runTaskToolMutation(store, input.id, task => updateTask(task, { isStarred: input.starred }))
 }
 
 export function handleDeleteTask(store: TaskStore, input: DeleteTaskToolInput): Promise<CallToolResult> {
