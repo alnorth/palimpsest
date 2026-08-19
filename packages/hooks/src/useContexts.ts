@@ -1,17 +1,12 @@
 import type { ContextJson } from '@alnorth/palimpsest-query'
 import { useRunQuery } from './internal/useRunQuery'
-import type { ListResult, SphereScopedFilter } from './types'
+import { toPaginated } from './internal/toPaginated'
+import type { Paginated, SphereScopedFilter } from './types'
 
-export function useContexts(filter: SphereScopedFilter = {}): ListResult<ContextJson> {
-  const { raw, isLoading, error } = useRunQuery({
+export function useContexts(filter: SphereScopedFilter = {}): Paginated<ContextJson> {
+  const raw = useRunQuery({
     kind: 'contexts',
     ...(filter.sphere !== undefined && { sphere: filter.sphere }),
   })
-  return {
-    data: raw !== undefined ? raw.contexts as ContextJson[] : undefined,
-    isLoading,
-    error,
-    total: raw !== undefined ? raw.total as number : undefined,
-    truncated: raw !== undefined ? raw.truncated as boolean : undefined,
-  }
+  return toPaginated<ContextJson>(raw, 'contexts')
 }

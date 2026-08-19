@@ -1,9 +1,9 @@
 // @vitest-environment jsdom
 import { describe, test, expect, vi, afterEach } from 'vitest'
-import { renderHook, waitFor } from '@testing-library/react'
+import { waitFor } from '@testing-library/react'
 import { TodoistStore } from '@alnorth/palimpsest-todoist'
 import { makeSphere, makeTask, buildState } from '../testFixtures'
-import { FakeStore, makeWrapper } from '../testHelpers'
+import { FakeStore, makeWrapper, renderSuspendedHook } from '../testHelpers'
 import { useRunQuery } from './useRunQuery'
 
 // A Todoist-backed one-offs project id (see @alnorth/palimpsest-todoist's mapping.ts) — a task
@@ -32,10 +32,10 @@ describe('useRunQuery — todoistUrl attachment', () => {
     }), { status: 200 })))
 
     const store = new TodoistStore('token')
-    const { result } = renderHook(() => useRunQuery({ kind: 'tasks' }), { wrapper: makeWrapper(store) })
+    const { result } = await renderSuspendedHook(() => useRunQuery({ kind: 'tasks' }), { wrapper: makeWrapper(store) })
 
-    await waitFor(() => expect(result.current.raw).toBeDefined())
-    const tasks = result.current.raw?.['tasks'] as { todoistUrl?: string }[]
+    await waitFor(() => expect(result.current).toBeDefined())
+    const tasks = result.current?.['tasks'] as { todoistUrl?: string }[]
     expect(tasks[0]?.todoistUrl).toBe('https://todoist.com/app/task/t1')
   })
 
@@ -52,10 +52,10 @@ describe('useRunQuery — todoistUrl attachment', () => {
     }), { status: 200 })))
 
     const store = new TodoistStore('token')
-    const { result } = renderHook(() => useRunQuery({ kind: 'projects' }), { wrapper: makeWrapper(store) })
+    const { result } = await renderSuspendedHook(() => useRunQuery({ kind: 'projects' }), { wrapper: makeWrapper(store) })
 
-    await waitFor(() => expect(result.current.raw).toBeDefined())
-    const projects = result.current.raw?.['projects'] as { todoistUrl?: string }[]
+    await waitFor(() => expect(result.current).toBeDefined())
+    const projects = result.current?.['projects'] as { todoistUrl?: string }[]
     expect(projects[0]?.todoistUrl).toBe('https://todoist.com/app/project/p1')
   })
 
@@ -64,10 +64,10 @@ describe('useRunQuery — todoistUrl attachment', () => {
     const task = makeTask({ sphereId: sphere.id, title: 'Ship it' })
     const store = new FakeStore(buildState({ spheres: [sphere], tasks: [task] }))
 
-    const { result } = renderHook(() => useRunQuery({ kind: 'tasks' }), { wrapper: makeWrapper(store) })
+    const { result } = await renderSuspendedHook(() => useRunQuery({ kind: 'tasks' }), { wrapper: makeWrapper(store) })
 
-    await waitFor(() => expect(result.current.raw).toBeDefined())
-    const tasks = result.current.raw?.['tasks'] as { todoistUrl?: string }[]
+    await waitFor(() => expect(result.current).toBeDefined())
+    const tasks = result.current?.['tasks'] as { todoistUrl?: string }[]
     expect(tasks[0]?.todoistUrl).toBeUndefined()
   })
 })

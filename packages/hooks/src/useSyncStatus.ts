@@ -9,6 +9,6 @@ export interface SyncStatus {
 }
 
 export function useSyncStatus(): SyncStatus {
-  const { syncState, isLoading, connectionError, refresh } = usePalimpsestContext()
-  return { syncState, isConnecting: isLoading, connectionError, refresh }
+  const { syncState, isConnecting, connectionError, refresh } = usePalimpsestContext()
+  return { syncState, isConnecting, connectionError, refresh }
 }

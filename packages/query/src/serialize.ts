@@ -153,6 +153,20 @@ export function computeProjectStats(state: ProjectionState): Map<ProjectId, Proj
   return stats
 }
 
+// For a single-project lookup (e.g. the `project` command), computing the full per-project
+// map via computeProjectStats just to read one entry back out scans every project in state in
+// addition to every task — this scans only the tasks (still required; state.tasks isn't indexed
+// by projectId) and skips the per-project map allocation/initialization entirely.
+export function computeSingleProjectStats(state: ProjectionState, projectId: ProjectId): ProjectStats {
+  const stats: ProjectStats = { openTaskCount: 0, hasNextAction: false }
+  for (const task of state.tasks.values()) {
+    if (task.status !== 'open' || task.projectId !== projectId) continue
+    stats.openTaskCount += 1
+    if (task.isNext === true) stats.hasNextAction = true
+  }
+  return stats
+}
+
 export function toProjectJson(
   state: ProjectionState,
   project: Project,

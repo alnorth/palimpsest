@@ -3,7 +3,7 @@ import type { ProjectId, AgendaId } from '@alnorth/palimpsest'
 import { makeSphere, makeProject, makeAgenda, makeContext, makeTask, buildState } from './fixtures'
 import {
   toTaskJson, toProjectJson, toSphereJson, toAgendaJson, toContextJson,
-  computeProjectStats, computeProjectNextTasks, computeProjectStatsAndNextTasks,
+  computeProjectStats, computeProjectNextTasks, computeProjectStatsAndNextTasks, computeSingleProjectStats,
 } from './serialize'
 
 describe('toTaskJson', () => {
@@ -283,6 +283,40 @@ describe('project/sphere/agenda/context serialization', () => {
     const { stats, nextTasksByProject } = computeProjectStatsAndNextTasks(state)
     expect(stats).toEqual(computeProjectStats(state))
     expect(nextTasksByProject).toEqual(computeProjectNextTasks(state))
+  })
+
+  test('computeSingleProjectStats: matches computeProjectStats\' entry for that project', () => {
+    const sphere = makeSphere()
+    const projectA = makeProject(sphere, { name: 'A' })
+    const projectB = makeProject(sphere, { name: 'B' })
+    const nextA = makeTask({ projectId: projectA.id, isNext: true, title: 'Next A' })
+    const notNextA = makeTask({ projectId: projectA.id, title: 'Not next A' })
+    const openB = makeTask({ projectId: projectB.id, title: 'Open B' })
+    const state = buildState({
+      spheres: [sphere], projects: [projectA, projectB], tasks: [nextA, notNextA, openB],
+    })
+
+    expect(computeSingleProjectStats(state, projectA.id)).toEqual(computeProjectStats(state).get(projectA.id))
+    expect(computeSingleProjectStats(state, projectB.id)).toEqual(computeProjectStats(state).get(projectB.id))
+  })
+
+  test('computeSingleProjectStats: a project with no open tasks gets the zero-value default', () => {
+    const sphere = makeSphere()
+    const project = makeProject(sphere)
+    const state = buildState({ spheres: [sphere], projects: [project] })
+
+    expect(computeSingleProjectStats(state, project.id)).toEqual({ openTaskCount: 0, hasNextAction: false })
+  })
+
+  test('computeSingleProjectStats: ignores completed tasks and other projects\' tasks', () => {
+    const sphere = makeSphere()
+    const project = makeProject(sphere, { name: 'A' })
+    const other = makeProject(sphere, { name: 'B' })
+    const completed = makeTask({ projectId: project.id, status: 'completed', isNext: true })
+    const otherOpen = makeTask({ projectId: other.id, isNext: true })
+    const state = buildState({ spheres: [sphere], projects: [project, other], tasks: [completed, otherOpen] })
+
+    expect(computeSingleProjectStats(state, project.id)).toEqual({ openTaskCount: 0, hasNextAction: false })
   })
 
   test('toAgendaJson maps title to name and includes sphere ref', () => {

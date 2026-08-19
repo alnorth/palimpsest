@@ -4,44 +4,44 @@ import { act, waitFor } from '@testing-library/react'
 import { makeSphere, makeTask, buildState } from './testFixtures'
 import { makeWrapper, renderSuspendedHook, RecordingStore } from './testHelpers'
 import { usePalimpsestContext } from './PalimpsestProvider'
-import { useSetDueDate } from './useSetDueDate'
+import { useSetStarred } from './useSetStarred'
 import { useTask } from './useTask'
 
-describe('useSetDueDate', () => {
-  test('sets a due date on an open task', async () => {
+describe('useSetStarred', () => {
+  test('stars an open task', async () => {
     const sphere = makeSphere()
     const task = makeTask({ sphereId: sphere.id, status: 'open' })
     const store = new RecordingStore(buildState({ spheres: [sphere], tasks: [task] }))
 
     const { result } = await renderSuspendedHook(() => ({
-      setDueDate: useSetDueDate(),
+      setStarred: useSetStarred(),
       task: useTask(task.id),
     }), { wrapper: makeWrapper(store) })
 
-    await act(async () => { await result.current.setDueDate.mutate({ taskId: task.id, dueDate: '2026-08-15' }) })
+    await act(async () => { await result.current.setStarred.mutate({ taskId: task.id, starred: true }) })
 
     expect(store.appended).toEqual([[expect.objectContaining({
-      type: 'task.updated', taskId: task.id, patch: { dueDate: '2026-08-15' },
+      type: 'task.updated', taskId: task.id, patch: { isStarred: true },
     })]])
-    await waitFor(() => expect(result.current.task.dueDate).toBe('2026-08-15'))
+    await waitFor(() => expect(result.current.task.isStarred).toBe(true))
   })
 
-  test('clears a due date when dueDate is null', async () => {
+  test('unstars a previously-starred task', async () => {
     const sphere = makeSphere()
-    const task = makeTask({ sphereId: sphere.id, status: 'open', dueDate: '2026-01-01' })
+    const task = makeTask({ sphereId: sphere.id, status: 'open', isStarred: true })
     const store = new RecordingStore(buildState({ spheres: [sphere], tasks: [task] }))
 
     const { result } = await renderSuspendedHook(() => ({
-      setDueDate: useSetDueDate(),
+      setStarred: useSetStarred(),
       task: useTask(task.id),
     }), { wrapper: makeWrapper(store) })
 
-    await act(async () => { await result.current.setDueDate.mutate({ taskId: task.id, dueDate: null }) })
+    await act(async () => { await result.current.setStarred.mutate({ taskId: task.id, starred: false }) })
 
     expect(store.appended).toEqual([[expect.objectContaining({
-      type: 'task.updated', taskId: task.id, patch: { dueDate: null },
+      type: 'task.updated', taskId: task.id, patch: { isStarred: false },
     })]])
-    await waitFor(() => expect(result.current.task.dueDate).toBeNull())
+    await waitFor(() => expect(result.current.task.isStarred).toBe(false))
   })
 
   test('surfaces "cannot update a completed task" as error, and never appends', async () => {
@@ -50,15 +50,15 @@ describe('useSetDueDate', () => {
 
     const { result } = await renderSuspendedHook(() => ({
       ctx: usePalimpsestContext(),
-      setDueDate: useSetDueDate(),
+      setStarred: useSetStarred(),
     }), { wrapper: makeWrapper(store) })
 
     await act(async () => {
-      await expect(result.current.setDueDate.mutate({ taskId: task.id, dueDate: '2026-08-15' }))
+      await expect(result.current.setStarred.mutate({ taskId: task.id, starred: true }))
         .rejects.toThrow('Cannot update a completed task')
     })
 
-    expect(result.current.setDueDate.error?.message).toMatch(/Cannot update a completed task/)
+    expect(result.current.setStarred.error?.message).toMatch(/Cannot update a completed task/)
     expect(store.appended).toEqual([])
   })
 
@@ -67,15 +67,15 @@ describe('useSetDueDate', () => {
 
     const { result } = await renderSuspendedHook(() => ({
       ctx: usePalimpsestContext(),
-      setDueDate: useSetDueDate(),
+      setStarred: useSetStarred(),
     }), { wrapper: makeWrapper(store) })
 
     await act(async () => {
-      await expect(result.current.setDueDate.mutate({ taskId: 'missing', dueDate: '2026-08-15' }))
+      await expect(result.current.setStarred.mutate({ taskId: 'missing', starred: true }))
         .rejects.toThrow('Task not found: missing')
     })
 
-    expect(result.current.setDueDate.error?.message).toBe('Task not found: missing')
+    expect(result.current.setStarred.error?.message).toBe('Task not found: missing')
     expect(store.appended).toEqual([])
   })
 
@@ -84,12 +84,12 @@ describe('useSetDueDate', () => {
 
     const { result, rerender } = await renderSuspendedHook(() => ({
       ctx: usePalimpsestContext(),
-      setDueDate: useSetDueDate(),
+      setStarred: useSetStarred(),
     }), { wrapper: makeWrapper(store) })
 
-    const firstMutate = result.current.setDueDate.mutate
+    const firstMutate = result.current.setStarred.mutate
     rerender()
 
-    expect(result.current.setDueDate.mutate).toBe(firstMutate)
+    expect(result.current.setStarred.mutate).toBe(firstMutate)
   })
 })

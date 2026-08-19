@@ -10,8 +10,7 @@ export interface CurrentSphere {
 
 export function useCurrentSphere(): CurrentSphere {
   const { currentSphereId, setCurrentSphere } = usePalimpsestContext()
-  const { data } = useSpheres()
-  const spheres = data ?? []
+  const { items: spheres } = useSpheres()
   const sphere = currentSphereId !== undefined ? spheres.find(s => s.id === currentSphereId) : undefined
   return { sphere, spheres, setSphere: setCurrentSphere }
 }

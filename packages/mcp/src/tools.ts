@@ -2,7 +2,6 @@ import type { AgendaId, PalimpsestEvent, Project, ProjectId, ProjectionState, Sy
 import { CLEAR, completeTask, deleteTask, getProject, getTask, updateProject, updateTask } from '@alnorth/palimpsest'
 import { runQuery } from '@alnorth/palimpsest-query'
 import type { ParsedCommand, StatusArg } from '@alnorth/palimpsest-query'
-import { computeProjectStats, toProjectJson, statsFor } from '@alnorth/palimpsest-query'
 import { attachTodoistUrls } from '@alnorth/palimpsest-todoist'
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js'
 
@@ -87,6 +86,11 @@ export interface CompleteTaskToolInput {
 export interface SetDueDateToolInput {
   id: string
   dueDate: string | null
+}
+
+export interface SetStarredToolInput {
+  id: string
+  starred: boolean
 }
 
 export interface DeleteTaskToolInput {
@@ -261,7 +265,7 @@ async function runMutation<TEntity>(
   }
 }
 
-function runToolMutation(
+function runTaskToolMutation(
   store: TaskStore,
   taskId: string,
   buildEvents: (task: Task) => PalimpsestEvent[],
@@ -276,23 +280,23 @@ function runToolMutation(
 }
 
 export function handleCompleteTask(store: TaskStore, input: CompleteTaskToolInput): Promise<CallToolResult> {
-  return runToolMutation(store, input.id, completeTask)
+  return runTaskToolMutation(store, input.id, completeTask)
 }
 
 export function handleSetDueDate(store: TaskStore, input: SetDueDateToolInput): Promise<CallToolResult> {
-  return runToolMutation(store, input.id, task =>
+  return runTaskToolMutation(store, input.id, task =>
     updateTask(task, { dueDate: input.dueDate === null ? CLEAR : resolveDueDate(input.dueDate) }))
 }
 
-export function handleDeleteTask(store: TaskStore, input: DeleteTaskToolInput): Promise<CallToolResult> {
-  return runToolMutation(store, input.id, deleteTask)
+export function handleSetStarred(store: TaskStore, input: SetStarredToolInput): Promise<CallToolResult> {
+  return runTaskToolMutation(store, input.id, task => updateTask(task, { isStarred: input.starred }))
 }
 
-// Sibling to runToolMutation, for the one write tool operating on a Project instead of a Task.
-// There's no singular `project` ParsedCommand kind to delegate to (only the plural `projects`
-// list), so this assembles the ProjectJson response directly from the same toProjectJson/
-// computeProjectStats @alnorth/palimpsest-query already exports for the projects tool, rather
-// than inventing a query-command kind whose only purpose would be to re-fetch one project.
+export function handleDeleteTask(store: TaskStore, input: DeleteTaskToolInput): Promise<CallToolResult> {
+  return runTaskToolMutation(store, input.id, deleteTask)
+}
+
+// Sibling to runTaskToolMutation, for the one write tool operating on a Project instead of a Task.
 function runProjectToolMutation(
   store: TaskStore,
   projectId: string,
@@ -303,13 +307,7 @@ function runProjectToolMutation(
     state => getProject(state, projectId as ProjectId),
     `Project not found: ${projectId}`,
     buildEvents,
-    finalState => {
-      const finalProject = getProject(finalState, projectId as ProjectId)
-      if (finalProject === undefined) throw new Error(`Project not found: ${projectId}`)
-      const stats = computeProjectStats(finalState)
-      const projectJson = toProjectJson(finalState, finalProject, statsFor(stats, finalProject.id))
-      return { project: projectJson }
-    },
+    finalState => runQuery(finalState, { kind: 'project', id: projectId }),
   )
 }
 

@@ -1,17 +1,12 @@
 import type { AgendaJson } from '@alnorth/palimpsest-query'
 import { useRunQuery } from './internal/useRunQuery'
-import type { ListResult, SphereScopedFilter } from './types'
+import { toPaginated } from './internal/toPaginated'
+import type { Paginated, SphereScopedFilter } from './types'
 
-export function useAgendas(filter: SphereScopedFilter = {}): ListResult<AgendaJson> {
-  const { raw, isLoading, error } = useRunQuery({
+export function useAgendas(filter: SphereScopedFilter = {}): Paginated<AgendaJson> {
+  const raw = useRunQuery({
     kind: 'agendas',
     ...(filter.sphere !== undefined && { sphere: filter.sphere }),
   })
-  return {
-    data: raw !== undefined ? raw.agendas as AgendaJson[] : undefined,
-    isLoading,
-    error,
-    total: raw !== undefined ? raw.total as number : undefined,
-    truncated: raw !== undefined ? raw.truncated as boolean : undefined,
-  }
+  return toPaginated<AgendaJson>(raw, 'agendas')
 }
