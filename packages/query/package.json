@@ -1,6 +1,6 @@
 {
   "name": "@alnorth/palimpsest-query",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "type": "module",
   "description": "Shared read query engine (filter/sort/paginate/resolve/serialize) for palimpsest UI surfaces",
   "publishConfig": {

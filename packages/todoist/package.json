@@ -1,6 +1,6 @@
 {
   "name": "@alnorth/palimpsest-todoist",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "type": "module",
   "publishConfig": {
     "registry": "https://npm.pkg.github.com"
