@@ -11,6 +11,7 @@ import {
   WORK_SPHERE_ID,
   PERSONAL_SPHERE_ID,
   AGENDA_ID_TO_AGENDA_PROJECT_ID,
+  UNSPHERED_LABEL,
 } from './mapping'
 import { AGENDA_PROJECT_MAP_TASK_TITLE, serializeAgendaMapping } from './sharedStorage'
 import { buildStateFromConfig, createEmptyState, PALIMPSEST_CONFIG, project, CLEAR } from '@alnorth/palimpsest'
@@ -321,6 +322,39 @@ describe('buildEvents — tasks', () => {
     expect(state.tasks.get('t2' as TaskId)).toMatchObject({ projectId: 'proj1', isNext: true, agendaId: 'agenda-jim', isStarred: true })
     expect(state.tasks.get('t3' as TaskId)).toMatchObject({ status: 'completed' })
     expect(state.tasks.get('t4' as TaskId)).toMatchObject({ dueDate: '2026-07-07', dueDateExpression: 'every monday' })
+  })
+})
+
+describe('buildEvents — Inbox sphere resolution', () => {
+  it('a plain Inbox task with no personal label defaults to Work sphere', () => {
+    const events = buildEvents(CONTAINERS, [
+      makeItem({ id: 't1', project_id: TODOIST_INBOX_ID }),
+    ])
+    const created = events.find(e => e.type === 'task.created' && e.taskId === 't1')
+    expect(created).toMatchObject({ sphereId: WORK_SPHERE_ID })
+  })
+
+  it('an Inbox task carrying the personal label resolves to Personal sphere', () => {
+    const events = buildEvents(CONTAINERS, [
+      makeItem({ id: 't1', project_id: TODOIST_INBOX_ID, labels: ['personal'] }),
+    ])
+    const created = events.find(e => e.type === 'task.created' && e.taskId === 't1')
+    expect(created).toMatchObject({ sphereId: PERSONAL_SPHERE_ID })
+  })
+
+  // A dated, project-less task whose sphere couldn't be resolved is parked in Inbox by the write
+  // path (freeFloatingProjectFor) rather than guessing a sphere. Without a marker, it would
+  // silently come back as a Work-sphere task on the very next sync — the read path must stay
+  // resilient and skip it instead, the same way any other unresolvable-sphere task is skipped.
+  it('a dated Inbox task marked unsphered is skipped entirely, not defaulted to Work', () => {
+    const events = buildEvents(CONTAINERS, [
+      makeItem({
+        id: 't1', project_id: TODOIST_INBOX_ID,
+        labels: [UNSPHERED_LABEL],
+        due: { date: '2026-08-01', is_recurring: false, string: '' },
+      }),
+    ])
+    expect(events.some(e => e.type === 'task.created' && e.taskId === 't1')).toBe(false)
   })
 })
 

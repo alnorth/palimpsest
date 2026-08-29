@@ -215,8 +215,12 @@ relationship to `LABEL_TO_AGENDA_ID`.
 The write path uses the agenda-specific projects the same way the read path does, rather than only
 ever encoding an agenda via the label: `mapping.ts`'s `projectlessContainerFor(sphereId, agendaId,
 opts)` is `write.ts`'s mirror of `read.ts`'s `AGENDA_PROJECT_IDS`-before-due-date-bucket priority —
-given an `agendaId` with a dedicated Todoist project, it returns that project; otherwise it falls
-back to the ordinary `freeFloatingProjectFor` due-date bucketing (Recurring/Future Log/One-Offs).
+given an `agendaId` with a dedicated Todoist project, it returns that project (as `{ id,
+viaAgendaProject: true }`); otherwise it falls back to the ordinary `freeFloatingProjectFor`
+due-date bucketing (Recurring/Future Log/One-Offs), returning `{ id, viaAgendaProject: false }`.
+The `viaAgendaProject` flag is what lets `deriveTodoistShape.ts` know *why* a container was chosen
+without re-deriving that fact itself (see `agendaImplicitViaContainer` below) — a caller that only
+needs the id can still read `.id` off the result.
 `deriveTodoistShape.ts`'s `deriveTodoistShape(fields: TodoistShapeFields): TodoistShape` is the
 single, pure derivation of a task's Todoist-facing representation (`content`, `description`,
 `labels`, `priority`, `due`, `containerProjectId`) from a flat snapshot of its palimpsest fields —
@@ -254,13 +258,28 @@ otherwise the pre-patch effective sphere (`getTaskSphereId` — the task's curre
 if it has one, else the task's own `sphereId`) carries forward — which is what makes clearing a
 task's project keep it in that project's former sphere's bucket rather than defaulting to Work.
 
+A project-less, dated task that ends up in `TODOIST_INBOX_ID` this way (sphere genuinely
+unresolvable) is tagged with `mapping.ts`'s `UNSPHERED_LABEL` — `deriveTodoistShape` adds it
+whenever `projectId` and `sphereId` are both unset and the computed `containerProjectId` is
+`TODOIST_INBOX_ID`. Without this, the read path (`read.ts`'s `resolveSphereFromTask`) has no way to
+tell such a task apart from a genuinely captured, never-triaged Inbox task — every other
+free-floating bucket (Recurring/Future Log/One-Offs/Inbox) encodes sphere by the *absence* of the
+`personal` label defaulting to Work, and an Inbox task carrying neither label is otherwise
+indistinguishable from one that's simply never been sphered. `resolveSphereFromTask` checks for
+`UNSPHERED_LABEL` on an `TODOIST_INBOX_ID` task before falling through to that default, returning
+`undefined` instead — which makes `buildPalimpsestTask` skip the task entirely, the same "stay
+resilient, omit it" treatment as any other task whose sphere can't be resolved, rather than
+silently re-sphering it to Work one sync after the write path deliberately left it unsphered.
+
 A project-less task living directly in its agenda's dedicated Todoist project carries that agenda
 purely via project membership — no label is ever physically written to the Todoist item for it (see
 `projectlessContainerFor` above: "the same way a task living there is read back with that agendaId
 with no label needed at all"). `deriveTodoistShape`'s label computation knows this: it suppresses the
 agenda label from the derived shape whenever the task is project-less and its computed
-`containerProjectId` is that agenda's own dedicated project (`agendaImplicitViaContainer` in
-`deriveTodoistShape.ts`, checked against `mapping.ts`'s `AGENDA_ID_TO_AGENDA_PROJECT_ID`) — so the
+`containerProjectId` was chosen via the agenda-project branch (`agendaImplicitViaContainer` in
+`deriveTodoistShape.ts`, read straight off `projectlessContainerFor`'s own `viaAgendaProject` result
+rather than re-derived via a second equality check against `AGENDA_ID_TO_AGENDA_PROJECT_ID` — so it
+can't drift out of sync if that function's priority order ever changes) — so the
 derived shape always matches what's physically on the Todoist item, rather than a label the item may
 never have actually carried. This is what lets moving a task *onto a real project* — the one
 transition where `containerProjectId` can change into/out of an agenda project while `agendaId`

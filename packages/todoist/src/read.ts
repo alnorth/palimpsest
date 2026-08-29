@@ -5,6 +5,7 @@ import {
   TODOIST_WORK_PROJECT_ID,
   TODOIST_PERSONAL_PROJECT_ID,
   TODOIST_AGENDAS_ID,
+  TODOIST_INBOX_ID,
   EXCLUDED_PROJECT_IDS,
   FREE_FLOATING_PROJECT_IDS,
   AGENDA_PROJECT_IDS,
@@ -12,6 +13,7 @@ import {
   PERSONAL_SPHERE_ID,
   LABEL_TO_AGENDA_ID,
   LABEL_TO_CONTEXT_ID,
+  UNSPHERED_LABEL,
   extractProjectIdFromUrl,
 } from './mapping'
 import {
@@ -72,8 +74,12 @@ function resolveSphereFromTask(
   task: SyncItem,
   byId: Map<string, SyncProject>,
 ): SphereId | undefined {
-  // Free-floating projects encode sphere in a label — no byId lookup needed
+  // Free-floating projects encode sphere in a label — no byId lookup needed. An Inbox task
+  // carrying UNSPHERED_LABEL was parked there specifically because its sphere couldn't be
+  // resolved (see freeFloatingProjectFor) — stay resilient and leave it unresolved here too,
+  // rather than defaulting it to Work like any other Inbox task.
   if (FREE_FLOATING_PROJECT_IDS.has(task.project_id)) {
+    if (task.project_id === TODOIST_INBOX_ID && task.labels.includes(UNSPHERED_LABEL)) return undefined
     if (task.labels.includes('personal')) return PERSONAL_SPHERE_ID
     return WORK_SPHERE_ID
   }

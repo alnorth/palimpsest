@@ -1,5 +1,5 @@
 import type { PalimpsestEvent, ProjectionState, SphereId, Task, TaskPatch } from '@alnorth/palimpsest'
-import { CLEAR, getTaskSphereId } from '@alnorth/palimpsest'
+import { CLEAR, getTaskSphereId, resolvePatched } from '@alnorth/palimpsest'
 import type { SyncCommand } from './api'
 import { deriveTodoistShape } from './deriveTodoistShape'
 import type { TodoistShapeFields } from './deriveTodoistShape'
@@ -32,13 +32,15 @@ function uuid(): string {
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`
 }
 
-// The value a patched field will hold once `patch` is applied: the patch's own value if it
-// touches the field (undefined if CLEARed), else the field's current value on the task.
-function resolvePatchField<T>(current: T | undefined, patchValue: T | typeof CLEAR | undefined): T | undefined {
-  return patchValue !== undefined ? (patchValue === CLEAR ? undefined : patchValue) : current
+// Structural equality for values built by the same code path on both sides (a TodoistShape field,
+// or the agenda-mapping dictionary) — a single place to fix a stringify-based equality bug in,
+// rather than three separate JSON.stringify(...) !== JSON.stringify(...) comparisons that could
+// each drift if one side ever started being built differently (e.g. a different key order).
+function jsonEquals(a: unknown, b: unknown): boolean {
+  return JSON.stringify(a) === JSON.stringify(b)
 }
 
-// Same idea as resolvePatchField, specialised for isNext/isStarred: these patch as a plain
+// Same idea as core's resolvePatched, specialised for isNext/isStarred: these patch as a plain
 // boolean (not CLEAR-able), and deriveTodoistShape only ever checks `=== true`, so `false`
 // collapses to `undefined` just like the task's own field would when unset.
 function resolveFlagField(current: true | undefined, patchValue: boolean | undefined): true | undefined {
@@ -59,21 +61,23 @@ function currentShapeFields(task: Task, sphereId: SphereId | undefined): Todoist
 // The TodoistShapeFields `fields` will hold once `patch` is applied — feeds both `before` (called
 // with a task's own currentShapeFields) and `after` (called with the result of this function) so
 // write.ts's task.updated case diffs two TodoistShapes instead of tracking which patch fields
-// should trigger which recompute. sphereId is deliberately left untouched here: whether the
-// patched sphereId actually applies depends on whether the task is (or becomes) project-less, a
-// call the task.updated case below makes once, not per-field.
-function applyPatchToFields(fields: TodoistShapeFields, patch: TaskPatch): TodoistShapeFields {
+// should trigger which recompute. `sphereId` is deliberately excluded from the patch type here
+// (rather than silently accepted and ignored): whether a patched sphereId actually applies depends
+// on whether the task is (or becomes) project-less, a call the task.updated case below makes once,
+// not per-field — so it must be set by the caller afterward, and the type forces that decision to
+// be visible instead of letting a future caller drop a sphereId-only patch unnoticed.
+function applyPatchToFields(fields: TodoistShapeFields, patch: Omit<TaskPatch, 'sphereId'>): TodoistShapeFields {
   return {
     title: patch.title ?? fields.title,
     description: patch.description ?? fields.description,
     isNext: resolveFlagField(fields.isNext, patch.isNext),
-    agendaId: resolvePatchField(fields.agendaId, patch.agendaId),
-    contextId: resolvePatchField(fields.contextId, patch.contextId),
-    waitingFor: resolvePatchField(fields.waitingFor, patch.waitingFor),
+    agendaId: resolvePatched(fields.agendaId, patch.agendaId),
+    contextId: resolvePatched(fields.contextId, patch.contextId),
+    waitingFor: resolvePatched(fields.waitingFor, patch.waitingFor),
     isStarred: resolveFlagField(fields.isStarred, patch.isStarred),
-    dueDate: resolvePatchField(fields.dueDate, patch.dueDate),
-    dueDateExpression: resolvePatchField(fields.dueDateExpression, patch.dueDateExpression),
-    projectId: resolvePatchField(fields.projectId, patch.projectId),
+    dueDate: resolvePatched(fields.dueDate, patch.dueDate),
+    dueDateExpression: resolvePatched(fields.dueDateExpression, patch.dueDateExpression),
+    projectId: resolvePatched(fields.projectId, patch.projectId),
     sphereId: fields.sphereId,
   }
 }
@@ -104,19 +108,21 @@ export function buildCommands(
   switch (event.type) {
 
     case 'task.created': {
-      const sphereId = event.sphereId ?? (event.projectId !== undefined
-        ? state.projects.get(event.projectId)?.sphereId
-        : undefined)
-
-      // Reuses the exact same field→Todoist-value derivation task.updated diffs against below,
-      // so creating a task and immediately updating it (a no-op patch) can never produce a
-      // different Todoist representation for the same palimpsest fields.
+      // deriveTodoistShape only ever consults sphereId when projectId is undefined (a project-less
+      // task's sphere is never inherited from a project), so event.sphereId can be passed straight
+      // through with no state.projects lookup: when projectId is set, sphereId is ignored entirely
+      // regardless of its value; when projectId is unset, event.sphereId is already the right value
+      // with nothing to resolve. A prior version of this code additionally tried to resolve
+      // sphereId from state.projects.get(event.projectId) when projectId was set — dead code (its
+      // result was always discarded by the branch above) that was also unsound, since by the time
+      // buildCommands runs, event.projectId may already be a same-batch temp_id substitution rather
+      // than the nanoid state.projects is keyed by (see TodoistStore.buildAllCommands).
       const shape = deriveTodoistShape({
         title: event.title, description: event.description,
         isNext: event.isNext, agendaId: event.agendaId, contextId: event.contextId,
         waitingFor: event.waitingFor, isStarred: event.isStarred,
         dueDate: event.dueDate, dueDateExpression: event.dueDateExpression,
-        projectId: event.projectId, sphereId,
+        projectId: event.projectId, sphereId: event.sphereId,
       })
 
       const tempId = uuid()
@@ -158,20 +164,20 @@ export function buildCommands(
       // independent way to move a project-less task to a different sphere's container. A patched
       // sphereId wins; otherwise the pre-patch effective sphere carries forward (e.g. when a
       // project is cleared, its own sphere becomes the container's context).
-      afterFields.sphereId = resolvePatchField(beforeSphereId, patch.sphereId)
+      afterFields.sphereId = resolvePatched(beforeSphereId, patch.sphereId)
       const after = deriveTodoistShape(afterFields)
 
       const args: Record<string, unknown> = { id: String(event.taskId) }
       if (before.content     !== after.content)     args['content']     = after.content
       if (before.description !== after.description) args['description'] = after.description
       if (before.priority    !== after.priority)    args['priority']    = after.priority
-      if (JSON.stringify(before.due) !== JSON.stringify(after.due)) {
+      if (!jsonEquals(before.due, after.due)) {
         // Todoist clears a due date when `due` is sent as null — omitting the key entirely leaves
         // whatever due date Todoist already has untouched.
         args['due'] = after.due ?? null
       }
 
-      if (JSON.stringify(before.labels) !== JSON.stringify(after.labels)) {
+      if (!jsonEquals(before.labels, after.labels)) {
         args['labels'] = after.labels
       }
 
@@ -267,7 +273,7 @@ export function buildCommands(
         // call on a project that's actually already linked to a real agenda, not self-only at all).
         else if (patch.isSelfOnly === false && newMapping[key] === SELF_AGENDA_LABEL) delete newMapping[key]
 
-        if (JSON.stringify(newMapping) === JSON.stringify(ctx.rawAgendaMapping)) {
+        if (jsonEquals(newMapping, ctx.rawAgendaMapping)) {
           return { commands, agendaMappingAfter: newMapping }
         }
 

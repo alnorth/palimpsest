@@ -6,7 +6,9 @@ import {
   PERSONAL_SPHERE_ID,
   TODOIST_WORK_ONEOFFS_ID,
   TODOIST_FUTURE_LOG_ID,
+  TODOIST_INBOX_ID,
   AGENDA_ID_TO_AGENDA_PROJECT_ID,
+  UNSPHERED_LABEL,
 } from './mapping'
 
 const jimId = 'agenda-jim' as AgendaId
@@ -72,6 +74,27 @@ describe('deriveTodoistShape — labels', () => {
 
   it('delegates to computeLabels for waitingFor', () => {
     expect(deriveTodoistShape(fields({ waitingFor: { kind: 'review' } })).labels).toEqual(['waiting', 'nonagenda'])
+  })
+
+  // A project-less, dated task with no resolvable sphere lands in Inbox instead of a
+  // sphere-specific bucket (see freeFloatingProjectFor) — mark it so the read path can tell it
+  // apart from a genuinely captured, never-triaged Inbox task and keep it sphere-less on the way
+  // back in too, instead of silently defaulting it to Work.
+  it('adds the unsphered marker label for a project-less, dated task with no resolvable sphere', () => {
+    const shape = deriveTodoistShape(fields({ dueDate: '2026-08-01' }))
+    expect(shape.containerProjectId).toBe(TODOIST_INBOX_ID)
+    expect(shape.labels).toContain(UNSPHERED_LABEL)
+  })
+
+  it('does not add the unsphered marker label for an ordinary sphered free-floating task', () => {
+    const shape = deriveTodoistShape(fields({ sphereId: WORK_SPHERE_ID, dueDate: '2026-08-01' }))
+    expect(shape.labels).not.toContain(UNSPHERED_LABEL)
+  })
+
+  it('does not add the unsphered marker label for an undated sphere-less task (falls back to Work One-Offs, not Inbox)', () => {
+    const shape = deriveTodoistShape(fields())
+    expect(shape.containerProjectId).not.toBe(TODOIST_INBOX_ID)
+    expect(shape.labels).not.toContain(UNSPHERED_LABEL)
   })
 })
 

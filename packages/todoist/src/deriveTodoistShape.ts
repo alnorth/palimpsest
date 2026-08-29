@@ -1,6 +1,6 @@
 import type { AgendaId, ContextId, ProjectId, SphereId, WaitingFor } from '@alnorth/palimpsest'
 import { computeLabels } from './labels'
-import { AGENDA_ID_TO_AGENDA_PROJECT_ID, projectlessContainerFor, todoistProjectUrl } from './mapping'
+import { TODOIST_INBOX_ID, UNSPHERED_LABEL, projectlessContainerFor, todoistProjectUrl } from './mapping'
 
 export interface TodoistShapeFields {
   title: string
@@ -36,22 +36,29 @@ export function deriveTodoistShape(f: TodoistShapeFields): TodoistShape {
     f.waitingFor?.kind === 'trello'  ? f.waitingFor.cardUrl :
     f.description
 
-  const containerProjectId = f.projectId !== undefined
-    ? String(f.projectId)
+  const container = f.projectId !== undefined
+    ? { id: String(f.projectId), viaAgendaProject: false }
     : projectlessContainerFor(f.sphereId, f.agendaId, {
         ...(f.dueDate !== undefined && { dueDate: f.dueDate }),
         ...(f.dueDateExpression !== undefined && { dueDateExpression: f.dueDateExpression }),
       })
+  const containerProjectId = container.id
 
-  // A project-less task living directly in its agenda's dedicated Todoist project (see
-  // projectlessContainerFor) carries that agenda purely via project membership — no label is
-  // physically needed or written. Suppressing it here keeps the derived shape truthful to what's
-  // actually on the Todoist item, so write.ts's plain before/after label diff catches every
-  // transition into or out of that state on its own, without a separate special case.
-  const agendaImplicitViaContainer =
-    f.projectId === undefined &&
-    f.agendaId !== undefined &&
-    AGENDA_ID_TO_AGENDA_PROJECT_ID[f.agendaId] === containerProjectId
+  // A project-less task living directly in its agenda's dedicated Todoist project carries that
+  // agenda purely via project membership — no label is physically needed or written. Suppressing
+  // it here keeps the derived shape truthful to what's actually on the Todoist item, so write.ts's
+  // plain before/after label diff catches every transition into or out of that state on its own,
+  // without a separate special case. Reading this straight off projectlessContainerFor's own result
+  // (rather than re-deriving it via a second equality check here) keeps it from drifting out of
+  // sync if that function's priority order ever changes.
+  const agendaImplicitViaContainer = container.viaAgendaProject
+
+  // A project-less, dated task whose sphere couldn't be resolved lands in Inbox instead of a
+  // sphere-specific bucket (see freeFloatingProjectFor) — mark it so the read path can tell it
+  // apart from a genuinely captured, never-triaged Inbox task and keep it sphere-less on the way
+  // back in too, instead of silently defaulting it to Work.
+  const sphereUnresolvedInInbox =
+    f.projectId === undefined && f.sphereId === undefined && containerProjectId === TODOIST_INBOX_ID
 
   const labels = computeLabels({
     isNext: f.isNext,
@@ -59,6 +66,7 @@ export function deriveTodoistShape(f: TodoistShapeFields): TodoistShape {
     contextId: f.contextId,
     waitingFor: f.waitingFor,
   })
+  if (sphereUnresolvedInInbox) labels.push(UNSPHERED_LABEL)
 
   const priority = f.isStarred === true ? 4 : 1
 

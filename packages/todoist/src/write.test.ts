@@ -97,6 +97,22 @@ describe('buildCommands — task.created', () => {
     expect(commands[0]?.args.project_id).toBe('myproj')
   })
 
+  // deriveTodoistShape only ever consults sphereId when projectId is undefined, so a projectId
+  // always wins outright — event.sphereId (however it disagrees with the project's own sphere) is
+  // never looked at, and no state.projects lookup is needed to arrive at that.
+  it('projectId set → container is the project itself, regardless of event.sphereId', () => {
+    const state = createEmptyState()
+    state.projects.set('myproj' as ProjectId, {
+      id: 'myproj' as ProjectId, sphereId: WORK_SPHERE_ID, name: 'X',
+      createdAt: '', updatedAt: '',
+    })
+    const { commands } = buildCommands(
+      event({ projectId: 'myproj' as ProjectId, sphereId: PERSONAL_SPHERE_ID }),
+      state,
+    )
+    expect(commands[0]?.args.project_id).toBe('myproj')
+  })
+
   // A new project-less task with an agendaId belongs in that agenda's dedicated Todoist project,
   // mirroring how the read path infers the same agendaId from a task living there — not merely
   // labelled while sitting in whichever due-date-bucketed free-floating container.

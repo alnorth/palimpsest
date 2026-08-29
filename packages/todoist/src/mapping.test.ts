@@ -6,6 +6,7 @@ import {
   sphereLabelFor,
   oneOffsProjectFor,
   freeFloatingProjectFor,
+  projectlessContainerFor,
   sphereParentProjectFor,
   TODOIST_WORK_ONEOFFS_ID,
   TODOIST_PERSONAL_ONEOFFS_ID,
@@ -23,7 +24,7 @@ import {
   EXCLUDED_PROJECT_IDS,
 } from './mapping'
 import { buildStateFromConfig, PALIMPSEST_CONFIG } from '@alnorth/palimpsest'
-import type { ProjectId, TaskId } from '@alnorth/palimpsest'
+import type { AgendaId, ProjectId, TaskId } from '@alnorth/palimpsest'
 
 describe('todoistProjectUrl', () => {
   it('builds correct URL', () => {
@@ -105,6 +106,33 @@ describe('freeFloatingProjectFor', () => {
 
   it('no sphere + no dates → falls back to Work one-offs (unaffected: only dated tasks require a sphere)', () => {
     expect(freeFloatingProjectFor(undefined, {})).toBe(TODOIST_WORK_ONEOFFS_ID)
+  })
+})
+
+describe('projectlessContainerFor', () => {
+  // The read path (resolveSphereFromTask/buildPalimpsestTask) checks AGENDA_PROJECT_IDS before
+  // falling back to the due-date-bucketed free-floating containers — viaAgendaProject makes that
+  // same priority decision available to callers directly, rather than a caller re-deriving it by
+  // comparing the returned id back against AGENDA_ID_TO_AGENDA_PROJECT_ID itself.
+  it('agenda with a dedicated project → that project, viaAgendaProject: true', () => {
+    expect(projectlessContainerFor(WORK_SPHERE_ID, 'agenda-jim' as AgendaId, {})).toEqual({
+      id: AGENDA_ID_TO_AGENDA_PROJECT_ID['agenda-jim'],
+      viaAgendaProject: true,
+    })
+  })
+
+  it('agenda with no dedicated project → falls back to the free-floating bucket, viaAgendaProject: false', () => {
+    expect(projectlessContainerFor(WORK_SPHERE_ID, 'agenda-ghost' as AgendaId, {})).toEqual({
+      id: TODOIST_WORK_ONEOFFS_ID,
+      viaAgendaProject: false,
+    })
+  })
+
+  it('no agenda → free-floating bucket, viaAgendaProject: false', () => {
+    expect(projectlessContainerFor(WORK_SPHERE_ID, undefined, {})).toEqual({
+      id: TODOIST_WORK_ONEOFFS_ID,
+      viaAgendaProject: false,
+    })
   })
 })
 
