@@ -171,21 +171,7 @@ export function buildCommands(
         args['due'] = after.due ?? null
       }
 
-      // A project-less task living directly in its agenda's dedicated Todoist project (see
-      // AGENDA_PROJECT_IDS) carries that agenda purely via project membership — it may never have
-      // had the agenda label explicitly written to Todoist. computeLabels() (inside
-      // deriveTodoistShape) always includes the label whenever agendaId is set, so before.labels
-      // and after.labels can come out equal even though the real Todoist item's label array is
-      // missing it. The container can only change into/between real projects when this patch
-      // itself sets projectId (see deriveTodoistShape: containerProjectId ignores every other
-      // field once projectId is set, so it can't have moved any other way) — that's the one
-      // moment the implicit signal would be lost, so force a resend then, even though the diff
-      // alone sees no change.
-      const forceLabelResync =
-        afterFields.projectId !== undefined &&
-        before.containerProjectId !== after.containerProjectId &&
-        (beforeFields.agendaId !== undefined || afterFields.agendaId !== undefined)
-      if (forceLabelResync || JSON.stringify(before.labels) !== JSON.stringify(after.labels)) {
+      if (JSON.stringify(before.labels) !== JSON.stringify(after.labels)) {
         args['labels'] = after.labels
       }
 

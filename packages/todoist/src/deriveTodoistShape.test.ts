@@ -53,8 +53,17 @@ describe('deriveTodoistShape — labels', () => {
     expect(deriveTodoistShape(fields({ isNext: true })).labels).toEqual(['next'])
   })
 
-  it('delegates to computeLabels for agendaId', () => {
-    expect(deriveTodoistShape(fields({ agendaId: jimId })).labels).toEqual(['jim'])
+  it('delegates to computeLabels for agendaId when the task has a real project', () => {
+    expect(deriveTodoistShape(fields({ agendaId: jimId, projectId: 'proj2' as ProjectId })).labels)
+      .toEqual(['jim'])
+  })
+
+  // A project-less task with an agenda that has a dedicated Todoist project lives directly in
+  // that project (see the containerProjectId tests below) — project membership alone conveys the
+  // agenda, so the label is suppressed rather than physically written, keeping the derived shape
+  // truthful to what's actually on the Todoist item.
+  it('suppresses the agenda label when the task is project-less and lives in its agenda\'s dedicated project', () => {
+    expect(deriveTodoistShape(fields({ agendaId: jimId, sphereId: WORK_SPHERE_ID })).labels).toEqual([])
   })
 
   it('delegates to computeLabels for contextId', () => {

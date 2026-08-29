@@ -159,9 +159,23 @@ describe('buildCommands — task.created', () => {
     expect(commands[0]?.args.labels).toContain('next')
   })
 
-  it('agendaId → agenda label', () => {
-    const { commands } = buildCommands(event({ agendaId: 'agenda-jim' as AgendaId }), baseState())
+  it('agendaId with a real project → agenda label', () => {
+    const { commands } = buildCommands(
+      event({ agendaId: 'agenda-jim' as AgendaId, projectId: 'proj2' as ProjectId }),
+      baseState(),
+    )
     expect(commands[0]?.args.labels).toContain('jim')
+  })
+
+  // A project-less task created straight into its agenda's dedicated project (see the
+  // AGENDA_PROJECT_IDS test above) carries the agenda purely via project membership — no label
+  // needed, matching how the read path infers it back with no label present either.
+  it('agendaId with no projectId (placed in the agenda\'s dedicated project) → no agenda label', () => {
+    const { commands } = buildCommands(
+      event({ agendaId: 'agenda-jim' as AgendaId, sphereId: WORK_SPHERE_ID }),
+      baseState(),
+    )
+    expect(commands[0]?.args.labels).not.toContain('jim')
   })
 
   it('waitingFor project → waiting+project labels + project URL in description', () => {
@@ -346,24 +360,29 @@ describe('buildCommands — task.updated', () => {
     expect(commands.every(c => c.type !== 'item_update')).toBe(true)
   })
 
-  it('a task already in a real project with an explicit agenda label moves to a different real project → label still resent', () => {
+  // Both projects are real, so the label was already genuinely written to Todoist both before and
+  // after — nothing about its representation changed, so no redundant resend is needed.
+  it('a task already in a real project with an explicit agenda label moves to a different real project → label is not resent', () => {
     const { commands } = buildCommands(
       updEvent('t1', { projectId: 'proj3' as ProjectId }),
       stateWithTask('t1', { agendaId: 'agenda-jim' as AgendaId, projectId: 'proj2' as ProjectId }),
     )
-    const updateCmd = commands.find(c => c.type === 'item_update')
+    expect(commands.every(c => c.type !== 'item_update')).toBe(true)
     const moveCmd = commands.find(c => c.type === 'item_move')
-    expect(updateCmd?.args.labels).toContain('jim')
     expect(moveCmd?.args.project_id).toBe('proj3')
   })
 
-  it('clearing a task\'s project (CLEAR) while it has an agendaId moves it into that agenda\'s dedicated project, with no label recompute needed', () => {
+  // The task's label was genuinely written to Todoist while it lived in a real project; moving
+  // into the agenda project makes that label redundant (project membership alone now conveys the
+  // agenda), so it's explicitly removed rather than left stale.
+  it('clearing a task\'s project (CLEAR) while it has an agendaId moves it into that agenda\'s dedicated project, removing the now-redundant label', () => {
     const { commands } = buildCommands(
       updEvent('t1', { projectId: CLEAR }),
       stateWithTask('t1', { agendaId: 'agenda-jim' as AgendaId, projectId: 'proj2' as ProjectId }),
     )
-    expect(commands.every(c => c.type !== 'item_update')).toBe(true)
+    const updateCmd = commands.find(c => c.type === 'item_update')
     const moveCmd = commands.find(c => c.type === 'item_move')
+    expect(updateCmd?.args.labels).not.toContain('jim')
     expect(moveCmd?.args.project_id).toBe(AGENDA_ID_TO_AGENDA_PROJECT_ID['agenda-jim'])
   })
 
@@ -434,25 +453,27 @@ describe('buildCommands — task.updated', () => {
   // Setting an agendaId on a task that has no real project — the write-side mirror of the read
   // path's AGENDA_PROJECT_IDS fallback: the task itself moves into that agenda's dedicated
   // project, not merely a label added while it stays in its current free-floating container.
-  it('setting agendaId on a project-less task moves it into that agenda\'s dedicated project', () => {
+  // Moving into the agenda's dedicated project conveys the agenda purely via project membership —
+  // no label is ever written, so there's nothing for an item_update to carry.
+  it('setting agendaId on a project-less task moves it into that agenda\'s dedicated project, with no label needed', () => {
     const { commands } = buildCommands(
       updEvent('t1', { agendaId: 'agenda-jim' as AgendaId }),
       stateWithTask('t1'),
     )
-    const updateCmd = commands.find(c => c.type === 'item_update')
+    expect(commands.every(c => c.type !== 'item_update')).toBe(true)
     const moveCmd = commands.find(c => c.type === 'item_move')
-    expect(updateCmd?.args.labels).toContain('jim')
     expect(moveCmd?.args.project_id).toBe(AGENDA_ID_TO_AGENDA_PROJECT_ID['agenda-jim'])
   })
 
-  it('clearing agendaId on a project-less task moves it out of the agenda project into the due-date-appropriate free-floating container', () => {
+  // The task never had the label physically written (it lived in the agenda project instead), so
+  // there's nothing to remove — no item_update, just the move.
+  it('clearing agendaId on a project-less task moves it out of the agenda project into the due-date-appropriate free-floating container, with no label to remove', () => {
     const { commands } = buildCommands(
       updEvent('t1', { agendaId: CLEAR }),
       stateWithTask('t1', { agendaId: 'agenda-jim' as AgendaId, dueDateExpression: 'every monday' }),
     )
-    const updateCmd = commands.find(c => c.type === 'item_update')
+    expect(commands.every(c => c.type !== 'item_update')).toBe(true)
     const moveCmd = commands.find(c => c.type === 'item_move')
-    expect(updateCmd?.args.labels).not.toContain('jim')
     expect(moveCmd?.args.project_id).toBe(TODOIST_RECURRING_ID)
   })
 
@@ -489,14 +510,15 @@ describe('buildCommands — task.updated', () => {
     expect(moveCmd?.args.project_id).toBe('proj2')
   })
 
-  it('clearing agendaId while moving onto a real project → item_update omits the agenda label, item_move still happens', () => {
+  // The task never had the label physically written (it lived in the agenda project instead), and
+  // it has none after either (agendaId cleared) — nothing for an item_update to carry, just the move.
+  it('clearing agendaId while moving onto a real project → no label to send, item_move still happens', () => {
     const { commands } = buildCommands(
       updEvent('t1', { agendaId: CLEAR, projectId: 'proj2' as ProjectId }),
       stateWithTask('t1', { agendaId: 'agenda-jim' as AgendaId }),
     )
-    const updateCmd = commands.find(c => c.type === 'item_update')
+    expect(commands.every(c => c.type !== 'item_update')).toBe(true)
     const moveCmd = commands.find(c => c.type === 'item_move')
-    expect(updateCmd?.args.labels).not.toContain('jim')
     expect(moveCmd?.args.project_id).toBe('proj2')
   })
 

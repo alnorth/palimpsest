@@ -1,6 +1,6 @@
 import type { AgendaId, ContextId, ProjectId, SphereId, WaitingFor } from '@alnorth/palimpsest'
 import { computeLabels } from './labels'
-import { projectlessContainerFor, todoistProjectUrl } from './mapping'
+import { AGENDA_ID_TO_AGENDA_PROJECT_ID, projectlessContainerFor, todoistProjectUrl } from './mapping'
 
 export interface TodoistShapeFields {
   title: string
@@ -36,8 +36,28 @@ export function deriveTodoistShape(f: TodoistShapeFields): TodoistShape {
     f.waitingFor?.kind === 'trello'  ? f.waitingFor.cardUrl :
     f.description
 
+  const containerProjectId = f.projectId !== undefined
+    ? String(f.projectId)
+    : projectlessContainerFor(f.sphereId, f.agendaId, {
+        ...(f.dueDate !== undefined && { dueDate: f.dueDate }),
+        ...(f.dueDateExpression !== undefined && { dueDateExpression: f.dueDateExpression }),
+      })
+
+  // A project-less task living directly in its agenda's dedicated Todoist project (see
+  // projectlessContainerFor) carries that agenda purely via project membership — no label is
+  // physically needed or written. Suppressing it here keeps the derived shape truthful to what's
+  // actually on the Todoist item, so write.ts's plain before/after label diff catches every
+  // transition into or out of that state on its own, without a separate special case.
+  const agendaImplicitViaContainer =
+    f.projectId === undefined &&
+    f.agendaId !== undefined &&
+    AGENDA_ID_TO_AGENDA_PROJECT_ID[f.agendaId] === containerProjectId
+
   const labels = computeLabels({
-    isNext: f.isNext, agendaId: f.agendaId, contextId: f.contextId, waitingFor: f.waitingFor,
+    isNext: f.isNext,
+    agendaId: agendaImplicitViaContainer ? undefined : f.agendaId,
+    contextId: f.contextId,
+    waitingFor: f.waitingFor,
   })
 
   const priority = f.isStarred === true ? 4 : 1
@@ -46,13 +66,6 @@ export function deriveTodoistShape(f: TodoistShapeFields): TodoistShape {
     f.dueDateExpression !== undefined ? { string: f.dueDateExpression, ...(f.dueDate !== undefined && { date: f.dueDate }) } :
     f.dueDate !== undefined ? { date: f.dueDate } :
     undefined
-
-  const containerProjectId = f.projectId !== undefined
-    ? String(f.projectId)
-    : projectlessContainerFor(f.sphereId, f.agendaId, {
-        ...(f.dueDate !== undefined && { dueDate: f.dueDate }),
-        ...(f.dueDateExpression !== undefined && { dueDateExpression: f.dueDateExpression }),
-      })
 
   return { content: f.title, description, labels, priority, due, containerProjectId }
 }

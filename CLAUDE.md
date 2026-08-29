@@ -254,20 +254,23 @@ otherwise the pre-patch effective sphere (`getTaskSphereId` — the task's curre
 if it has one, else the task's own `sphereId`) carries forward — which is what makes clearing a
 task's project keep it in that project's former sphere's bucket rather than defaulting to Work.
 
-Moving a task *onto a real project* is the one transition the plain `TodoistShape` field diff can't
-fully cover on its own, since it has the same "silently drop the agenda" risk moving off an
-agenda-project always has: because the agenda inference is implicit (no label actually exists on
-the Todoist item while the task lives in the agenda project), moving it onto a real project (so it
-now has *both* an agenda and a project, the way a normal "shared project" task does) would silently
-drop the agenda the moment it leaves the agenda project — even though `before.labels` and
-`after.labels` come out identical, since `computeLabels` always includes the label whenever
-`agendaId` is set, whether or not it's actually been written to the real Todoist item yet, so the
-plain diff sees no label change to send. `write.ts`'s `task.updated` case special-cases exactly this
-`forceLabelResync` condition: whenever the patch itself sets `projectId` to a real project (the only
-way a real-project `containerProjectId` can change at all, since `deriveTodoistShape` ignores every
-other field once `projectId` is set) and the container actually changed and `agendaId` is set before
-or after, it forces the `labels` arg to be resent even though the diff alone sees no change — the
-same as it would be for any other task in a real project.
+A project-less task living directly in its agenda's dedicated Todoist project carries that agenda
+purely via project membership — no label is ever physically written to the Todoist item for it (see
+`projectlessContainerFor` above: "the same way a task living there is read back with that agendaId
+with no label needed at all"). `deriveTodoistShape`'s label computation knows this: it suppresses the
+agenda label from the derived shape whenever the task is project-less and its computed
+`containerProjectId` is that agenda's own dedicated project (`agendaImplicitViaContainer` in
+`deriveTodoistShape.ts`, checked against `mapping.ts`'s `AGENDA_ID_TO_AGENDA_PROJECT_ID`) — so the
+derived shape always matches what's physically on the Todoist item, rather than a label the item may
+never have actually carried. This is what lets moving a task *onto a real project* — the one
+transition where `containerProjectId` can change into/out of an agenda project while `agendaId`
+itself stays the same — fall out of the plain `TodoistShape` field diff with no special case: leaving
+an agenda project makes `agendaImplicitViaContainer` false, so `after.labels` gains the label the
+diff needed to see change; entering one makes it true, so `after.labels` loses it, and `write.ts`'s
+existing `JSON.stringify(before.labels) !== JSON.stringify(after.labels)` check sends (or drops) the
+label like it would for any other label change. No separate `forceLabelResync` condition is needed —
+the single field-diff mechanism already covers this transition the same way it covers every other one
+described above.
 
 Project descriptions round-trip like every other project field: `SyncProject.description` (added to
 Todoist's project object after this integration was first built) is mapped onto core's
