@@ -1,4 +1,4 @@
-import { PollingStore, project, createEmptyState, removeSentEvents } from '@alnorth/palimpsest'
+import { PollingStore, project, applyEvent, createEmptyState, removeSentEvents } from '@alnorth/palimpsest'
 import type { PalimpsestEvent, ProjectionState, ProjectId, PendingEventStore } from '@alnorth/palimpsest'
 import { sync } from './api'
 import type { SyncCommand } from './api'
@@ -157,6 +157,16 @@ function buildAllCommands(
       runningAgendaMapTaskId = agendaMapTaskTempId
       pendingAgendaMapTaskAdd = commands.find(c => c.type === 'item_add' && c.temp_id === agendaMapTaskTempId)
     }
+
+    // Every event in the flush builds its commands against the batch's running state, not a
+    // shared start-of-flush snapshot: folding each event into currentState as it's processed
+    // means a later event that reads or diffs against a task/project sees every earlier event in
+    // this same flush already applied — e.g. two edits to the same not-yet-synced task, or a task
+    // created and then recurred before ever reaching a sync. Applying the raw (pre-temp_id-
+    // substitution) event keeps currentState keyed by the same nanoid ids pending events
+    // reference, rather than the Sync API temp_ids applySourceIdSubs produces for
+    // cross-referencing within the batch.
+    applyEvent(currentState, raw)
   }
 
   return allCommands

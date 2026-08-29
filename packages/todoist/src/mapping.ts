@@ -125,6 +125,12 @@ export function sphereLabelFor(sphereId: SphereId): string {
   return sphereId === PERSONAL_SPHERE_ID ? 'personal' : 'work'
 }
 
+// Marker label for a project-less, dated task whose sphere couldn't be resolved (see
+// freeFloatingProjectFor) — parked in Inbox rather than a sphere-specific bucket. Lets the read
+// path (resolveSphereFromTask) tell this apart from a genuinely captured, never-triaged Inbox
+// task, so it stays sphere-less on the way back in instead of silently defaulting to Work.
+export const UNSPHERED_LABEL = 'unsphered'
+
 // Todoist One Offs project for a sphere (where free-floating tasks live)
 export function oneOffsProjectFor(sphereId: SphereId): string {
   return sphereId === PERSONAL_SPHERE_ID ? TODOIST_PERSONAL_ONEOFFS_ID : TODOIST_WORK_ONEOFFS_ID
@@ -151,15 +157,22 @@ export function freeFloatingProjectFor(
 // resolveSphereFromTask/buildPalimpsestTask in read.ts), so a task carrying an agendaId with no
 // real project belongs in that agenda's dedicated project — not merely labelled while it sits in
 // Recurring/Future Log/One-Offs — the same way a task living there is read back with that agendaId
-// with no label needed at all.
+// with no label needed at all. `viaAgendaProject` reports which branch of that priority was taken,
+// so callers (deriveTodoistShape's agenda-label suppression) don't have to re-derive the same fact
+// via a separate equality check that could drift out of sync with this priority order.
+export interface ProjectlessContainer {
+  id: string
+  viaAgendaProject: boolean
+}
+
 export function projectlessContainerFor(
   sphereId: SphereId | undefined,
   agendaId: AgendaId | undefined,
   opts: { dueDate?: string; dueDateExpression?: string },
-): string {
+): ProjectlessContainer {
   const agendaProjectId = agendaId !== undefined ? AGENDA_ID_TO_AGENDA_PROJECT_ID[agendaId] : undefined
-  if (agendaProjectId !== undefined) return agendaProjectId
-  return freeFloatingProjectFor(sphereId, opts)
+  if (agendaProjectId !== undefined) return { id: agendaProjectId, viaAgendaProject: true }
+  return { id: freeFloatingProjectFor(sphereId, opts), viaAgendaProject: false }
 }
 
 // Todoist parent project for new projects in a sphere

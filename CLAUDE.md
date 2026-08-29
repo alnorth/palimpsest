@@ -215,45 +215,81 @@ relationship to `LABEL_TO_AGENDA_ID`.
 The write path uses the agenda-specific projects the same way the read path does, rather than only
 ever encoding an agenda via the label: `mapping.ts`'s `projectlessContainerFor(sphereId, agendaId,
 opts)` is `write.ts`'s mirror of `read.ts`'s `AGENDA_PROJECT_IDS`-before-due-date-bucket priority —
-given an `agendaId` with a dedicated Todoist project, it returns that project; otherwise it falls
-back to the ordinary `freeFloatingProjectFor` due-date bucketing (Recurring/Future Log/One-Offs).
-`write.ts`'s `task.created` case calls it whenever the new task has no `projectId`, so a
-project-less task created with an `agendaId` is placed directly into that agenda's project, not
-merely labelled while it sits in One-Offs. `task.updated` calls it (via a `newContainer`
-`item_move`) whenever the task is (now) project-less — already was, or `patch.projectId` just
-cleared a real one — and either `patch.projectId`, `patch.agendaId`, `patch.dueDate`, or
-`patch.dueDateExpression` changed, so setting/clearing/changing a project-less task's `agendaId`
-physically moves it into/out of/between agenda projects, and a due date change on an agenda-tagged
-project-less task leaves it in the agenda project rather than a due-date bucket (agendaId takes
-priority over due date when both are present). Every one of these container moves is recomputed and
-resent unconditionally on a relevant patch (the same "recompute the full derived value, resend
-regardless of whether it actually changed" pattern the label set already uses) rather than tracked
-incrementally, since core's `Task` type has no field recording which Todoist container a
-project-less task currently sits in to diff against.
+given an `agendaId` with a dedicated Todoist project, it returns that project (as `{ id,
+viaAgendaProject: true }`); otherwise it falls back to the ordinary `freeFloatingProjectFor`
+due-date bucketing (Recurring/Future Log/One-Offs), returning `{ id, viaAgendaProject: false }`.
+The `viaAgendaProject` flag is what lets `deriveTodoistShape.ts` know *why* a container was chosen
+without re-deriving that fact itself (see `agendaImplicitViaContainer` below) — a caller that only
+needs the id can still read `.id` off the result.
+`deriveTodoistShape.ts`'s `deriveTodoistShape(fields: TodoistShapeFields): TodoistShape` is the
+single, pure derivation of a task's Todoist-facing representation (`content`, `description`,
+`labels`, `priority`, `due`, `containerProjectId`) from a flat snapshot of its palimpsest fields —
+`projectlessContainerFor` (and therefore the agenda-project priority above) lives inside its
+`containerProjectId` computation. `write.ts`'s `task.created` case calls it once, against the new
+task's own fields, to build the `item_add` command directly. `task.updated` calls it *twice* —
+once against the task's pre-patch fields (`before`), once against those same fields with `patch`
+resolved onto them (`after`, via `applyPatchToFields`) — and diffs the two `TodoistShape`s
+field-by-field: `content`/`description`/`priority`/`due` each become an `item_update` arg only when
+they actually differ, `labels` only when the computed label set differs, and `containerProjectId`
+only produces an `item_move` when it differs — a single mechanism covering the label set, the
+due-date bucket, and the agenda-project container alike, rather than three independent recompute
+paths each keyed off its own list of "which patch fields should trigger this recompute":
+setting/clearing/changing a project-less task's `agendaId` moves it into/out of/between agenda
+projects, a due date change on an agenda-tagged project-less task leaves it in the agenda project
+(agendaId takes priority over due date in `projectlessContainerFor` either way, so
+`containerProjectId` doesn't change), and a due-date value change that stays within the same bucket
+(e.g. Future Log → Future Log) sends no `item_move` at all — every one of these is just "did the
+relevant field of the derived `TodoistShape` change," not a hand-tracked trigger condition.
+`task.created` and `task.updated` sharing this single derivation also means creating a task and
+immediately patching it with a no-op patch can never produce a different Todoist representation for
+the same palimpsest fields.
 
 `freeFloatingProjectFor(sphereId, opts)` takes `sphereId: SphereId | undefined` — Recurring and
 Future Log are sphere-specific buckets, so a dated project-less task with no resolvable sphere (its
-own `sphereId` unset and, for `task.updated`'s CLEAR-project path, `getTaskSphereId` returning
+own `sphereId` unset and, for `task.updated`'s project-CLEAR case, `getTaskSphereId` returning
 `undefined` because the project it's being cleared from can't be found either) stays in
 `TODOIST_INBOX_ID` instead of guessing Work as a default just to pick a bucket. An undated
 project-less task with no sphere still falls back to Work One-Offs (`oneOffsProjectFor`'s existing
 default) since that bucket isn't sphere-exclusive in the same way — only the dated buckets are
-guarded. Both `write.ts` call sites (`task.created`, `task.updated`'s `isProjectless` block) pass
-the *unresolved* `sphereId | undefined` straight through rather than defaulting it to
-`WORK_SPHERE_ID` before calling `projectlessContainerFor`, so this guard actually sees the
-sphere-less case instead of it being masked upstream.
+guarded. `write.ts`'s `task.updated` case resolves the *after*-patch sphere itself, once, before the
+second `deriveTodoistShape` call: a patched `TaskPatch.sphereId` wins (it's a real, direct way to
+move a project-less task to a different sphere's container, independent of any project change),
+otherwise the pre-patch effective sphere (`getTaskSphereId` — the task's current project's sphere
+if it has one, else the task's own `sphereId`) carries forward — which is what makes clearing a
+task's project keep it in that project's former sphere's bucket rather than defaulting to Work.
 
-Moving a task *onto a real project* is the one case `projectlessContainerFor` doesn't cover, since
-the task is no longer project-less at all — but it has the same "silently drop the agenda" risk:
-because the agenda inference is implicit (no label actually exists on the Todoist item while the
-task lives in the agenda project), moving it onto a real project (so it now has *both* an agenda and
-a project, the way a normal "shared project" task does) would silently drop the agenda the moment it
-leaves the agenda project, unless the label is added at the same time. `write.ts`'s `task.updated`
-case handles this by recomputing and resending the task's label set whenever `patch.projectId` is
-set to a real project *and* the task carries an `agendaId` — not only when `agendaId` itself is
-what's being patched — so the `item_move` onto the real project is always paired with an
-`item_update` that makes the association explicit via the label, the same as it would be for any
-other task in a real project.
+A project-less, dated task that ends up in `TODOIST_INBOX_ID` this way (sphere genuinely
+unresolvable) is tagged with `mapping.ts`'s `UNSPHERED_LABEL` — `deriveTodoistShape` adds it
+whenever `projectId` and `sphereId` are both unset and the computed `containerProjectId` is
+`TODOIST_INBOX_ID`. Without this, the read path (`read.ts`'s `resolveSphereFromTask`) has no way to
+tell such a task apart from a genuinely captured, never-triaged Inbox task — every other
+free-floating bucket (Recurring/Future Log/One-Offs/Inbox) encodes sphere by the *absence* of the
+`personal` label defaulting to Work, and an Inbox task carrying neither label is otherwise
+indistinguishable from one that's simply never been sphered. `resolveSphereFromTask` checks for
+`UNSPHERED_LABEL` on an `TODOIST_INBOX_ID` task before falling through to that default, returning
+`undefined` instead — which makes `buildPalimpsestTask` skip the task entirely, the same "stay
+resilient, omit it" treatment as any other task whose sphere can't be resolved, rather than
+silently re-sphering it to Work one sync after the write path deliberately left it unsphered.
+
+A project-less task living directly in its agenda's dedicated Todoist project carries that agenda
+purely via project membership — no label is ever physically written to the Todoist item for it (see
+`projectlessContainerFor` above: "the same way a task living there is read back with that agendaId
+with no label needed at all"). `deriveTodoistShape`'s label computation knows this: it suppresses the
+agenda label from the derived shape whenever the task is project-less and its computed
+`containerProjectId` was chosen via the agenda-project branch (`agendaImplicitViaContainer` in
+`deriveTodoistShape.ts`, read straight off `projectlessContainerFor`'s own `viaAgendaProject` result
+rather than re-derived via a second equality check against `AGENDA_ID_TO_AGENDA_PROJECT_ID` — so it
+can't drift out of sync if that function's priority order ever changes) — so the
+derived shape always matches what's physically on the Todoist item, rather than a label the item may
+never have actually carried. This is what lets moving a task *onto a real project* — the one
+transition where `containerProjectId` can change into/out of an agenda project while `agendaId`
+itself stays the same — fall out of the plain `TodoistShape` field diff with no special case: leaving
+an agenda project makes `agendaImplicitViaContainer` false, so `after.labels` gains the label the
+diff needed to see change; entering one makes it true, so `after.labels` loses it, and `write.ts`'s
+existing `JSON.stringify(before.labels) !== JSON.stringify(after.labels)` check sends (or drops) the
+label like it would for any other label change. No separate `forceLabelResync` condition is needed —
+the single field-diff mechanism already covers this transition the same way it covers every other one
+described above.
 
 Project descriptions round-trip like every other project field: `SyncProject.description` (added to
 Todoist's project object after this integration was first built) is mapped onto core's
@@ -381,19 +417,32 @@ without ever flushing. The timeout converts a hang into a normal rejection, whic
 catch already turns into a visible `health: 'error'` + `lastError`, letting `refresh()`'s `finally`
 reset `syncing` so the next poll can retry.
 
+**`buildAllCommands` folds every event into its `currentState` snapshot (via core's `applyEvent`)
+immediately after building that event's commands, so each event in a flush builds its commands
+against the batch's running state rather than a shared start-of-flush snapshot.** This is what lets
+later events in the same flush see earlier ones already applied: two edits to the same not-yet-synced
+task (`write.ts`'s `task.updated` case computes its `before`/`after` `TodoistShape`s by reading the
+task straight out of the `state` it's given, so the second edit's `before` reflects the first edit's
+effect), or a task created and then recurred before ever reaching a sync (`task.recurred` looks its
+task up in `state.tasks` too). The event applied is the *raw*, unsubstituted event (not the
+temp-id-substituted one `buildCommands` itself was called with) — `currentState` is keyed by the same
+nanoid ids pending events reference, not the Sync API `temp_id`s `applySourceIdSubs` produces for
+cross-referencing within the batch.
+
 **Converting `pending` events to commands (`buildAllCommands`, called from `sync()`) is wrapped in its
 own try/catch, separate from the network call's.** `buildCommands` can throw for a given event (e.g.
-`task.recurred` looks its task up in the *last-synced* base state, not the pending-inclusive state
-`appendEvents` validated against — so recurring the same not-yet-synced task twice, or any other event
-whose conversion depends on state `pending` itself hasn't reached yet, throws "task not found"). Before
-this was split out, that exception propagated straight out of `sync()`, before ever reaching the network
-try/catch below it — meaning `health`/`lastError` never got set (that assignment only happens in a
-catch block the throw skipped entirely) and the network call was never attempted. Worse, since the
-offending event is never dequeued (only a successful POST clears `pending`), the exact same throw
-recurs on every later call to `sync()` too — the periodic poll and manual refreshes alike — permanently,
-with nothing to distinguish it from a sync that simply was never attempted. Catching it separately and
-setting `health`/`lastError` the same way the network catch does turns a silent permanent wedge into a
-visible (if not automatically recoverable) error.
+`task.recurred`'s "task not found" guard) — `buildAllCommands` folding every event forward means this
+can't actually happen for any batch `appendEvents`'s `validateBatch` already accepted (both fold the
+same event history the same way), but the guard, and this catch, stay in place as a backstop for
+whatever future event-conversion path might still fail for a reason unrelated to batch ordering. Without
+this separate catch, an exception thrown while converting any event would propagate straight out of
+`sync()`, before ever reaching the network try/catch below it — `health`/`lastError` would never get set
+(that assignment only happens in a catch block the throw would skip entirely) and the network call would
+never be attempted. Worse, since the offending event is never dequeued (only a successful POST clears
+`pending`), the same throw would recur on every later call to `sync()` too — the periodic poll and manual
+refreshes alike — permanently, with nothing to distinguish it from a sync that was simply never
+attempted. Catching it separately and setting `health`/`lastError` the same way the network catch does
+turns a silent permanent wedge into a visible (if not automatically recoverable) error.
 
 **`write.ts`'s `uuid()` (used for every Sync API command's idempotency `uuid` field) falls back to
 building an RFC4122 v4 UUID from `crypto.getRandomValues()` when `crypto.randomUUID` isn't a

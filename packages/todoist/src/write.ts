@@ -1,12 +1,11 @@
-import type { PalimpsestEvent, ProjectionState, Task, TaskPatch } from '@alnorth/palimpsest'
-import { CLEAR, getTaskSphereId } from '@alnorth/palimpsest'
+import type { PalimpsestEvent, ProjectionState, SphereId, Task, TaskPatch } from '@alnorth/palimpsest'
+import { CLEAR, getTaskSphereId, resolvePatched } from '@alnorth/palimpsest'
 import type { SyncCommand } from './api'
-import { computeLabels } from './labels'
+import { deriveTodoistShape } from './deriveTodoistShape'
+import type { TodoistShapeFields } from './deriveTodoistShape'
 import {
   TODOIST_INBOX_ID,
-  projectlessContainerFor,
   sphereParentProjectFor,
-  todoistProjectUrl,
 } from './mapping'
 import {
   AGENDA_PROJECT_MAP_TASK_TITLE,
@@ -33,34 +32,54 @@ function uuid(): string {
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`
 }
 
-// The value a patched field will hold once `patch` is applied: the patch's own value if it
-// touches the field (undefined if CLEARed), else the field's current value on the task.
-function resolvePatchField<T>(current: T | undefined, patchValue: T | typeof CLEAR | undefined): T | undefined {
-  return patchValue !== undefined ? (patchValue === CLEAR ? undefined : patchValue) : current
+// Structural equality for values built by the same code path on both sides (a TodoistShape field,
+// or the agenda-mapping dictionary) — a single place to fix a stringify-based equality bug in,
+// rather than three separate JSON.stringify(...) !== JSON.stringify(...) comparisons that could
+// each drift if one side ever started being built differently (e.g. a different key order).
+function jsonEquals(a: unknown, b: unknown): boolean {
+  return JSON.stringify(a) === JSON.stringify(b)
 }
 
-// The due date/expression a task will have once `patch` is applied. Used only to pick the
-// project-less container a task belongs in (see the isProjectless block in the task.updated case
-// below), which is why it stays separate from the newExpression/newDate locals computed inline
-// there for the different purpose of building the Sync API `due` arg.
-function effectiveDueState(
-  task: Pick<Task, 'dueDate' | 'dueDateExpression'>,
-  patch: Pick<TaskPatch, 'dueDate' | 'dueDateExpression'>,
-): { dueDate: string | undefined; dueDateExpression: string | undefined } {
+// Same idea as core's resolvePatched, specialised for isNext/isStarred: these patch as a plain
+// boolean (not CLEAR-able), and deriveTodoistShape only ever checks `=== true`, so `false`
+// collapses to `undefined` just like the task's own field would when unset.
+function resolveFlagField(current: true | undefined, patchValue: boolean | undefined): true | undefined {
+  return patchValue !== undefined ? (patchValue === true ? true : undefined) : current
+}
+
+// The TodoistShapeFields a task's current (pre-patch) state maps to.
+function currentShapeFields(task: Task, sphereId: SphereId | undefined): TodoistShapeFields {
   return {
-    dueDate: resolvePatchField(task.dueDate, patch.dueDate),
-    dueDateExpression: resolvePatchField(task.dueDateExpression, patch.dueDateExpression),
+    title: task.title, description: task.description,
+    isNext: task.isNext, agendaId: task.agendaId, contextId: task.contextId,
+    waitingFor: task.waitingFor, isStarred: task.isStarred,
+    dueDate: task.dueDate, dueDateExpression: task.dueDateExpression,
+    projectId: task.projectId, sphereId,
   }
 }
 
-// Build the due date args for a Sync API item_add / item_update command.
-function dueDateArgs(
-  dueString: string | undefined,
-  dueDate: string | undefined,
-): Record<string, unknown> {
-  if (dueString !== undefined) return { due: { string: dueString } }
-  if (dueDate   !== undefined) return { due: { date: dueDate } }
-  return {}
+// The TodoistShapeFields `fields` will hold once `patch` is applied — feeds both `before` (called
+// with a task's own currentShapeFields) and `after` (called with the result of this function) so
+// write.ts's task.updated case diffs two TodoistShapes instead of tracking which patch fields
+// should trigger which recompute. `sphereId` is deliberately excluded from the patch type here
+// (rather than silently accepted and ignored): whether a patched sphereId actually applies depends
+// on whether the task is (or becomes) project-less, a call the task.updated case below makes once,
+// not per-field — so it must be set by the caller afterward, and the type forces that decision to
+// be visible instead of letting a future caller drop a sphereId-only patch unnoticed.
+function applyPatchToFields(fields: TodoistShapeFields, patch: Omit<TaskPatch, 'sphereId'>): TodoistShapeFields {
+  return {
+    title: patch.title ?? fields.title,
+    description: patch.description ?? fields.description,
+    isNext: resolveFlagField(fields.isNext, patch.isNext),
+    agendaId: resolvePatched(fields.agendaId, patch.agendaId),
+    contextId: resolvePatched(fields.contextId, patch.contextId),
+    waitingFor: resolvePatched(fields.waitingFor, patch.waitingFor),
+    isStarred: resolveFlagField(fields.isStarred, patch.isStarred),
+    dueDate: resolvePatched(fields.dueDate, patch.dueDate),
+    dueDateExpression: resolvePatched(fields.dueDateExpression, patch.dueDateExpression),
+    projectId: resolvePatched(fields.projectId, patch.projectId),
+    sphereId: fields.sphereId,
+  }
 }
 
 // Convert a palimpsest event into the Sync API commands needed to apply it.
@@ -89,25 +108,22 @@ export function buildCommands(
   switch (event.type) {
 
     case 'task.created': {
-      const sphereId = event.sphereId ?? (event.projectId !== undefined
-        ? state.projects.get(event.projectId)?.sphereId
-        : undefined)
-
-      const todoistProjectId = event.projectId !== undefined
-        ? String(event.projectId)
-        : projectlessContainerFor(sphereId, event.agendaId, {
-            ...(event.dueDate           !== undefined && { dueDate:           event.dueDate }),
-            ...(event.dueDateExpression !== undefined && { dueDateExpression: event.dueDateExpression }),
-          })
-
-      const labels = computeLabels(event)
-
-      const description =
-        event.waitingFor?.kind === 'project' ? todoistProjectUrl(event.waitingFor.projectId) :
-        event.waitingFor?.kind === 'trello'  ? event.waitingFor.cardUrl :
-        event.description !== ''             ? event.description : undefined
-
-      const priority = event.isStarred === true ? 4 : 1
+      // deriveTodoistShape only ever consults sphereId when projectId is undefined (a project-less
+      // task's sphere is never inherited from a project), so event.sphereId can be passed straight
+      // through with no state.projects lookup: when projectId is set, sphereId is ignored entirely
+      // regardless of its value; when projectId is unset, event.sphereId is already the right value
+      // with nothing to resolve. A prior version of this code additionally tried to resolve
+      // sphereId from state.projects.get(event.projectId) when projectId was set — dead code (its
+      // result was always discarded by the branch above) that was also unsound, since by the time
+      // buildCommands runs, event.projectId may already be a same-batch temp_id substitution rather
+      // than the nanoid state.projects is keyed by (see TodoistStore.buildAllCommands).
+      const shape = deriveTodoistShape({
+        title: event.title, description: event.description,
+        isNext: event.isNext, agendaId: event.agendaId, contextId: event.contextId,
+        waitingFor: event.waitingFor, isStarred: event.isStarred,
+        dueDate: event.dueDate, dueDateExpression: event.dueDateExpression,
+        projectId: event.projectId, sphereId: event.sphereId,
+      })
 
       const tempId = uuid()
       return {
@@ -117,12 +133,12 @@ export function buildCommands(
           uuid: uuid(),
           temp_id: tempId,
           args: {
-            content: event.title,
-            project_id: todoistProjectId,
-            labels,
-            priority,
-            ...(description !== undefined && { description }),
-            ...dueDateArgs(event.dueDateExpression, event.dueDate),
+            content: shape.content,
+            project_id: shape.containerProjectId,
+            labels: shape.labels,
+            priority: shape.priority,
+            ...(shape.description !== '' && { description: shape.description }),
+            ...(shape.due !== undefined && { due: shape.due }),
           },
         }],
       }
@@ -133,104 +149,53 @@ export function buildCommands(
       if (task === undefined) return { commands: [] }
 
       const patch = event.patch
+
+      // The pre-patch sphere: inherited from the task's current project if it has one, else its
+      // own direct sphereId (getTaskSphereId semantics) — what a project-less container's
+      // sphere-specific buckets (One-Offs, currently the only sphere-split bucket) resolve
+      // against.
+      const beforeSphereId = getTaskSphereId(state, task)
+      const beforeFields = currentShapeFields(task, beforeSphereId)
+      const before = deriveTodoistShape(beforeFields)
+
+      const afterFields = applyPatchToFields(beforeFields, patch)
+      // TaskPatch.sphereId only ever matters once the task is (or becomes) project-less —
+      // deriveTodoistShape never consults sphereId when projectId is set — but it's a real,
+      // independent way to move a project-less task to a different sphere's container. A patched
+      // sphereId wins; otherwise the pre-patch effective sphere carries forward (e.g. when a
+      // project is cleared, its own sphere becomes the container's context).
+      afterFields.sphereId = resolvePatched(beforeSphereId, patch.sphereId)
+      const after = deriveTodoistShape(afterFields)
+
       const args: Record<string, unknown> = { id: String(event.taskId) }
-
-      if (patch.title !== undefined) args['content'] = patch.title
-      const hasStructuralDescription =
-        task.waitingFor?.kind === 'trello' || task.waitingFor?.kind === 'project'
-      if (patch.description !== undefined && !hasStructuralDescription) {
-        args['description'] = patch.description
+      if (before.content     !== after.content)     args['content']     = after.content
+      if (before.description !== after.description) args['description'] = after.description
+      if (before.priority    !== after.priority)    args['priority']    = after.priority
+      if (!jsonEquals(before.due, after.due)) {
+        // Todoist clears a due date when `due` is sent as null — omitting the key entirely leaves
+        // whatever due date Todoist already has untouched.
+        args['due'] = after.due ?? null
       }
 
-      const newAgendaId = resolvePatchField(task.agendaId, patch.agendaId)
-
-      // A task with no projectId may carry an agendaId inferred purely from living directly in
-      // that agenda's dedicated Todoist project (see AGENDA_PROJECT_IDS) rather than from an
-      // explicit label — moving it onto a real project drops that implicit signal, so the label
-      // set must be (re)computed whenever the project changes and the task has an agendaId, not
-      // only when agendaId itself is what's being patched.
-      if (
-        patch.isNext     !== undefined ||
-        patch.agendaId   !== undefined ||
-        patch.contextId  !== undefined ||
-        patch.waitingFor !== undefined ||
-        (patch.projectId !== undefined && patch.projectId !== CLEAR && task.agendaId !== undefined)
-      ) {
-        const newContextId  = resolvePatchField(task.contextId, patch.contextId)
-        const newIsNext     = patch.isNext     !== undefined ? (patch.isNext     === false  ? undefined : true)             : task.isNext
-        const newWaitingFor = resolvePatchField(task.waitingFor, patch.waitingFor)
-        args['labels'] = computeLabels({ isNext: newIsNext, agendaId: newAgendaId, contextId: newContextId, waitingFor: newWaitingFor })
-      }
-
-      if (patch.isStarred !== undefined) {
-        args['priority'] = patch.isStarred === true ? 4 : 1
-      }
-
-      if (patch.waitingFor !== undefined) {
-        if (patch.waitingFor !== CLEAR && patch.waitingFor.kind === 'project') {
-          args['description'] = todoistProjectUrl(patch.waitingFor.projectId)
-        } else if (patch.waitingFor !== CLEAR && patch.waitingFor.kind === 'trello') {
-          args['description'] = patch.waitingFor.cardUrl
-        } else if (patch.description === undefined) {
-          args['description'] = task.description
-        }
-      }
-
-      const newExpression = patch.dueDateExpression !== undefined && patch.dueDateExpression !== CLEAR
-        ? patch.dueDateExpression : undefined
-      const newDate = patch.dueDate !== undefined && patch.dueDate !== CLEAR
-        ? patch.dueDate : undefined
-      // When only the date changes, carry the existing expression forward so
-      // Todoist doesn't wipe it out. When both change, newExpression wins.
-      const effectiveExpression = newExpression ?? (newDate !== undefined ? task.dueDateExpression : undefined)
-
-      if (newExpression !== undefined || newDate !== undefined) {
-        args['due'] = {
-          ...(newDate          !== undefined && { date:   newDate }),
-          ...(effectiveExpression !== undefined && { string: effectiveExpression }),
-        }
+      if (!jsonEquals(before.labels, after.labels)) {
+        args['labels'] = after.labels
       }
 
       const commands: SyncCommand[] = []
-
       if (Object.keys(args).length > 1) {
         commands.push({ type: 'item_update', uuid: uuid(), args })
       }
 
-      // Moving to a different (real) project
-      if (patch.projectId !== undefined && patch.projectId !== CLEAR) {
+      // One comparison replaces the old two separate branches (moving onto a real project vs.
+      // recomputing the project-less container): containerProjectId already encodes "real project
+      // id if set, else the project-less bucket" (agenda project takes priority, else the
+      // due-date-bucketed free-floating container), so any transition between real/real,
+      // real/project-less, or project-less/project-less is just "did this value change."
+      if (before.containerProjectId !== after.containerProjectId) {
         commands.push({
           type: 'item_move',
           uuid: uuid(),
-          args: { id: String(event.taskId), project_id: String(patch.projectId) },
-        })
-        return { commands }
-      }
-
-      // The task is (now) project-less — either it already had no real project, or this patch
-      // just cleared one (the real-project move above already returned otherwise). Keep it in
-      // the correct container whenever anything that container choice depends on changes: its
-      // agendaId (own dedicated project takes priority — mirrors the read path's AGENDA_PROJECT_IDS
-      // check), the project itself being cleared, or due date state (One-Offs / Future Log /
-      // Recurring, when there's no agenda project to place it in instead).
-      const isProjectless = task.projectId === undefined || patch.projectId === CLEAR
-      if (isProjectless && (
-        patch.projectId         !== undefined ||
-        patch.agendaId          !== undefined ||
-        patch.dueDate            !== undefined ||
-        patch.dueDateExpression  !== undefined
-      )) {
-        const sphereId = getTaskSphereId(state, task)
-        const { dueDate: containerDueDate, dueDateExpression: containerDueExpression } =
-          effectiveDueState(task, patch)
-        const newContainer = projectlessContainerFor(sphereId, newAgendaId, {
-          ...(containerDueExpression !== undefined && { dueDateExpression: containerDueExpression }),
-          ...(containerDueDate       !== undefined && { dueDate:           containerDueDate }),
-        })
-        commands.push({
-          type: 'item_move',
-          uuid: uuid(),
-          args: { id: String(event.taskId), project_id: newContainer },
+          args: { id: String(event.taskId), project_id: after.containerProjectId },
         })
       }
 
@@ -308,7 +273,7 @@ export function buildCommands(
         // call on a project that's actually already linked to a real agenda, not self-only at all).
         else if (patch.isSelfOnly === false && newMapping[key] === SELF_AGENDA_LABEL) delete newMapping[key]
 
-        if (JSON.stringify(newMapping) === JSON.stringify(ctx.rawAgendaMapping)) {
+        if (jsonEquals(newMapping, ctx.rawAgendaMapping)) {
           return { commands, agendaMappingAfter: newMapping }
         }
 

@@ -7,7 +7,7 @@ export type {
   TaskCreatedEvent, TaskUpdatedEvent, TaskCompletedEvent, TaskUncompletedEvent, TaskRecurredEvent, TaskDeletedEvent,
   TaskPatch, ProjectPatch,
 } from './events'
-export { CLEAR } from './events'
+export { CLEAR, resolvePatched } from './events'
 export type { ProjectionState } from './projection'
 export type {
   CreateProjectInput,
