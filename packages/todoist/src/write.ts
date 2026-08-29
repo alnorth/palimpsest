@@ -1,13 +1,11 @@
-import type { PalimpsestEvent, ProjectionState, Task, TaskPatch } from '@alnorth/palimpsest'
+import type { PalimpsestEvent, ProjectionState, SphereId, Task, TaskPatch } from '@alnorth/palimpsest'
 import { CLEAR, getTaskSphereId } from '@alnorth/palimpsest'
 import type { SyncCommand } from './api'
-import { computeLabels } from './labels'
 import { deriveTodoistShape } from './deriveTodoistShape'
+import type { TodoistShapeFields } from './deriveTodoistShape'
 import {
   TODOIST_INBOX_ID,
-  projectlessContainerFor,
   sphereParentProjectFor,
-  todoistProjectUrl,
 } from './mapping'
 import {
   AGENDA_PROJECT_MAP_TASK_TITLE,
@@ -40,26 +38,44 @@ function resolvePatchField<T>(current: T | undefined, patchValue: T | typeof CLE
   return patchValue !== undefined ? (patchValue === CLEAR ? undefined : patchValue) : current
 }
 
-// The due date/expression a task will have once `patch` is applied — feeds both the after-patch
-// TodoistShape (due arg + container bucket) in the task.updated case below.
-function effectiveDueState(
-  task: Pick<Task, 'dueDate' | 'dueDateExpression'>,
-  patch: Pick<TaskPatch, 'dueDate' | 'dueDateExpression'>,
-): { dueDate: string | undefined; dueDateExpression: string | undefined } {
+// Same idea as resolvePatchField, specialised for isNext/isStarred: these patch as a plain
+// boolean (not CLEAR-able), and deriveTodoistShape only ever checks `=== true`, so `false`
+// collapses to `undefined` just like the task's own field would when unset.
+function resolveFlagField(current: true | undefined, patchValue: boolean | undefined): true | undefined {
+  return patchValue !== undefined ? (patchValue === true ? true : undefined) : current
+}
+
+// The TodoistShapeFields a task's current (pre-patch) state maps to.
+function currentShapeFields(task: Task, sphereId: SphereId | undefined): TodoistShapeFields {
   return {
-    dueDate: resolvePatchField(task.dueDate, patch.dueDate),
-    dueDateExpression: resolvePatchField(task.dueDateExpression, patch.dueDateExpression),
+    title: task.title, description: task.description,
+    isNext: task.isNext, agendaId: task.agendaId, contextId: task.contextId,
+    waitingFor: task.waitingFor, isStarred: task.isStarred,
+    dueDate: task.dueDate, dueDateExpression: task.dueDateExpression,
+    projectId: task.projectId, sphereId,
   }
 }
 
-// Build the due date args for a Sync API item_add / item_update command.
-function dueDateArgs(
-  dueString: string | undefined,
-  dueDate: string | undefined,
-): Record<string, unknown> {
-  if (dueString !== undefined) return { due: { string: dueString } }
-  if (dueDate   !== undefined) return { due: { date: dueDate } }
-  return {}
+// The TodoistShapeFields `fields` will hold once `patch` is applied — feeds both `before` (called
+// with a task's own currentShapeFields) and `after` (called with the result of this function) so
+// write.ts's task.updated case diffs two TodoistShapes instead of tracking which patch fields
+// should trigger which recompute. sphereId is deliberately left untouched here: whether the
+// patched sphereId actually applies depends on whether the task is (or becomes) project-less, a
+// call the task.updated case below makes once, not per-field.
+function applyPatchToFields(fields: TodoistShapeFields, patch: TaskPatch): TodoistShapeFields {
+  return {
+    title: patch.title ?? fields.title,
+    description: patch.description ?? fields.description,
+    isNext: resolveFlagField(fields.isNext, patch.isNext),
+    agendaId: resolvePatchField(fields.agendaId, patch.agendaId),
+    contextId: resolvePatchField(fields.contextId, patch.contextId),
+    waitingFor: resolvePatchField(fields.waitingFor, patch.waitingFor),
+    isStarred: resolveFlagField(fields.isStarred, patch.isStarred),
+    dueDate: resolvePatchField(fields.dueDate, patch.dueDate),
+    dueDateExpression: resolvePatchField(fields.dueDateExpression, patch.dueDateExpression),
+    projectId: resolvePatchField(fields.projectId, patch.projectId),
+    sphereId: fields.sphereId,
+  }
 }
 
 // Convert a palimpsest event into the Sync API commands needed to apply it.
@@ -92,21 +108,16 @@ export function buildCommands(
         ? state.projects.get(event.projectId)?.sphereId
         : undefined)
 
-      const todoistProjectId = event.projectId !== undefined
-        ? String(event.projectId)
-        : projectlessContainerFor(sphereId, event.agendaId, {
-            ...(event.dueDate           !== undefined && { dueDate:           event.dueDate }),
-            ...(event.dueDateExpression !== undefined && { dueDateExpression: event.dueDateExpression }),
-          })
-
-      const labels = computeLabels(event)
-
-      const description =
-        event.waitingFor?.kind === 'project' ? todoistProjectUrl(event.waitingFor.projectId) :
-        event.waitingFor?.kind === 'trello'  ? event.waitingFor.cardUrl :
-        event.description !== ''             ? event.description : undefined
-
-      const priority = event.isStarred === true ? 4 : 1
+      // Reuses the exact same field→Todoist-value derivation task.updated diffs against below,
+      // so creating a task and immediately updating it (a no-op patch) can never produce a
+      // different Todoist representation for the same palimpsest fields.
+      const shape = deriveTodoistShape({
+        title: event.title, description: event.description,
+        isNext: event.isNext, agendaId: event.agendaId, contextId: event.contextId,
+        waitingFor: event.waitingFor, isStarred: event.isStarred,
+        dueDate: event.dueDate, dueDateExpression: event.dueDateExpression,
+        projectId: event.projectId, sphereId,
+      })
 
       const tempId = uuid()
       return {
@@ -116,12 +127,12 @@ export function buildCommands(
           uuid: uuid(),
           temp_id: tempId,
           args: {
-            content: event.title,
-            project_id: todoistProjectId,
-            labels,
-            priority,
-            ...(description !== undefined && { description }),
-            ...dueDateArgs(event.dueDateExpression, event.dueDate),
+            content: shape.content,
+            project_id: shape.containerProjectId,
+            labels: shape.labels,
+            priority: shape.priority,
+            ...(shape.description !== '' && { description: shape.description }),
+            ...(shape.due !== undefined && { due: shape.due }),
           },
         }],
       }
@@ -133,42 +144,32 @@ export function buildCommands(
 
       const patch = event.patch
 
-      // The sphere used to pick a project-less container never changes within one update: it's
-      // inherited either from the task's current project (if any) or its own sphereId, and there's
-      // no patch field that moves a task to a different sphere independent of its project — a
-      // cleared project's sphere carries forward as the container's sphere context, same as today.
-      const sphereId = getTaskSphereId(state, task)
+      // The pre-patch sphere: inherited from the task's current project if it has one, else its
+      // own direct sphereId (getTaskSphereId semantics) — what a project-less container's
+      // sphere-specific buckets (One-Offs, currently the only sphere-split bucket) resolve
+      // against.
+      const beforeSphereId = getTaskSphereId(state, task)
+      const beforeFields = currentShapeFields(task, beforeSphereId)
+      const before = deriveTodoistShape(beforeFields)
 
-      const before = deriveTodoistShape({
-        title: task.title, description: task.description,
-        isNext: task.isNext, agendaId: task.agendaId, contextId: task.contextId,
-        waitingFor: task.waitingFor, isStarred: task.isStarred,
-        dueDate: task.dueDate, dueDateExpression: task.dueDateExpression,
-        projectId: task.projectId, sphereId,
-      })
-
-      const afterProjectId = resolvePatchField(task.projectId, patch.projectId)
-      const afterAgendaId = resolvePatchField(task.agendaId, patch.agendaId)
-      const { dueDate: afterDueDate, dueDateExpression: afterDueDateExpression } = effectiveDueState(task, patch)
-
-      const after = deriveTodoistShape({
-        title: patch.title ?? task.title,
-        description: patch.description ?? task.description,
-        isNext: patch.isNext !== undefined ? (patch.isNext === true ? true : undefined) : task.isNext,
-        agendaId: afterAgendaId,
-        contextId: resolvePatchField(task.contextId, patch.contextId),
-        waitingFor: resolvePatchField(task.waitingFor, patch.waitingFor),
-        isStarred: patch.isStarred !== undefined ? (patch.isStarred === true ? true : undefined) : task.isStarred,
-        dueDate: afterDueDate, dueDateExpression: afterDueDateExpression,
-        projectId: afterProjectId, sphereId,
-      })
+      const afterFields = applyPatchToFields(beforeFields, patch)
+      // TaskPatch.sphereId only ever matters once the task is (or becomes) project-less —
+      // deriveTodoistShape never consults sphereId when projectId is set — but it's a real,
+      // independent way to move a project-less task to a different sphere's container, so it
+      // can't just be carried forward unconditionally from the pre-patch task the way the old
+      // code did. A patched sphereId wins; otherwise the pre-patch effective sphere carries
+      // forward (e.g. when a project is cleared, its own sphere becomes the container's context).
+      afterFields.sphereId = resolvePatchField(beforeSphereId, patch.sphereId)
+      const after = deriveTodoistShape(afterFields)
 
       const args: Record<string, unknown> = { id: String(event.taskId) }
       if (before.content     !== after.content)     args['content']     = after.content
       if (before.description !== after.description) args['description'] = after.description
       if (before.priority    !== after.priority)    args['priority']    = after.priority
-      if (after.due !== undefined && JSON.stringify(before.due) !== JSON.stringify(after.due)) {
-        args['due'] = after.due
+      if (JSON.stringify(before.due) !== JSON.stringify(after.due)) {
+        // Todoist clears a due date when `due` is sent as null — omitting the key entirely (the
+        // old behaviour here) leaves whatever due date Todoist already has untouched.
+        args['due'] = after.due ?? null
       }
 
       // A project-less task living directly in its agenda's dedicated Todoist project (see
@@ -176,12 +177,15 @@ export function buildCommands(
       // had the agenda label explicitly written to Todoist. computeLabels() (inside
       // deriveTodoistShape) always includes the label whenever agendaId is set, so before.labels
       // and after.labels can come out equal even though the real Todoist item's label array is
-      // missing it. Moving such a task onto/between real projects is the one moment that implicit
-      // signal would be lost, so force a resend then, even though the diff alone sees no change.
+      // missing it. The container can only change into/between real projects when this patch
+      // itself sets projectId (see deriveTodoistShape: containerProjectId ignores every other
+      // field once projectId is set, so it can't have moved any other way) — that's the one
+      // moment the implicit signal would be lost, so force a resend then, even though the diff
+      // alone sees no change.
       const forceLabelResync =
-        patch.projectId !== undefined && patch.projectId !== CLEAR &&
+        afterFields.projectId !== undefined &&
         before.containerProjectId !== after.containerProjectId &&
-        (task.agendaId !== undefined || afterAgendaId !== undefined)
+        (beforeFields.agendaId !== undefined || afterFields.agendaId !== undefined)
       if (forceLabelResync || JSON.stringify(before.labels) !== JSON.stringify(after.labels)) {
         args['labels'] = after.labels
       }

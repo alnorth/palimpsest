@@ -1,11 +1,17 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { TodoistStore } from './TodoistStore'
 import * as api from './api'
-import { createEmptyState, buildStateFromConfig, project as projectState, ConcurrentModificationError } from '@alnorth/palimpsest'
+import { createEmptyState, buildStateFromConfig, project as projectState, ConcurrentModificationError, CLEAR } from '@alnorth/palimpsest'
 import type { PalimpsestEvent, SphereId, ProjectId, TaskId, AgendaId, EventId, PendingEventStore } from '@alnorth/palimpsest'
 import type { SyncItem, SyncResponse } from './api'
 import { AGENDA_PROJECT_MAP_TASK_TITLE, serializeAgendaMapping } from './sharedStorage'
-import { TODOIST_INBOX_ID, TODOIST_WORK_PROJECT_ID, WORK_SPHERE_ID as MAPPING_WORK_SPHERE_ID } from './mapping'
+import {
+  TODOIST_INBOX_ID,
+  TODOIST_WORK_PROJECT_ID,
+  TODOIST_WORK_ONEOFFS_ID,
+  TODOIST_FUTURE_LOG_ID,
+  WORK_SPHERE_ID as MAPPING_WORK_SPHERE_ID,
+} from './mapping'
 
 class SpyPendingStore implements PendingEventStore {
   saved: PalimpsestEvent[] | undefined
@@ -442,6 +448,51 @@ describe('syncState', () => {
       const description = mappingCommands[0]?.args.description as string
       expect(description).toContain('"p1": "han"')
       expect(description).not.toContain('jim')
+    })
+  })
+
+  describe('task.updated batch staleness', () => {
+    // Regression: buildAllCommands used to compute `currentState` once, before the batch loop,
+    // and diff every event in the flush against that same start-of-flush snapshot — so a second
+    // task.updated for the same task saw the first event's changes as if they'd never happened.
+    // Setting a due date and then clearing it again, all before a sync ever runs, is a completely
+    // ordinary sequence (e.g. offline, or two edits made before the debounced sync fires).
+    it('two task.updated events on the same task in one flush both apply, not just the first', async () => {
+      const id = 'tsk1' as TaskId
+      const initialState = createEmptyState()
+      initialState.tasks.set(id, {
+        id, title: 'Task', description: '', status: 'open',
+        createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z',
+        sphereId: SPHERE_ID,
+      } as any)
+
+      vi.mocked(api.sync).mockResolvedValueOnce({ ...EMPTY_SYNC })
+      const store = new TodoistStore('fake-token', { initialState })
+
+      await store.appendEvents([
+        {
+          id: 'ev1' as EventId, type: 'task.updated', occurredAt: new Date().toISOString(),
+          taskId: id, patch: { dueDate: '2026-12-01' },
+        },
+        {
+          id: 'ev2' as EventId, type: 'task.updated', occurredAt: new Date().toISOString(),
+          taskId: id, patch: { dueDate: CLEAR },
+        },
+      ])
+
+      await store.refresh()
+
+      const sentCommands = vi.mocked(api.sync).mock.calls[0]?.[1]?.commands ?? []
+      const moves = sentCommands.filter(c => c.type === 'item_move')
+      // First event moves Future Log → task-was-never-there; second moves it straight back to
+      // One-Offs. If the second event were dropped, only the first move would be sent and the
+      // task would be left stranded in Future Log with no due date.
+      expect(moves).toHaveLength(2)
+      expect(moves[0]?.args.project_id).toBe(TODOIST_FUTURE_LOG_ID)
+      expect(moves[1]?.args.project_id).toBe(TODOIST_WORK_ONEOFFS_ID)
+
+      const updates = sentCommands.filter(c => c.type === 'item_update')
+      expect(updates.some(c => c.args.due === null)).toBe(true)
     })
   })
 })

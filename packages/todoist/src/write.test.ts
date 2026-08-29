@@ -203,12 +203,16 @@ describe('buildCommands — task.created', () => {
     expect(commands[0]?.args.due).toEqual({ date: '2026-07-01' })
   })
 
-  it('dueDateExpression takes precedence over dueDate as due.string', () => {
+  // Matches task.updated's own "both patched → sends both" behavior (see below) — task.created
+  // now derives its due args via the same deriveTodoistShape() task.updated diffs against, so the
+  // two paths can't drift the way dueDateArgs()'s separate, string-only-when-both-present logic
+  // used to.
+  it('dueDateExpression and dueDate both set → sends both to anchor Todoist to the palimpsest date', () => {
     const { commands } = buildCommands(
       event({ dueDateExpression: 'every monday', dueDate: '2026-07-07' }),
       baseState(),
     )
-    expect(commands[0]?.args.due).toEqual({ string: 'every monday' })
+    expect(commands[0]?.args.due).toEqual({ string: 'every monday', date: '2026-07-07' })
   })
 })
 
@@ -396,6 +400,19 @@ describe('buildCommands — task.updated', () => {
     )
     const moveCmd = commands.find(c => c.type === 'item_move')
     expect(moveCmd?.args.project_id).toBe(TODOIST_INBOX_ID)
+  })
+
+  // Regression: TaskPatch.sphereId is a real, direct way to move a project-less task to a
+  // different sphere's container — the old code computed the container's sphere once from the
+  // pre-patch task via getTaskSphereId and reused it unchanged for "after", so a patched sphereId
+  // was silently ignored and the task never moved to the new sphere's bucket.
+  it('patching sphereId on an undated project-less task moves it to the new sphere\'s One-Offs', () => {
+    const { commands } = buildCommands(
+      updEvent('t1', { sphereId: PERSONAL_SPHERE_ID }),
+      stateWithTask('t1', { sphereId: WORK_SPHERE_ID }),
+    )
+    const moveCmd = commands.find(c => c.type === 'item_move')
+    expect(moveCmd?.args.project_id).toBe(TODOIST_PERSONAL_ONEOFFS_ID)
   })
 
   // A task bound to a real project never carries a direct sphereId (sphere is inherited via the
@@ -602,6 +619,28 @@ describe('buildCommands — task.updated', () => {
     )
     const move = commands.find(c => c.type === 'item_move')
     expect(move?.args.project_id).toBe(TODOIST_WORK_ONEOFFS_ID)
+  })
+
+  // Regression: clearing a task's only due date/expression must remove it in Todoist too, not
+  // just move the container — the due-diff previously only fired when `after.due` was still
+  // defined, so a CLEAR (after.due === undefined) never produced a `due` arg at all and Todoist
+  // silently kept the stale due date forever.
+  it('clearing dueDate on a task that has one → item_update sends due: null', () => {
+    const { commands } = buildCommands(
+      updEvent('t1', { dueDate: CLEAR }),
+      stateWithTask('t1', { dueDate: '2026-12-01' }),
+    )
+    const update = commands.find(c => c.type === 'item_update')
+    expect(update?.args.due).toBeNull()
+  })
+
+  it('clearing dueDateExpression on a task that has one (no dueDate) → item_update sends due: null', () => {
+    const { commands } = buildCommands(
+      updEvent('t1', { dueDateExpression: CLEAR }),
+      stateWithTask('t1', { dueDateExpression: 'every monday' }),
+    )
+    const update = commands.find(c => c.type === 'item_update')
+    expect(update?.args.due).toBeNull()
   })
 
   it('clearing dueDateExpression on Recurring task with no other dueDate → item_move to One-Offs', () => {

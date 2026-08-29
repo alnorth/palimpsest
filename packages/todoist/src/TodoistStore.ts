@@ -1,4 +1,4 @@
-import { PollingStore, project, createEmptyState, removeSentEvents } from '@alnorth/palimpsest'
+import { PollingStore, project, applyEvent, createEmptyState, removeSentEvents } from '@alnorth/palimpsest'
 import type { PalimpsestEvent, ProjectionState, ProjectId, PendingEventStore } from '@alnorth/palimpsest'
 import { sync } from './api'
 import type { SyncCommand } from './api'
@@ -157,6 +157,18 @@ function buildAllCommands(
       runningAgendaMapTaskId = agendaMapTaskTempId
       pendingAgendaMapTaskAdd = commands.find(c => c.type === 'item_add' && c.temp_id === agendaMapTaskTempId)
     }
+
+    // buildCommands's task.updated case diffs against `currentState`, so two task.updated events
+    // for the same task in this same flush must not both diff against the same pre-batch task —
+    // the second one would see the first one's changes as if they'd never happened (e.g. set a
+    // due date then clear it again, all before any sync: the second event's "before" would still
+    // show no due date, so the clear looks like a no-op and never reaches Todoist even though the
+    // first event's due-date-set command already did). Folding raw (pre-temp_id-substitution:
+    // currentState is keyed by the same nanoid ids pending events reference, not the Sync API
+    // temp_ids applySourceIdSubs produces for cross-referencing) events into currentState as
+    // they're processed keeps every event in the batch diffing against the batch's running state
+    // rather than its start-of-flush snapshot.
+    if (raw.type === 'task.updated') applyEvent(currentState, raw)
   }
 
   return allCommands
