@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { TodoistStore } from './TodoistStore'
 import * as api from './api'
+import * as write from './write'
 import { createEmptyState, buildStateFromConfig, project as projectState, ConcurrentModificationError, CLEAR } from '@alnorth/palimpsest'
 import type { PalimpsestEvent, SphereId, ProjectId, TaskId, AgendaId, EventId, PendingEventStore } from '@alnorth/palimpsest'
 import type { SyncItem, SyncResponse } from './api'
@@ -240,48 +241,52 @@ describe('syncState', () => {
     })
   })
 
-  describe('a pending event that fails to convert to Todoist commands', () => {
-    // task.recurred looks its task up in the last-synced base state, not the pending-inclusive
-    // state appendEvents validates against — so a task created and then recurred in the same
-    // unsynced batch (never an unreasonable sequence: complete a recurring task twice before a
-    // sync ever gets a chance to run) exists for validateBatch's purposes but not yet for
-    // buildCommands'.
-    function appendCreatedThenRecurredTask(store: TodoistStore): Promise<void> {
+  describe('events that reference an earlier event in the same unsynced batch', () => {
+    // task.recurred looks its task up in `state.tasks` like every other task-touching event —
+    // buildAllCommands folding each event into its running state as it processes the batch means
+    // a task created earlier in the same flush is already there by the time a later event in that
+    // flush looks it up.
+    it('a task created and then recurred in the same unsynced batch syncs successfully', async () => {
       const taskId = 'tsk1' as TaskId
-      return store.appendEvents([
+      vi.mocked(api.sync).mockResolvedValueOnce({ ...EMPTY_SYNC })
+      const store = makeStore()
+
+      await store.appendEvents([
         {
           id: 'ev1' as EventId, type: 'task.created', taskId,
           occurredAt: new Date().toISOString(), title: 'Recurring task', description: '', sphereId: SPHERE_ID,
         },
         { id: 'ev2' as EventId, type: 'task.recurred', taskId, occurredAt: new Date().toISOString(), newDueDate: '2026-01-02' },
       ])
-    }
 
-    // Regression test: this previously threw synchronously inside sync(), before the network
-    // try/catch, so it never called api.sync at all, never set health/lastError, and — because
-    // it happens again on every future attempt — silently blocked every later refresh() (poll
-    // and manual alike) forever, indistinguishable from a sync that was never even attempted.
-    it('surfaces as a sync error instead of throwing out of refresh()', async () => {
-      const store = makeStore()
-      await appendCreatedThenRecurredTask(store)
+      await store.refresh()
 
-      await expect(store.refresh()).resolves.toBeUndefined()
-
-      expect(store.syncState.health).toBe('error')
-      expect(store.syncState.lastError).toMatch(/task.recurred.*tsk1/)
-      expect(vi.mocked(api.sync)).not.toHaveBeenCalled()
+      expect(store.syncState.health).toBe('idle')
+      expect(store.syncState.unsyncedCount).toBe(0)
+      const sentCommands = vi.mocked(api.sync).mock.calls[0]?.[1]?.commands ?? []
+      expect(sentCommands.some(c => c.type === 'item_update_date_complete')).toBe(true)
     })
+  })
 
-    it('keeps failing the same way on every later refresh, without ever throwing out of it', async () => {
+  describe('a pending event that fails to convert to Todoist commands', () => {
+    // buildCommands has no path left that can throw for a batch appendEvents's validateBatch
+    // already accepted (see the task created-then-recurred test above), so this exercises the
+    // try/catch itself — a backstop for whatever future event-conversion path might still fail —
+    // via a directly forced failure rather than a naturally occurring one.
+    it('surfaces as a sync error instead of throwing out of refresh()', async () => {
+      const spy = vi.spyOn(write, 'buildCommands').mockImplementation(() => {
+        throw new Error('synthetic buildCommands failure')
+      })
       const store = makeStore()
-      await appendCreatedThenRecurredTask(store)
+      await store.appendEvents([makeTaskEvent()])
 
-      await expect(store.refresh()).resolves.toBeUndefined()
       await expect(store.refresh()).resolves.toBeUndefined()
 
       expect(store.syncState.health).toBe('error')
-      expect(store.syncState.unsyncedCount).toBe(2)
+      expect(store.syncState.lastError).toBe('synthetic buildCommands failure')
       expect(vi.mocked(api.sync)).not.toHaveBeenCalled()
+
+      spy.mockRestore()
     })
   })
 
@@ -452,11 +457,11 @@ describe('syncState', () => {
   })
 
   describe('task.updated batch staleness', () => {
-    // Regression: buildAllCommands used to compute `currentState` once, before the batch loop,
-    // and diff every event in the flush against that same start-of-flush snapshot — so a second
-    // task.updated for the same task saw the first event's changes as if they'd never happened.
-    // Setting a due date and then clearing it again, all before a sync ever runs, is a completely
-    // ordinary sequence (e.g. offline, or two edits made before the debounced sync fires).
+    // Each task.updated event in a flush must diff against the batch's running state, not a
+    // shared start-of-flush snapshot, so a second edit to the same task sees the first one's
+    // effect. Setting a due date and then clearing it again, all before a sync ever runs, is a
+    // completely ordinary sequence (e.g. offline, or two edits made before the debounced sync
+    // fires).
     it('two task.updated events on the same task in one flush both apply, not just the first', async () => {
       const id = 'tsk1' as TaskId
       const initialState = createEmptyState()

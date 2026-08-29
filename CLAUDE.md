@@ -227,19 +227,18 @@ once against the task's pre-patch fields (`before`), once against those same fie
 resolved onto them (`after`, via `applyPatchToFields`) — and diffs the two `TodoistShape`s
 field-by-field: `content`/`description`/`priority`/`due` each become an `item_update` arg only when
 they actually differ, `labels` only when the computed label set differs, and `containerProjectId`
-only produces an `item_move` when it differs. This replaced three previously separate,
-independently-triggered recompute paths (for the label set, the due-date bucket, and the
-agenda-project container, each keyed off its own hand-maintained list of "which patch fields should
-trigger this recompute") with one mechanism: setting/clearing/changing a project-less task's
-`agendaId` moves it into/out of/between agenda projects, a due date change on an agenda-tagged
-project-less task leaves it in the agenda project (agendaId takes priority over due date in
-`projectlessContainerFor` either way, so `containerProjectId` doesn't change), and a due-date value
-change that stays within the same bucket (e.g. Future Log → Future Log) sends no `item_move` at
-all — every one of these is just "did the relevant field of the derived `TodoistShape` change,"
-not a hand-tracked trigger condition. `task.created` and `task.updated` sharing this single
-derivation also means creating a task and immediately patching it with a no-op patch can never
-produce a different Todoist representation for the same palimpsest fields, which the two paths'
-previously-separate, independently-maintained logic couldn't guarantee.
+only produces an `item_move` when it differs — a single mechanism covering the label set, the
+due-date bucket, and the agenda-project container alike, rather than three independent recompute
+paths each keyed off its own list of "which patch fields should trigger this recompute":
+setting/clearing/changing a project-less task's `agendaId` moves it into/out of/between agenda
+projects, a due date change on an agenda-tagged project-less task leaves it in the agenda project
+(agendaId takes priority over due date in `projectlessContainerFor` either way, so
+`containerProjectId` doesn't change), and a due-date value change that stays within the same bucket
+(e.g. Future Log → Future Log) sends no `item_move` at all — every one of these is just "did the
+relevant field of the derived `TodoistShape` change," not a hand-tracked trigger condition.
+`task.created` and `task.updated` sharing this single derivation also means creating a task and
+immediately patching it with a no-op patch can never produce a different Todoist representation for
+the same palimpsest fields.
 
 `freeFloatingProjectFor(sphereId, opts)` takes `sphereId: SphereId | undefined` — Recurring and
 Future Log are sphere-specific buckets, so a dated project-less task with no resolvable sphere (its
@@ -396,35 +395,32 @@ without ever flushing. The timeout converts a hang into a normal rejection, whic
 catch already turns into a visible `health: 'error'` + `lastError`, letting `refresh()`'s `finally`
 reset `syncing` so the next poll can retry.
 
-**`buildAllCommands` folds each `task.updated` event into its `currentState` snapshot (via core's
-`applyEvent`) immediately after building that event's commands, so a later `task.updated` for the
-same task in the same flush diffs against the first event's effect rather than the same
-start-of-flush snapshot.** `write.ts`'s `task.updated` case computes its `before`/`after`
-`TodoistShape`s by reading the task straight out of the `state` it's given — without this, two
-queued edits to the same not-yet-synced task (e.g. set a due date, then clear it again, both
-before a sync ever runs — an ordinary sequence, not an edge case) would both diff against the same
-stale pre-batch task: the second event's `before` would still show no due date, so its clear would
-look like a no-op and never reach Todoist, even though the first event's due-date-set command
-already did. The event applied is the *raw*, unsubstituted event (not the temp-id-substituted one
-`buildCommands` itself was called with) — `currentState` is keyed by the same nanoid ids pending
-events reference, not the Sync API `temp_id`s `applySourceIdSubs` produces for cross-referencing
-within the batch. Only `task.updated` is folded forward this way — `task.created`/`task.recurred`
-still read purely from the last-synced base state (see the `task.recurred` limitation below), so a
-task created and then recurred in the same unsynced batch is unaffected by this and still throws.
+**`buildAllCommands` folds every event into its `currentState` snapshot (via core's `applyEvent`)
+immediately after building that event's commands, so each event in a flush builds its commands
+against the batch's running state rather than a shared start-of-flush snapshot.** This is what lets
+later events in the same flush see earlier ones already applied: two edits to the same not-yet-synced
+task (`write.ts`'s `task.updated` case computes its `before`/`after` `TodoistShape`s by reading the
+task straight out of the `state` it's given, so the second edit's `before` reflects the first edit's
+effect), or a task created and then recurred before ever reaching a sync (`task.recurred` looks its
+task up in `state.tasks` too). The event applied is the *raw*, unsubstituted event (not the
+temp-id-substituted one `buildCommands` itself was called with) — `currentState` is keyed by the same
+nanoid ids pending events reference, not the Sync API `temp_id`s `applySourceIdSubs` produces for
+cross-referencing within the batch.
 
 **Converting `pending` events to commands (`buildAllCommands`, called from `sync()`) is wrapped in its
 own try/catch, separate from the network call's.** `buildCommands` can throw for a given event (e.g.
-`task.recurred` looks its task up in the *last-synced* base state, not the pending-inclusive state
-`appendEvents` validated against — so recurring the same not-yet-synced task twice, or any other event
-whose conversion depends on state `pending` itself hasn't reached yet, throws "task not found"). Before
-this was split out, that exception propagated straight out of `sync()`, before ever reaching the network
-try/catch below it — meaning `health`/`lastError` never got set (that assignment only happens in a
-catch block the throw skipped entirely) and the network call was never attempted. Worse, since the
-offending event is never dequeued (only a successful POST clears `pending`), the exact same throw
-recurs on every later call to `sync()` too — the periodic poll and manual refreshes alike — permanently,
-with nothing to distinguish it from a sync that simply was never attempted. Catching it separately and
-setting `health`/`lastError` the same way the network catch does turns a silent permanent wedge into a
-visible (if not automatically recoverable) error.
+`task.recurred`'s "task not found" guard) — `buildAllCommands` folding every event forward means this
+can't actually happen for any batch `appendEvents`'s `validateBatch` already accepted (both fold the
+same event history the same way), but the guard, and this catch, stay in place as a backstop for
+whatever future event-conversion path might still fail for a reason unrelated to batch ordering. Without
+this separate catch, an exception thrown while converting any event would propagate straight out of
+`sync()`, before ever reaching the network try/catch below it — `health`/`lastError` would never get set
+(that assignment only happens in a catch block the throw would skip entirely) and the network call would
+never be attempted. Worse, since the offending event is never dequeued (only a successful POST clears
+`pending`), the same throw would recur on every later call to `sync()` too — the periodic poll and manual
+refreshes alike — permanently, with nothing to distinguish it from a sync that was simply never
+attempted. Catching it separately and setting `health`/`lastError` the same way the network catch does
+turns a silent permanent wedge into a visible (if not automatically recoverable) error.
 
 **`write.ts`'s `uuid()` (used for every Sync API command's idempotency `uuid` field) falls back to
 building an RFC4122 v4 UUID from `crypto.getRandomValues()` when `crypto.randomUUID` isn't a

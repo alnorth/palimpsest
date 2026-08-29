@@ -155,10 +155,9 @@ export function buildCommands(
       const afterFields = applyPatchToFields(beforeFields, patch)
       // TaskPatch.sphereId only ever matters once the task is (or becomes) project-less —
       // deriveTodoistShape never consults sphereId when projectId is set — but it's a real,
-      // independent way to move a project-less task to a different sphere's container, so it
-      // can't just be carried forward unconditionally from the pre-patch task the way the old
-      // code did. A patched sphereId wins; otherwise the pre-patch effective sphere carries
-      // forward (e.g. when a project is cleared, its own sphere becomes the container's context).
+      // independent way to move a project-less task to a different sphere's container. A patched
+      // sphereId wins; otherwise the pre-patch effective sphere carries forward (e.g. when a
+      // project is cleared, its own sphere becomes the container's context).
       afterFields.sphereId = resolvePatchField(beforeSphereId, patch.sphereId)
       const after = deriveTodoistShape(afterFields)
 
@@ -167,8 +166,8 @@ export function buildCommands(
       if (before.description !== after.description) args['description'] = after.description
       if (before.priority    !== after.priority)    args['priority']    = after.priority
       if (JSON.stringify(before.due) !== JSON.stringify(after.due)) {
-        // Todoist clears a due date when `due` is sent as null — omitting the key entirely (the
-        // old behaviour here) leaves whatever due date Todoist already has untouched.
+        // Todoist clears a due date when `due` is sent as null — omitting the key entirely leaves
+        // whatever due date Todoist already has untouched.
         args['due'] = after.due ?? null
       }
 
